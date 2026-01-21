@@ -1,0 +1,405 @@
+/*
+  Localizable.strings (简体中文)
+  DMSA - Delt MACOS Sync App
+
+  简体中文本地化文件
+*/
+
+// MARK: - Common
+"app.name" = "DMSA";
+"app.fullName" = "Delt MACOS Sync App";
+"app.version" = "版本 %@";
+
+"common.ok" = "确定";
+"common.cancel" = "取消";
+"common.done" = "完成";
+"common.save" = "保存";
+"common.delete" = "删除";
+"common.edit" = "编辑";
+"common.add" = "添加";
+"common.remove" = "移除";
+"common.close" = "关闭";
+"common.back" = "上一步";
+"common.next" = "下一步";
+"common.previous" = "上一步";
+"common.apply" = "应用";
+"common.reset" = "重置";
+"common.browse" = "浏览...";
+"common.select" = "选择";
+"common.enabled" = "已启用";
+"common.disabled" = "已禁用";
+"common.connected" = "已连接";
+"common.disconnected" = "未连接";
+"common.unknown" = "未知";
+"common.never" = "从未";
+"common.loading" = "加载中...";
+"common.error" = "错误";
+"common.warning" = "警告";
+"common.success" = "成功";
+"common.retry" = "重试";
+"common.ignore" = "忽略";
+"common.copy" = "复制";
+"common.export" = "导出";
+"common.import" = "导入";
+
+// MARK: - Menu Bar
+"menu.title" = "DMSA";
+"menu.syncNow" = "立即同步";
+"menu.openDownloads" = "打开 Downloads";
+"menu.viewLogs" = "查看日志";
+"menu.syncHistory" = "同步历史";
+"menu.settings" = "设置...";
+"menu.about" = "关于 DMSA";
+"menu.quit" = "退出";
+"menu.lastSync" = "上次同步: %@";
+"menu.lastSync.ago" = "%@前";
+"menu.noDisksConfigured" = "未配置硬盘";
+"menu.noDiskConnected" = "无硬盘连接";
+
+// MARK: - Disk Status
+"disk.status.connected" = "已连接";
+"disk.status.disconnected" = "未连接";
+"disk.status.ejecting" = "正在弹出...";
+"disk.status.mounting" = "正在挂载...";
+"disk.capacity" = "%@ / %@ (%d%%)";
+"disk.format" = "格式: %@";
+"disk.priority" = "优先级: %d";
+"disk.testConnection" = "测试连接";
+"disk.eject" = "弹出";
+"disk.notFound" = "未找到硬盘";
+
+// MARK: - Sync Status
+"sync.status.idle" = "空闲";
+"sync.status.syncing" = "同步中...";
+"sync.status.pending" = "等待中";
+"sync.status.completed" = "已完成";
+"sync.status.failed" = "失败";
+"sync.status.cancelled" = "已取消";
+"sync.progress" = "%d / %d 文件";
+"sync.progress.bytes" = "%@ / %@";
+"sync.speed" = "%@/s";
+"sync.timeRemaining" = "剩余约 %@";
+"sync.currentFile" = "当前: %@";
+"sync.direction.localToExternal" = "本地 → 外置";
+"sync.direction.externalToLocal" = "外置 → 本地";
+"sync.direction.bidirectional" = "双向同步";
+
+// MARK: - Settings Window
+"settings.title" = "DMSA 设置";
+"settings.general" = "通用";
+"settings.disks" = "硬盘";
+"settings.syncPairs" = "同步对";
+"settings.filters" = "过滤规则";
+"settings.cache" = "缓存";
+"settings.notifications" = "通知";
+"settings.advanced" = "高级";
+"settings.restoreDefaults" = "恢复默认";
+
+// MARK: - General Settings
+"settings.general.title" = "通用设置";
+"settings.general.startup" = "启动选项";
+"settings.general.launchAtLogin" = "登录时自动启动";
+"settings.general.showInDock" = "在 Dock 中显示图标";
+"settings.general.updates" = "更新";
+"settings.general.checkForUpdates" = "自动检查更新";
+"settings.general.checkFrequency" = "检查频率";
+"settings.general.language" = "语言";
+"settings.general.language.system" = "跟随系统";
+"settings.general.language.en" = "English";
+"settings.general.language.zhHans" = "简体中文";
+"settings.general.language.zhHant" = "繁體中文";
+"settings.general.menuBarStyle" = "菜单栏样式";
+"settings.general.menuBarStyle.icon" = "仅图标";
+"settings.general.menuBarStyle.iconText" = "图标 + 状态";
+"settings.general.menuBarStyle.iconProgress" = "图标 + 进度";
+
+// MARK: - Disk Settings
+"settings.disks.title" = "硬盘管理";
+"settings.disks.configured" = "已配置的硬盘";
+"settings.disks.add" = "添加硬盘";
+"settings.disks.remove" = "移除硬盘";
+"settings.disks.details" = "硬盘详情";
+"settings.disks.name" = "名称";
+"settings.disks.mountPath" = "挂载路径";
+"settings.disks.priority" = "优先级";
+"settings.disks.priorityHint" = "数字越小优先级越高";
+"settings.disks.enable" = "启用此硬盘";
+"settings.disks.autoSync" = "连接时自动同步";
+"settings.disks.safeEject" = "断开前完成同步";
+
+// MARK: - Sync Pair Settings
+"settings.syncPairs.title" = "同步对管理";
+"settings.syncPairs.configured" = "已配置的同步对";
+"settings.syncPairs.add" = "添加同步对";
+"settings.syncPairs.remove" = "移除同步对";
+"settings.syncPairs.details" = "同步对详情";
+"settings.syncPairs.localPath" = "本地目录";
+"settings.syncPairs.targetDisk" = "目标硬盘";
+"settings.syncPairs.externalPath" = "外置路径";
+"settings.syncPairs.direction" = "同步方向";
+"settings.syncPairs.enable" = "启用此同步对";
+"settings.syncPairs.createSymlink" = "创建符号链接";
+"settings.syncPairs.symlinkHint" = "本地目录指向外置硬盘";
+"settings.syncPairs.excludePatterns" = "排除模式 (仅此同步对)";
+"settings.syncPairs.addExcludePattern" = "添加排除模式";
+
+// MARK: - Filter Settings
+"settings.filters.title" = "过滤规则";
+"settings.filters.presets" = "预设方案";
+"settings.filters.preset.default" = "默认";
+"settings.filters.preset.default.desc" = "排除系统文件和临时文件";
+"settings.filters.preset.developer" = "开发者";
+"settings.filters.preset.developer.desc" = "额外排除 node_modules, .git, build 等";
+"settings.filters.preset.media" = "媒体文件";
+"settings.filters.preset.media.desc" = "仅同步图片、视频、音频";
+"settings.filters.preset.custom" = "自定义";
+"settings.filters.preset.custom.desc" = "用户自定义规则";
+"settings.filters.globalExclude" = "全局排除模式";
+"settings.filters.addPattern" = "添加模式";
+"settings.filters.fileSize" = "文件大小限制";
+"settings.filters.maxSize" = "排除大于此大小的文件";
+"settings.filters.minSize" = "排除小于此大小的文件";
+"settings.filters.excludeHidden" = "排除隐藏文件 (以 . 开头)";
+
+// MARK: - Cache Settings
+"settings.cache.title" = "缓存设置";
+"settings.cache.local" = "本地缓存 (LOCAL)";
+"settings.cache.location" = "缓存位置";
+"settings.cache.openFolder" = "打开文件夹";
+"settings.cache.currentUsage" = "当前使用";
+"settings.cache.maxSize" = "最大缓存";
+"settings.cache.reserveBuffer" = "预留空间";
+"settings.cache.reserveBufferHint" = "淘汰后保留的缓冲空间";
+"settings.cache.evictionStrategy" = "淘汰策略";
+"settings.cache.eviction.modifiedTime" = "按修改时间 (推荐)";
+"settings.cache.eviction.modifiedTime.desc" = "优先淘汰最久未修改的文件";
+"settings.cache.eviction.accessTime" = "按访问时间";
+"settings.cache.eviction.accessTime.desc" = "优先淘汰最久未访问的文件";
+"settings.cache.eviction.sizeFirst" = "按文件大小";
+"settings.cache.eviction.sizeFirst.desc" = "优先淘汰大文件";
+"settings.cache.autoEviction" = "启用自动淘汰";
+"settings.cache.checkInterval" = "检查间隔";
+"settings.cache.clearAll" = "清理全部缓存...";
+"settings.cache.clearAllConfirm" = "确定要清理所有缓存文件吗？此操作无法撤销。";
+"settings.cache.fileCount" = "%d 个文件";
+
+// MARK: - Notification Settings
+"settings.notifications.title" = "通知设置";
+"settings.notifications.enable" = "启用通知";
+"settings.notifications.types" = "通知类型";
+"settings.notifications.onDiskConnect" = "硬盘连接时";
+"settings.notifications.onDiskDisconnect" = "硬盘断开时";
+"settings.notifications.onSyncStart" = "同步开始时";
+"settings.notifications.onSyncComplete" = "同步完成时";
+"settings.notifications.onSyncError" = "同步失败时";
+"settings.notifications.onCacheLow" = "缓存空间不足时";
+"settings.notifications.style" = "通知样式";
+"settings.notifications.playSound" = "播放提示音";
+"settings.notifications.showDetails" = "显示同步详情 (文件数、大小、耗时)";
+"settings.notifications.doNotDisturb" = "勿扰模式";
+"settings.notifications.followSystem" = "跟随系统勿扰模式";
+"settings.notifications.customSchedule" = "自定义勿扰时间";
+"settings.notifications.scheduleFrom" = "从";
+"settings.notifications.scheduleTo" = "到";
+"settings.notifications.testNotification" = "发送测试通知";
+
+// MARK: - Advanced Settings
+"settings.advanced.title" = "高级设置";
+"settings.advanced.syncBehavior" = "同步行为";
+"settings.advanced.debounceDelay" = "防抖延迟";
+"settings.advanced.debounceDelayHint" = "文件变化后等待时间";
+"settings.advanced.batchSize" = "批处理大小";
+"settings.advanced.batchSizeUnit" = "个文件";
+"settings.advanced.retryCount" = "重试次数";
+"settings.advanced.retryCountUnit" = "次";
+"settings.advanced.timeout" = "超时时间";
+"settings.advanced.rsyncOptions" = "rsync 选项";
+"settings.advanced.rsync.archive" = "归档模式 (-a)";
+"settings.advanced.rsync.delete" = "删除目标多余文件 (--delete)";
+"settings.advanced.rsync.checksum" = "使用校验和 (--checksum)";
+"settings.advanced.rsync.checksumHint" = "更准确但更慢";
+"settings.advanced.rsync.partial" = "断点续传 (--partial)";
+"settings.advanced.rsync.compress" = "压缩传输 (-z)";
+"settings.advanced.rsync.compressHint" = "网络存储时启用";
+"settings.advanced.logging" = "日志";
+"settings.advanced.logLevel" = "日志级别";
+"settings.advanced.logLevel.debug" = "Debug (详细)";
+"settings.advanced.logLevel.info" = "Info (标准)";
+"settings.advanced.logLevel.warning" = "Warning (警告)";
+"settings.advanced.logLevel.error" = "Error (仅错误)";
+"settings.advanced.logSize" = "日志大小";
+"settings.advanced.logCount" = "保留数量";
+"settings.advanced.openLogFolder" = "打开日志文件夹";
+"settings.advanced.data" = "数据";
+"settings.advanced.exportConfig" = "导出配置...";
+"settings.advanced.importConfig" = "导入配置...";
+"settings.advanced.resetAll" = "重置所有设置...";
+"settings.advanced.danger" = "危险操作";
+"settings.advanced.clearAllData" = "清除所有数据并重置...";
+"settings.advanced.clearAllDataConfirm" = "这将删除所有设置、同步历史和缓存数据。此操作无法撤销。是否继续？";
+
+// MARK: - Progress Window
+"progress.title" = "正在同步...";
+"progress.multiTask" = "正在执行 %d 个同步任务";
+"progress.currentFile" = "当前文件: %@";
+"progress.fileProgress" = "%d / %d 文件";
+"progress.byteProgress" = "%@ / %@";
+"progress.speed" = "速度: %@/s";
+"progress.timeRemaining" = "剩余时间: %@";
+"progress.hideWindow" = "隐藏窗口";
+"progress.cancelSync" = "取消同步";
+"progress.cancelAll" = "全部取消";
+"progress.minimize" = "最小化";
+"progress.waiting" = "等待中...";
+
+// MARK: - History Window
+"history.title" = "同步历史";
+"history.filter.allDisks" = "全部硬盘";
+"history.filter.allStatus" = "全部状态";
+"history.filter.last7days" = "最近 7 天";
+"history.filter.last30days" = "最近 30 天";
+"history.filter.allTime" = "全部时间";
+"history.search" = "搜索...";
+"history.today" = "今天";
+"history.yesterday" = "昨天";
+"history.noRecords" = "暂无同步记录";
+"history.stats" = "本周共同步 %d 次 | 成功 %d 次 | 失败 %d 次";
+"history.statsFiles" = "传输 %d 文件 | 总计 %@";
+"history.exportHistory" = "导出历史...";
+"history.clearHistory" = "清除历史...";
+"history.clearHistoryConfirm" = "确定要清除所有同步历史吗？此操作无法撤销。";
+
+// MARK: - History Detail
+"history.detail.title" = "同步详情";
+"history.detail.status" = "状态";
+"history.detail.time" = "时间";
+"history.detail.duration" = "耗时";
+"history.detail.direction" = "同步方向";
+"history.detail.disk" = "硬盘";
+"history.detail.stats" = "传输统计";
+"history.detail.fileCount" = "文件数量";
+"history.detail.totalSize" = "总大小";
+"history.detail.added" = "新增";
+"history.detail.updated" = "更新";
+"history.detail.deleted" = "删除";
+"history.detail.skipped" = "跳过 (未变化)";
+"history.detail.rsyncOutput" = "rsync 输出";
+"history.detail.copyLog" = "复制日志";
+"history.detail.viewDetails" = "查看详情";
+
+// MARK: - Wizard
+"wizard.step" = "第 %d 步，共 %d 步";
+"wizard.welcome.title" = "欢迎使用 DMSA";
+"wizard.welcome.subtitle" = "Delt MACOS Sync App";
+"wizard.welcome.description" = "DMSA 帮助您自动同步本地目录与外置硬盘，让您的数据随时可用。";
+"wizard.welcome.feature1" = "插入硬盘自动同步";
+"wizard.welcome.feature2" = "支持多个硬盘和目录";
+"wizard.welcome.feature3" = "智能增量同步";
+"wizard.welcome.feature4" = "离线时自动缓存";
+"wizard.welcome.startSetup" = "开始设置";
+
+"wizard.disks.title" = "添加您的硬盘";
+"wizard.disks.subtitle" = "请选择要同步的外置硬盘:";
+"wizard.disks.detected" = "检测到的硬盘:";
+"wizard.disks.systemDisk" = "(系统盘)";
+"wizard.disks.notFound" = "没有看到您的硬盘?";
+"wizard.disks.addManually" = "手动添加硬盘...";
+"wizard.disks.hint" = "您可以稍后在设置中添加更多硬盘";
+
+"wizard.directories.title" = "选择要同步的目录";
+"wizard.directories.subtitle" = "选择要同步到 %@ 的本地目录:";
+"wizard.directories.recommended" = "推荐目录:";
+"wizard.directories.currentSize" = "当前大小: %@";
+"wizard.directories.addCustom" = "添加自定义目录...";
+"wizard.directories.options" = "同步选项:";
+"wizard.directories.createSymlink" = "创建符号链接 (本地目录指向外置硬盘)";
+"wizard.directories.autoSync" = "硬盘连接时自动同步";
+
+"wizard.permissions.title" = "授予必要权限";
+"wizard.permissions.subtitle" = "DMSA 需要以下权限才能正常工作:";
+"wizard.permissions.fullDiskAccess" = "完全磁盘访问权限";
+"wizard.permissions.fullDiskAccess.desc" = "用于访问 Downloads 等目录";
+"wizard.permissions.notifications" = "通知权限";
+"wizard.permissions.notifications.desc" = "用于同步完成、错误提醒";
+"wizard.permissions.status.granted" = "已授权";
+"wizard.permissions.status.notGranted" = "未授权";
+"wizard.permissions.authorize" = "授权...";
+"wizard.permissions.instructions" = "授权步骤:";
+"wizard.permissions.instruction1" = "1. 点击\"授权\"按钮打开系统偏好设置";
+"wizard.permissions.instruction2" = "2. 在列表中找到 DMSA 并勾选";
+"wizard.permissions.instruction3" = "3. 返回此窗口继续";
+"wizard.permissions.privacy" = "这些权限仅用于同步功能，DMSA 不会收集您的个人数据。";
+
+"wizard.complete.title" = "设置完成!";
+"wizard.complete.subtitle" = "DMSA 已准备就绪";
+"wizard.complete.yourConfig" = "您的配置:";
+"wizard.complete.disk" = "硬盘: %@";
+"wizard.complete.syncDir" = "同步: %@ → %@";
+"wizard.complete.autoSync" = "自动同步: %@";
+"wizard.complete.symlink" = "符号链接: %@";
+"wizard.complete.nextSteps" = "接下来:";
+"wizard.complete.step1" = "DMSA 图标已出现在菜单栏";
+"wizard.complete.step2" = "当您插入 %@ 硬盘时，会自动开始同步";
+"wizard.complete.step3" = "点击菜单栏图标可查看状态和手动同步";
+"wizard.complete.launchAtLogin" = "登录时自动启动 DMSA";
+"wizard.complete.syncNow" = "立即执行首次同步";
+
+// MARK: - Errors
+"error.title" = "错误";
+"error.syncFailed" = "同步失败";
+"error.diskDisconnected" = "硬盘意外断开";
+"error.diskNotFound" = "未找到硬盘: %@";
+"error.pathNotFound" = "路径不存在: %@";
+"error.permissionDenied" = "权限被拒绝: %@";
+"error.rsyncFailed" = "rsync 命令执行失败";
+"error.configLoadFailed" = "加载配置失败";
+"error.configSaveFailed" = "保存配置失败";
+"error.syncAlreadyRunning" = "同步已在进行中";
+"error.insufficientSpace" = "磁盘空间不足";
+"error.unknown" = "发生未知错误";
+"error.viewLog" = "查看日志";
+"error.reconnectAndRetry" = "重新连接并重试";
+
+// MARK: - Recovery
+"recovery.title" = "数据恢复向导";
+"recovery.description" = "检测到数据不一致，请选择恢复方式:";
+"recovery.problem" = "问题描述:";
+"recovery.problem.symlinkDiskMissing" = "本地目录 %@ 是符号链接，但目标硬盘 %@ 未连接";
+"recovery.options" = "恢复选项:";
+"recovery.option.wait" = "等待硬盘连接";
+"recovery.option.wait.desc" = "保持当前状态，硬盘连接后自动恢复";
+"recovery.option.restoreBackup" = "恢复本地备份";
+"recovery.option.restoreBackup.desc" = "删除符号链接，恢复 %@ 备份";
+"recovery.option.restoreBackup.warning" = "可能丢失硬盘上的新增文件";
+"recovery.option.createNew" = "创建新的本地目录";
+"recovery.option.createNew.desc" = "删除符号链接，创建空的 %@";
+"recovery.option.createNew.warning" = "所有文件将仅在硬盘上";
+"recovery.execute" = "执行恢复";
+
+// MARK: - About
+"about.title" = "关于 DMSA";
+"about.version" = "版本 %@";
+"about.copyright" = "版权所有 %@ 保留所有权利。";
+"about.github" = "GitHub";
+"about.checkUpdates" = "检查更新";
+
+// MARK: - Time
+"time.seconds" = "%d 秒";
+"time.minutes" = "%d 分钟";
+"time.hours" = "%d 小时";
+"time.days" = "%d 天";
+"time.justNow" = "刚刚";
+"time.secondsAgo" = "%d 秒前";
+"time.minutesAgo" = "%d 分钟前";
+"time.hoursAgo" = "%d 小时前";
+"time.daysAgo" = "%d 天前";
+
+// MARK: - Units
+"unit.bytes" = "B";
+"unit.kb" = "KB";
+"unit.mb" = "MB";
+"unit.gb" = "GB";
+"unit.tb" = "TB";
+"unit.files" = "个文件";
+"unit.seconds" = "秒";
+"unit.minutes" = "分钟";
