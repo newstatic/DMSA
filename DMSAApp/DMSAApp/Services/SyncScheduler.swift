@@ -8,7 +8,6 @@ final class SyncScheduler {
     private let syncEngine = SyncEngine.shared
     private let configManager = ConfigManager.shared
     private let diskManager = DiskManager.shared
-    private let notificationManager = NotificationManager.shared
 
     private var pendingTasks: [SyncTask] = []
     private var isProcessing = false
@@ -74,6 +73,39 @@ final class SyncScheduler {
 
         // 为每个有脏文件的同步对创建任务
         for (pairId, _) in filesByPair {
+            if let pair = configManager.config.syncPairs.first(where: { $0.id == pairId }),
+               let disk = configManager.getDisk(byId: pair.diskId),
+               disk.isConnected {
+                let task = SyncTask(syncPair: pair, disk: disk)
+                schedule(task)
+            }
+        }
+    }
+
+    /// 调度脏文件同步（按路径列表，供 WriteRouter 使用）
+    func scheduleDirtySync(paths: [String]) async {
+        guard !paths.isEmpty else { return }
+
+        Logger.shared.info("调度脏文件同步: \(paths.count) 个文件")
+
+        // 获取文件对应的同步对
+        var pairIds: Set<String> = []
+        for path in paths {
+            // 查找包含该路径的同步对
+            for pair in configManager.config.syncPairs where pair.enabled {
+                let expandedPath = (pair.localPath as NSString).expandingTildeInPath
+                let downloadsLocalPath = Constants.Paths.downloadsLocal.path
+
+                // 检查路径是否属于该同步对
+                // 路径可能来自 Downloads_Local 或原始本地路径
+                if path.hasPrefix(expandedPath) || path.hasPrefix(downloadsLocalPath) {
+                    pairIds.insert(pair.id)
+                }
+            }
+        }
+
+        // 为每个同步对创建任务
+        for pairId in pairIds {
             if let pair = configManager.config.syncPairs.first(where: { $0.id == pairId }),
                let disk = configManager.getDisk(byId: pair.diskId),
                disk.isConnected {

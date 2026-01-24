@@ -5,7 +5,7 @@ import SwiftUI
 protocol MenuBarDelegate: AnyObject {
     func menuBarDidRequestSync()
     func menuBarDidRequestSettings()
-    func menuBarDidRequestHistory()
+    func menuBarDidRequestToggleAutoSync()
 }
 
 /// Sync state enumeration
@@ -28,16 +28,13 @@ final class MenuBarManager {
     private var syncState: SyncState = .idle
     private var lastSyncTime: Date?
     private var configManager: ConfigManager
-
-    // Window controllers
-    private var settingsWindowController: SettingsWindowController?
-    private var historyWindowController: HistoryWindowController?
-    private var aboutWindowController: AboutWindowController?
+    private var isAutoSyncEnabled: Bool = true
 
     weak var delegate: MenuBarDelegate?
 
     init(configManager: ConfigManager = ConfigManager.shared) {
         self.configManager = configManager
+        self.isAutoSyncEnabled = configManager.config.general.autoSyncEnabled
         setupStatusItem()
         setupNotifications()
     }
@@ -181,36 +178,19 @@ final class MenuBarManager {
         syncItem.isEnabled = isSyncEnabled
         menu.addItem(syncItem)
 
-        // Open Downloads
-        let openItem = NSMenuItem(
-            title: L10n.Menu.openDownloads,
-            action: #selector(handleOpenDownloads),
-            keyEquivalent: "o"
+        // Auto Sync Toggle
+        let autoSyncItem = NSMenuItem(
+            title: "menu.autoSync".localized,
+            action: #selector(handleToggleAutoSync),
+            keyEquivalent: ""
         )
-        openItem.target = self
-        menu.addItem(openItem)
-
-        // View Logs
-        let logItem = NSMenuItem(
-            title: L10n.Menu.viewLogs,
-            action: #selector(handleOpenLog),
-            keyEquivalent: "l"
-        )
-        logItem.target = self
-        menu.addItem(logItem)
-
-        // Sync History
-        let historyItem = NSMenuItem(
-            title: L10n.Menu.syncHistory,
-            action: #selector(handleHistory),
-            keyEquivalent: "h"
-        )
-        historyItem.target = self
-        menu.addItem(historyItem)
+        autoSyncItem.target = self
+        autoSyncItem.state = isAutoSyncEnabled ? .on : .off
+        menu.addItem(autoSyncItem)
     }
 
     private func addFooterSection(to menu: NSMenu) {
-        // Settings
+        // Settings (opens main window)
         let settingsItem = NSMenuItem(
             title: L10n.Menu.settings,
             action: #selector(handleSettings),
@@ -218,17 +198,6 @@ final class MenuBarManager {
         )
         settingsItem.target = self
         menu.addItem(settingsItem)
-
-        // About
-        let aboutItem = NSMenuItem(
-            title: L10n.Menu.about,
-            action: #selector(handleAbout),
-            keyEquivalent: ""
-        )
-        aboutItem.target = self
-        menu.addItem(aboutItem)
-
-        menu.addItem(NSMenuItem.separator())
 
         // Quit
         let quitItem = NSMenuItem(
@@ -268,6 +237,11 @@ final class MenuBarManager {
         updateMenu()
     }
 
+    func updateAutoSyncState(isEnabled: Bool) {
+        isAutoSyncEnabled = isEnabled
+        updateMenu()
+    }
+
     private func updateIcon() {
         guard let button = statusItem.button else { return }
 
@@ -282,7 +256,12 @@ final class MenuBarManager {
             symbolName = "exclamationmark.triangle"
         case .idle:
             if hasConnectedDisk {
-                symbolName = "arrow.triangle.2.circlepath.circle.fill"
+                if isAutoSyncEnabled {
+                    symbolName = "arrow.triangle.2.circlepath.circle.fill"
+                } else {
+                    // Paused state - show different icon
+                    symbolName = "pause.circle"
+                }
             } else {
                 symbolName = "arrow.triangle.2.circlepath"
             }
@@ -306,51 +285,19 @@ final class MenuBarManager {
 
     // MARK: - Actions
 
+    @objc private func handleToggleAutoSync() {
+        Logger.shared.info("User toggled auto sync")
+        delegate?.menuBarDidRequestToggleAutoSync()
+    }
+
     @objc private func handleSync() {
         Logger.shared.info("User triggered manual sync")
         delegate?.menuBarDidRequestSync()
     }
 
-    @objc private func handleOpenDownloads() {
-        let downloadsPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
-        NSWorkspace.shared.open(downloadsPath)
-    }
-
-    @objc private func handleOpenLog() {
-        let logPath = (configManager.config.logging.logPath as NSString).expandingTildeInPath
-
-        if FileManager.default.fileExists(atPath: logPath) {
-            NSWorkspace.shared.open(URL(fileURLWithPath: logPath))
-        } else {
-            // If log file doesn't exist, open logs directory
-            let logsDir = (logPath as NSString).deletingLastPathComponent
-            NSWorkspace.shared.open(URL(fileURLWithPath: logsDir))
-        }
-    }
-
-    @objc private func handleHistory() {
-        Logger.shared.info("User opened sync history")
-        if historyWindowController == nil {
-            historyWindowController = HistoryWindowController()
-        }
-        historyWindowController?.showWindow()
-        delegate?.menuBarDidRequestHistory()
-    }
-
     @objc private func handleSettings() {
         Logger.shared.info("User opened settings")
-        if settingsWindowController == nil {
-            settingsWindowController = SettingsWindowController(configManager: configManager)
-        }
-        settingsWindowController?.showWindow()
         delegate?.menuBarDidRequestSettings()
-    }
-
-    @objc private func handleAbout() {
-        if aboutWindowController == nil {
-            aboutWindowController = AboutWindowController()
-        }
-        aboutWindowController?.showWindow()
     }
 
     @objc private func handleQuit() {

@@ -3,28 +3,33 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>com.ttttt.dmsa.helper</string>
+    <string>com.ttttt.dmsa.service</string>
+
     <key>CFBundleName</key>
-    <string>DMSAHelper</string>
+    <string>DMSAService</string>
+
     <key>CFBundleDisplayName</key>
-    <string>DMSA Privileged Helper</string>
+    <string>DMSA Service</string>
+
     <key>CFBundleVersion</key>
-    <string>1.0.0</string>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>$(MARKETING_VERSION)</string>
+
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
+
     <key>CFBundlePackageType</key>
     <string>XPC!</string>
-    <key>CFBundleExecutable</key>
-    <string>com.ttttt.dmsa.helper</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>11.0</string>
 
-    <!-- SMJobBless 配置 -->
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+
+    <!-- SMAuthorizedClients: Which clients can install this helper -->
     <key>SMAuthorizedClients</key>
     <array>
-        <!-- 只允许 DMSA 主应用连接 -->
+        <!-- Main app code requirement -->
         <string>identifier "com.ttttt.dmsa" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: *" or certificate leaf[subject.CN] = "Developer ID Application: *"</string>
     </array>
 </dict>

@@ -1,6 +1,6 @@
 # Delt MACOS Sync App (DMSA) 配置项文档
 
-> 版本: 2.0 | 更新日期: 2026-01-20
+> 版本: 3.0 | 更新日期: 2026-01-21
 
 ---
 
@@ -31,22 +31,28 @@
 | 默认配置 | 应用内置 | 配置损坏时的回退 |
 | 配置备份 | `~/Library/Application Support/DMSA/config.backup.json` | 自动备份 |
 
-### 1.2 顶层结构
+### 1.2 顶层结构 (v3.0)
 
 ```json
 {
-  "version": "2.0",
+  "version": "3.0",
   "general": { ... },
-  "disks": [ ... ],
-  "syncPairs": [ ... ],
+  "syncPairs": [ ... ],      // v3.0: 使用 SyncPair 概念
   "filters": { ... },
-  "cache": { ... },
+  "eviction": { ... },       // v3.0: 淘汰配置
   "monitoring": { ... },
   "notifications": { ... },
   "logging": { ... },
   "ui": { ... }
 }
 ```
+
+**v3.0 术语:**
+| 术语 | 示例路径 | 说明 |
+|------|----------|------|
+| **TARGET_DIR** | `~/Downloads` | FUSE 挂载点，用户唯一访问入口 |
+| **LOCAL_DIR** | `~/Downloads_Local` | 本地热数据缓存 |
+| **EXTERNAL_DIR** | `/Volumes/BACKUP/Downloads` | 外部完整数据源 (Source of Truth) |
 
 ---
 
@@ -195,92 +201,113 @@
 
 ---
 
-## 4. 同步对配置
+## 4. 同步对配置 (v3.0)
 
 ### 4.1 配置项列表
 
 | 配置项 | 类型 | 默认值 | 说明 | 必填 |
 |--------|------|--------|------|------|
 | `id` | String | - | 唯一标识符 (UUID) | 是 |
-| `diskId` | String | - | 关联的硬盘 ID | 是 |
-| `localPath` | String | - | 本地目录路径 | 是 |
-| `externalRelativePath` | String | - | 外置硬盘相对路径 | 是 |
-| `direction` | String | `"local_to_external"` | 同步方向 | 是 |
-| `createSymlink` | Boolean | `true` | 是否创建符号链接 | 否 |
+| `localDir` | String | - | LOCAL_DIR: 本地热数据目录 | 是 |
+| `externalDir` | String | - | EXTERNAL_DIR: 外部完整数据目录 | 是 |
+| `targetDir` | String | - | TARGET_DIR: FUSE 挂载点 (用户访问入口) | 是 |
+| `localQuotaGB` | Integer | `50` | 本地配额 (GB) | 否 |
 | `enabled` | Boolean | `true` | 是否启用 | 否 |
 | `excludePatterns` | Array | `[]` | 本同步对专属排除规则 | 否 |
 
-### 4.2 JSON 结构
+### 4.2 v3.0 术语说明
+
+| 术语 | 示例路径 | 说明 |
+|------|----------|------|
+| **TARGET_DIR** | `~/Downloads` | FUSE 挂载点，用户唯一访问入口 |
+| **LOCAL_DIR** | `~/Downloads_Local` | 本地热数据缓存，用户不直接访问 |
+| **EXTERNAL_DIR** | `/Volumes/BACKUP/Downloads` | 外部完整数据源 (Source of Truth) |
+
+### 4.3 JSON 结构
 
 ```json
 {
   "syncPairs": [
     {
       "id": "660e8400-e29b-41d4-a716-446655440000",
-      "diskId": "550e8400-e29b-41d4-a716-446655440000",
-      "localPath": "~/Downloads",
-      "externalRelativePath": "Downloads",
-      "direction": "local_to_external",
-      "createSymlink": true,
+      "localDir": "~/Downloads_Local",
+      "externalDir": "/Volumes/BACKUP/Downloads",
+      "targetDir": "~/Downloads",
+      "localQuotaGB": 50,
       "enabled": true,
       "excludePatterns": []
     },
     {
       "id": "660e8400-e29b-41d4-a716-446655440001",
-      "diskId": "550e8400-e29b-41d4-a716-446655440000",
-      "localPath": "~/Documents",
-      "externalRelativePath": "Documents",
-      "direction": "bidirectional",
-      "createSymlink": false,
+      "localDir": "~/Documents_Local",
+      "externalDir": "/Volumes/BACKUP/Documents",
+      "targetDir": "~/Documents",
+      "localQuotaGB": 30,
       "enabled": true,
-      "excludePatterns": ["*.tmp"]
+      "excludePatterns": ["*.tmp", ".git"]
     }
   ]
 }
 ```
 
-### 4.3 配置项详解
+### 4.4 配置项详解
 
-#### `localPath`
+#### `localDir` (LOCAL_DIR)
 
 | 属性 | 值 |
 |------|-----|
 | 类型 | String |
 | 格式 | 绝对路径，支持 `~` 展开 |
-| 示例 | `"~/Downloads"`, `"/Users/user/Documents"` |
-| 校验 | 路径必须存在或可创建 |
+| 示例 | `"~/Downloads_Local"`, `"~/.Documents_Local"` |
+| 说明 | 本地热数据存储目录，用户不直接访问 |
+| 首次设置 | 如果 TARGET_DIR 已存在，将自动重命名为 LOCAL_DIR |
 
-#### `externalRelativePath`
+#### `externalDir` (EXTERNAL_DIR)
 
 | 属性 | 值 |
 |------|-----|
 | 类型 | String |
-| 格式 | 相对于硬盘挂载点的相对路径 |
-| 示例 | `"Downloads"`, `"Backup/Documents"` |
-| 说明 | 完整路径 = `{disk.mountPath}/{externalRelativePath}` |
+| 格式 | 绝对路径 |
+| 示例 | `"/Volumes/BACKUP/Downloads"`, `"/Volumes/NAS/Documents"` |
+| 说明 | 外部完整数据源 (Source of Truth)，只读备份 |
+| 关联 | 必须位于已配置的硬盘挂载点下 |
 
-#### `direction`
-
-| 属性 | 值 |
-|------|-----|
-| 类型 | String (枚举) |
-| 默认值 | `"local_to_external"` |
-| 可选值 | 见下表 |
-
-| 值 | 说明 |
-|----|------|
-| `"local_to_external"` | 本地 → 外置硬盘 (单向) |
-| `"external_to_local"` | 外置硬盘 → 本地 (单向) |
-| `"bidirectional"` | 双向同步 (以修改时间较新者为准) |
-
-#### `createSymlink`
+#### `targetDir` (TARGET_DIR)
 
 | 属性 | 值 |
 |------|-----|
-| 类型 | Boolean |
-| 默认值 | `true` |
-| 说明 | 硬盘连接后是否将本地目录替换为指向外置硬盘的符号链接 |
-| 限制 | 仅 APFS/HFS+ 文件系统支持 |
+| 类型 | String |
+| 格式 | 绝对路径，支持 `~` 展开 |
+| 示例 | `"~/Downloads"`, `"~/Documents"` |
+| 说明 | FUSE 挂载点，用户唯一访问入口 |
+| 首次设置 | 如果目录已存在，将先重命名为 LOCAL_DIR，然后创建挂载点 |
+
+#### `localQuotaGB`
+
+| 属性 | 值 |
+|------|-----|
+| 类型 | Integer |
+| 默认值 | `50` |
+| 单位 | GB |
+| 范围 | 1-1000 |
+| 说明 | LOCAL_DIR 允许的最大占用空间，超出时触发 LRU 淘汰 |
+
+### 4.5 同步方向 (v3.0)
+
+**v3.0 仅支持单向同步: LOCAL → EXTERNAL**
+
+```
+LOCAL_DIR ────同步────▶ EXTERNAL_DIR
+  (源)                    (备份)
+```
+
+| 操作 | 行为 |
+|------|------|
+| 用户写入 | 写入 LOCAL_DIR → 异步同步到 EXTERNAL_DIR |
+| 用户读取 | LOCAL 有则读 LOCAL，否则直接重定向读 EXTERNAL (零拷贝) |
+| 用户删除 | 从 LOCAL 和 EXTERNAL 都删除 |
+
+**注意:** EXTERNAL_DIR 是只读备份，不会反向同步到 LOCAL_DIR
 
 ---
 
@@ -394,68 +421,90 @@
 
 ---
 
-## 6. 缓存配置
+## 6. 淘汰配置 (v3.0)
 
 ### 6.1 配置项列表
 
 | 配置项 | 类型 | 默认值 | 说明 | 必填 |
 |--------|------|--------|------|------|
-| `maxCacheSize` | Integer | `10737418240` | LOCAL 缓存最大空间 (10GB) | 否 |
-| `reserveBuffer` | Integer | `524288000` | 预留缓冲空间 (500MB) | 否 |
-| `evictionCheckInterval` | Integer | `300` | 淘汰检查间隔 (秒) | 否 |
-| `autoEvictionEnabled` | Boolean | `true` | 启用自动淘汰 | 否 |
-| `evictionStrategy` | String | `"modified_time"` | 淘汰策略 | 否 |
+| `enabled` | Boolean | `true` | 启用自动淘汰 | 否 |
+| `strategy` | String | `"access_time"` | 淘汰策略 (v3.0 默认 LRU) | 否 |
+| `checkIntervalSeconds` | Integer | `300` | 淘汰检查间隔 (秒) | 否 |
+| `reserveBufferMB` | Integer | `500` | 预留缓冲空间 (MB) | 否 |
 
 ### 6.2 JSON 结构
 
 ```json
 {
-  "cache": {
-    "maxCacheSize": 10737418240,
-    "reserveBuffer": 524288000,
-    "evictionCheckInterval": 300,
-    "autoEvictionEnabled": true,
-    "evictionStrategy": "modified_time"
+  "eviction": {
+    "enabled": true,
+    "strategy": "access_time",
+    "checkIntervalSeconds": 300,
+    "reserveBufferMB": 500
   }
 }
 ```
 
+**注意:** v3.0 使用 `syncPairs[].localQuotaGB` 配置每个同步对的本地配额，不再使用全局 `maxCacheSize`。
+
 ### 6.3 配置项详解
 
-#### `maxCacheSize`
-
-| 属性 | 值 |
-|------|-----|
-| 类型 | Integer |
-| 单位 | bytes |
-| 默认值 | `10737418240` (10 GB) |
-| 最小值 | `1073741824` (1 GB) |
-| 最大值 | 无限制 (建议不超过可用空间的 50%) |
-| 说明 | LOCAL 缓存目录允许的最大占用空间 |
-
-**预设值参考:**
-
-| 描述 | 值 |
-|------|-----|
-| 小 (1 GB) | `1073741824` |
-| 中 (5 GB) | `5368709120` |
-| 大 (10 GB) | `10737418240` |
-| 超大 (50 GB) | `53687091200` |
-| 不限制 | `null` |
-
-#### `evictionStrategy`
+#### `strategy` (v3.0 淘汰策略)
 
 | 属性 | 值 |
 |------|-----|
 | 类型 | String (枚举) |
-| 默认值 | `"modified_time"` |
+| 默认值 | `"access_time"` |
 | 可选值 | 见下表 |
 
 | 值 | 说明 |
 |----|------|
-| `"modified_time"` | 按修改时间排序，最旧的先淘汰 |
-| `"access_time"` | 按访问时间排序 (LRU) |
+| `"access_time"` | **v3.0 默认**: 按访问时间排序 (LRU)，最久未访问的先淘汰 |
 | `"size_first"` | 优先淘汰大文件 |
+
+**v3.0 淘汰流程:**
+
+```
+写入触发空间检查 → 超出 localQuotaGB?
+         │
+         ▼ 是
+查询可淘汰文件 (状态=BOTH + isDirty=false + 按 accessedAt 排序)
+         │
+         ▼
+验证 EXTERNAL_DIR 存在?
+    │           │
+    ▼ 存在      ▼ 不存在
+删除 LOCAL     先同步到 EXTERNAL → 同步成功? → 删除 LOCAL
+更新状态                              │
+为 EXTERNAL_ONLY                      ▼ 失败
+                                   跳过此文件
+```
+
+**关键约束:**
+- 只淘汰状态为 `BOTH` 的文件（已同步到 EXTERNAL）
+- 不淘汰 `isDirty=true` 的文件（未同步的脏数据）
+- 淘汰前必须验证 EXTERNAL_DIR 中文件确实存在
+- 如果 EXTERNAL 不存在，先同步过去再淘汰
+
+#### `checkIntervalSeconds`
+
+| 属性 | 值 |
+|------|-----|
+| 类型 | Integer |
+| 单位 | 秒 |
+| 默认值 | `300` (5 分钟) |
+| 范围 | 60-3600 |
+| 说明 | 定期检查空间使用情况的间隔 |
+
+#### `reserveBufferMB`
+
+| 属性 | 值 |
+|------|-----|
+| 类型 | Integer |
+| 单位 | MB |
+| 默认值 | `500` |
+| 范围 | 100-5000 |
+| 说明 | 预留缓冲空间，触发淘汰时保留此空间给新文件 |
 
 ---
 
@@ -628,13 +677,13 @@
 
 ---
 
-## 11. 完整配置示例
+## 11. 完整配置示例 (v3.0)
 
 ### 11.1 最小配置
 
 ```json
 {
-  "version": "2.0",
+  "version": "3.0",
   "disks": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -645,10 +694,10 @@
   "syncPairs": [
     {
       "id": "660e8400-e29b-41d4-a716-446655440000",
-      "diskId": "550e8400-e29b-41d4-a716-446655440000",
-      "localPath": "~/Downloads",
-      "externalRelativePath": "Downloads",
-      "direction": "local_to_external"
+      "localDir": "~/Downloads_Local",
+      "externalDir": "/Volumes/BACKUP/Downloads",
+      "targetDir": "~/Downloads",
+      "localQuotaGB": 50
     }
   ]
 }
@@ -658,7 +707,7 @@
 
 ```json
 {
-  "version": "2.0",
+  "version": "3.0",
   "general": {
     "launchAtLogin": true,
     "showInDock": false,
@@ -686,33 +735,30 @@
   "syncPairs": [
     {
       "id": "660e8400-e29b-41d4-a716-446655440000",
-      "diskId": "550e8400-e29b-41d4-a716-446655440000",
-      "localPath": "~/Downloads",
-      "externalRelativePath": "Downloads",
-      "direction": "local_to_external",
-      "createSymlink": true,
+      "localDir": "~/Downloads_Local",
+      "externalDir": "/Volumes/BACKUP/Downloads",
+      "targetDir": "~/Downloads",
+      "localQuotaGB": 50,
       "enabled": true,
       "excludePatterns": []
     },
     {
       "id": "660e8400-e29b-41d4-a716-446655440001",
-      "diskId": "550e8400-e29b-41d4-a716-446655440000",
-      "localPath": "~/Documents",
-      "externalRelativePath": "Documents",
-      "direction": "bidirectional",
-      "createSymlink": false,
+      "localDir": "~/Documents_Local",
+      "externalDir": "/Volumes/BACKUP/Documents",
+      "targetDir": "~/Documents",
+      "localQuotaGB": 30,
       "enabled": true,
       "excludePatterns": ["*.tmp", ".git"]
     },
     {
       "id": "660e8400-e29b-41d4-a716-446655440002",
-      "diskId": "550e8400-e29b-41d4-a716-446655440000",
-      "localPath": "~/Desktop",
-      "externalRelativePath": "Desktop",
-      "direction": "bidirectional",
-      "createSymlink": false,
+      "localDir": "~/Projects_Local",
+      "externalDir": "/Volumes/PORTABLE/Projects",
+      "targetDir": "~/Projects",
+      "localQuotaGB": 100,
       "enabled": false,
-      "excludePatterns": []
+      "excludePatterns": ["node_modules", "target", "build"]
     }
   ],
   "filters": {
@@ -742,12 +788,11 @@
     "minFileSize": null,
     "excludeHidden": false
   },
-  "cache": {
-    "maxCacheSize": 10737418240,
-    "reserveBuffer": 524288000,
-    "evictionCheckInterval": 300,
-    "autoEvictionEnabled": true,
-    "evictionStrategy": "modified_time"
+  "eviction": {
+    "enabled": true,
+    "strategy": "access_time",
+    "checkIntervalSeconds": 300,
+    "reserveBufferMB": 500
   },
   "monitoring": {
     "enabled": true,
@@ -780,22 +825,22 @@
 
 ---
 
-## 12. 配置校验规则
+## 12. 配置校验规则 (v3.0)
 
 ### 12.1 必填字段校验
 
 | 路径 | 校验规则 |
 |------|----------|
-| `version` | 必须存在且为 "2.0" |
+| `version` | 必须存在且为 "3.0" |
 | `disks` | 必须存在且为非空数组 |
 | `disks[].id` | 必须为有效 UUID |
 | `disks[].name` | 必须为非空字符串 |
 | `disks[].mountPath` | 必须以 `/Volumes/` 开头 |
 | `syncPairs` | 必须存在且为非空数组 |
 | `syncPairs[].id` | 必须为有效 UUID |
-| `syncPairs[].diskId` | 必须引用存在的 disk.id |
-| `syncPairs[].localPath` | 必须为有效路径 |
-| `syncPairs[].direction` | 必须为有效枚举值 |
+| `syncPairs[].localDir` | 必须为有效路径 (LOCAL_DIR) |
+| `syncPairs[].externalDir` | 必须为有效路径且位于已配置硬盘下 (EXTERNAL_DIR) |
+| `syncPairs[].targetDir` | 必须为有效路径 (TARGET_DIR) |
 
 ### 12.2 类型校验
 
@@ -810,8 +855,9 @@
 
 | 校验项 | 规则 |
 |--------|------|
-| diskId 引用 | syncPair.diskId 必须在 disks 中存在 |
-| 路径唯一性 | 同一 disk 下的 localPath 不能重复 |
+| externalDir 关联 | syncPair.externalDir 必须位于已配置的 disk.mountPath 下 |
+| targetDir 唯一性 | 每个 targetDir 只能对应一个同步对 |
+| localDir 唯一性 | 每个 localDir 只能对应一个同步对 |
 | UUID 唯一性 | 所有 id 必须全局唯一 |
 
 ### 12.4 错误处理策略
@@ -837,11 +883,11 @@
 
 ---
 
-## 附录: 配置项速查表
+## 附录: 配置项速查表 (v3.0)
 
 | 配置路径 | 类型 | 默认值 | 说明 |
 |----------|------|--------|------|
-| `version` | String | `"2.0"` | 配置版本 |
+| `version` | String | `"3.0"` | 配置版本 |
 | `general.launchAtLogin` | Boolean | `false` | 开机自启动 |
 | `general.showInDock` | Boolean | `false` | Dock显示 |
 | `general.checkForUpdates` | Boolean | `true` | 检查更新 |
@@ -853,21 +899,19 @@
 | `disks[].enabled` | Boolean | `true` | 是否启用 |
 | `disks[].fileSystem` | String | `"auto"` | 文件系统 |
 | `syncPairs[].id` | String | - | 同步对UUID |
-| `syncPairs[].diskId` | String | - | 关联硬盘 |
-| `syncPairs[].localPath` | String | - | 本地路径 |
-| `syncPairs[].externalRelativePath` | String | - | 外置相对路径 |
-| `syncPairs[].direction` | String | `"local_to_external"` | 同步方向 |
-| `syncPairs[].createSymlink` | Boolean | `true` | 创建符号链接 |
+| `syncPairs[].localDir` | String | - | LOCAL_DIR 本地热数据目录 |
+| `syncPairs[].externalDir` | String | - | EXTERNAL_DIR 外部完整数据目录 |
+| `syncPairs[].targetDir` | String | - | TARGET_DIR FUSE挂载点 |
+| `syncPairs[].localQuotaGB` | Integer | `50` | 本地配额 (GB) |
 | `syncPairs[].enabled` | Boolean | `true` | 是否启用 |
 | `filters.excludePatterns` | Array | 见文档 | 排除模式 |
 | `filters.maxFileSize` | Integer | `null` | 最大文件大小 |
 | `filters.minFileSize` | Integer | `null` | 最小文件大小 |
 | `filters.excludeHidden` | Boolean | `false` | 排除隐藏文件 |
-| `cache.maxCacheSize` | Integer | `10737418240` | 缓存大小限制 |
-| `cache.reserveBuffer` | Integer | `524288000` | 预留缓冲 |
-| `cache.evictionCheckInterval` | Integer | `300` | 淘汰检查间隔 |
-| `cache.autoEvictionEnabled` | Boolean | `true` | 自动淘汰 |
-| `cache.evictionStrategy` | String | `"modified_time"` | 淘汰策略 |
+| `eviction.enabled` | Boolean | `true` | 启用淘汰 |
+| `eviction.strategy` | String | `"access_time"` | 淘汰策略 (LRU) |
+| `eviction.checkIntervalSeconds` | Integer | `300` | 淘汰检查间隔 |
+| `eviction.reserveBufferMB` | Integer | `500` | 预留缓冲 (MB) |
 | `monitoring.enabled` | Boolean | `true` | 启用监控 |
 | `monitoring.debounceSeconds` | Integer | `5` | 防抖秒数 |
 | `monitoring.batchSize` | Integer | `100` | 批量大小 |

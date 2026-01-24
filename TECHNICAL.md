@@ -1,6 +1,6 @@
 # Delt MACOS Sync App (DMSA) 技术架构文档
 
-> 版本: 2.0 | 更新日期: 2026-01-20
+> 版本: 3.0 | 更新日期: 2026-01-21
 
 ---
 
@@ -8,7 +8,14 @@
 
 ### 1.1 核心设计理念
 
-本应用采用**虚拟文件系统 + 双后端存储**架构，实现本地缓存与外置硬盘的透明融合。
+本应用采用 **FUSE 虚拟文件系统 + 智能合并视图** 架构，实现本地缓存与外置硬盘的透明融合。
+
+**v3.0 术语:**
+| 术语 | 示例路径 | 说明 |
+|------|----------|------|
+| **TARGET_DIR** | `~/Downloads` | FUSE 挂载点，用户唯一访问入口 |
+| **LOCAL_DIR** | `~/Downloads_Local` | 本地热数据缓存 |
+| **EXTERNAL_DIR** | `/Volumes/BACKUP/Downloads` | 外部完整数据源 (Source of Truth) |
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -16,27 +23,40 @@
 │                    (Finder, Safari, etc.)                       │
 └─────────────────────────────────────────────────────────────────┘
                               │
+                              │ 文件操作 (open, read, write...)
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    虚拟文件系统层 (VFS)                          │
-│              Endpoint Security Framework                         │
-│    ┌─────────────┬─────────────┬─────────────┬─────────────┐   │
-│    │  读取路由器  │  写入路由器  │  元数据管理  │  冲突解决器  │   │
-│    └─────────────┴─────────────┴─────────────┴─────────────┘   │
+│                TARGET_DIR (FUSE-T 挂载点)                        │
+│                      ~/Downloads                                 │
+│                    (用户唯一访问入口)                             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ FUSE 回调
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     DMSA VFS 核心                                │
+│  ┌─────────────┬─────────────┬─────────────┬─────────────┐     │
+│  │ ReadRouter  │ WriteRouter │ MergeEngine │EvictionMgr │     │
+│  └─────────────┴─────────────┴─────────────┴─────────────┘     │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                 ObjectBox 存储层                          │   │
+│  │              (FileEntry, SyncHistory, etc.)              │   │
+│  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────┴───────────────┐
               ▼                               ▼
 ┌─────────────────────────┐     ┌─────────────────────────┐
-│    LOCAL 后端            │     │    EXTERNAL 后端         │
-│  ~/Library/Application  │     │   /Volumes/BACKUP/      │
-│  Support/DMSA/ │     │   Downloads/            │
-│  LocalCache/            │     │                         │
-│                         │     │                         │
-│  - 热数据缓存            │     │  - 完整数据存储          │
-│  - 最大空间限制          │     │  - 主存储源              │
-│  - LRU 淘汰策略          │     │  - 可能离线              │
+│       LOCAL_DIR          │     │      EXTERNAL_DIR        │
+│   ~/Downloads_Local      │ ──▶ │   /Volumes/BACKUP/      │
+│                          │同步  │   Downloads/            │
+│   - 热数据缓存            │     │   - 完整数据源           │
+│   - LRU 淘汰策略          │     │   - 只读备份            │
+│   - 可能本地删除          │     │   - 可能离线            │
 └─────────────────────────┘     └─────────────────────────┘
+       ⬆ 禁止直接访问                  ⬆ 禁止直接访问
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
@@ -51,9 +71,10 @@
 
 | 组件 | 技术方案 | 选型理由 |
 |------|----------|----------|
-| 文件系统监控 | Endpoint Security | Apple 原生，无需第三方驱动，系统级集成 |
+| 虚拟文件系统 | FUSE-T (推荐) / macFUSE (备选) | 纯用户态，无需内核扩展，完全控制文件操作 |
 | 数据存储 | ObjectBox Swift | 高性能嵌入式数据库，支持实时同步 |
-| 同步引擎 | rsync + 自定义逻辑 | 成熟稳定，支持增量同步 |
+| 同步引擎 | 原生 Swift 增量同步 | 自主控制，支持分块校验和断点续传 |
+| 文件监控 | FSEvents | 系统原生，高效的文件变化监控 |
 | UI 框架 | SwiftUI | 现代化，支持深色模式，代码简洁 |
 | 进程管理 | LaunchAgent | 系统原生，开机自启动 |
 
@@ -61,105 +82,112 @@
 
 ## 2. 虚拟文件系统层 (VFS)
 
-### 2.1 Endpoint Security Framework
+### 2.1 FUSE-T 实现 (v3.0)
 
 #### 2.1.1 概述
 
-Endpoint Security (ES) 是 Apple 提供的系统级安全框架，允许应用监控和授权文件系统操作。
+FUSE-T 是纯用户态的 FUSE 实现，使用 NFS v4 本地服务器，无需内核扩展。
 
 **权限要求:**
-- System Extension 批准
+- FUSE-T 或 macFUSE 安装
 - Full Disk Access (TCC)
-- com.apple.developer.endpoint-security.client entitlement
 
-#### 2.1.2 事件订阅
+**核心优势:**
+- 无内核扩展，安装简单
+- 完全控制文件操作 (open, read, write, create, delete)
+- 可以动态合并 LOCAL_DIR 和 EXTERNAL_DIR 内容
+- 支持直接重定向到 EXTERNAL_DIR 读取 (零拷贝)
+
+#### 2.1.2 FUSE 回调函数
 
 ```swift
-// 需要监控的 ES 事件
-enum MonitoredEvents {
-    // 文件操作
-    static let fileEvents: [es_event_type_t] = [
-        ES_EVENT_TYPE_AUTH_OPEN,        // 文件打开授权
-        ES_EVENT_TYPE_AUTH_CREATE,      // 文件创建授权
-        ES_EVENT_TYPE_AUTH_UNLINK,      // 文件删除授权
-        ES_EVENT_TYPE_AUTH_RENAME,      // 文件重命名授权
-        ES_EVENT_TYPE_AUTH_WRITE,       // 文件写入授权
-        ES_EVENT_TYPE_AUTH_TRUNCATE,    // 文件截断授权
-
-        ES_EVENT_TYPE_NOTIFY_WRITE,     // 写入完成通知
-        ES_EVENT_TYPE_NOTIFY_UNLINK,    // 删除完成通知
-        ES_EVENT_TYPE_NOTIFY_RENAME,    // 重命名完成通知
+// FUSE 回调函数映射
+enum FUSECallbacks {
+    // 主要回调
+    static let callbacks = [
+        "open",       // 打开文件 → ReadRouter
+        "read",       // 读取文件 → ReadRouter
+        "write",      // 写入文件 → WriteRouter
+        "create",     // 创建文件 → WriteRouter
+        "unlink",     // 删除文件 → DeleteRouter
+        "rename",     // 重命名 → MetadataManager
+        "getattr",    // 获取属性 → MergeEngine
+        "readdir",    // 读取目录 → MergeEngine (智能合并)
+        "mkdir",      // 创建目录 → WriteRouter
+        "rmdir",      // 删除目录 → DeleteRouter
     ]
 }
 ```
 
-#### 2.1.3 核心流程
+#### 2.1.3 核心流程 (v3.0 零拷贝)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    文件操作请求流程                            │
+│                    文件读取请求流程 (v3.0)                      │
 └──────────────────────────────────────────────────────────────┘
 
-用户打开文件 ~/Downloads/file.pdf
+用户打开文件 ~/Downloads/file.pdf (TARGET_DIR)
          │
          ▼
 ┌─────────────────┐
-│ ES_EVENT_AUTH_  │
-│     OPEN        │
+│  FUSE open()    │
+│  回调触发       │
 └────────┬────────┘
          │
-         ▼
-┌─────────────────┐     ┌─────────────────┐
-│ 检查文件位置     │────▶│ 不在监控目录内   │──▶ ES_AUTH_RESULT_ALLOW
-└────────┬────────┘     └─────────────────┘
-         │ 在监控目录内
          ▼
 ┌─────────────────┐
 │ 查询 ObjectBox  │
 │ 获取文件状态     │
 └────────┬────────┘
          │
-    ┌────┴────┐
-    ▼         ▼
-┌───────┐  ┌───────┐
-│LOCAL有│  │LOCAL无│
-└───┬───┘  └───┬───┘
-    │          │
-    ▼          ▼
-┌───────┐  ┌─────────────────┐
-│直接放行│  │检查 EXTERNAL     │
-└───────┘  └────────┬────────┘
-                    │
-              ┌─────┴─────┐
-              ▼           ▼
-         ┌───────┐   ┌───────┐
-         │已连接  │   │未连接  │
-         └───┬───┘   └───┬───┘
-             │           │
-             ▼           ▼
-      ┌──────────┐  ┌──────────┐
-      │从EXTERNAL │  │返回错误   │
-      │拉取到LOCAL│  │ENOENT    │
-      └──────────┘  └──────────┘
+    ┌────┴────────────┬────────────┐
+    ▼                 ▼            ▼
+┌───────────┐  ┌───────────┐  ┌───────────┐
+│LOCAL_ONLY │  │   BOTH    │  │EXTERNAL_  │
+│ 或 BOTH   │  │           │  │   ONLY    │
+└─────┬─────┘  └─────┬─────┘  └─────┬─────┘
+      │              │              │
+      ▼              ▼              ▼
+┌───────────┐  ┌───────────┐  ┌─────────────────┐
+│ 从        │  │ 从        │  │ 检查 EXTERNAL   │
+│ LOCAL_DIR │  │ LOCAL_DIR │  │ 连接状态        │
+│ 读取      │  │ 读取      │  └────────┬────────┘
+└───────────┘  └───────────┘           │
+                               ┌───────┴───────┐
+                               ▼               ▼
+                          ┌───────┐       ┌───────┐
+                          │已连接  │       │未连接  │
+                          └───┬───┘       └───┬───┘
+                              │               │
+                              ▼               ▼
+                       ┌──────────┐    ┌──────────┐
+                       │直接重定向 │    │返回错误   │
+                       │EXTERNAL_ │    │ENOENT    │
+                       │DIR 读取  │    └──────────┘
+                       │(零拷贝)  │
+                       └──────────┘
 ```
+
+**关键变更 (v3.0):** EXTERNAL_ONLY 文件**直接重定向读取**，不复制到本地。
 
 ### 2.2 读取路由器 (ReadRouter)
 
-#### 2.2.1 职责
+#### 2.2.1 职责 (v3.0)
 
 - 拦截文件读取请求
-- 确定数据来源 (LOCAL / EXTERNAL)
-- 必要时从 EXTERNAL 拉取到 LOCAL
-- 更新访问时间戳
+- 确定数据来源 (LOCAL_DIR / EXTERNAL_DIR)
+- EXTERNAL_ONLY 文件直接重定向读取 (零拷贝)
+- 更新访问时间戳 (LRU 统计)
 
-#### 2.2.2 路由策略
+#### 2.2.2 路由策略 (v3.0)
 
 ```swift
 enum ReadSource {
-    case local           // 文件在 LOCAL，直接读取
-    case external        // 文件仅在 EXTERNAL，需要拉取
-    case notFound        // 文件不存在
-    case offlineError    // 文件在 EXTERNAL 但硬盘离线
+    case local(String)      // 文件在 LOCAL_DIR，直接读取
+    case external(String)   // 文件仅在 EXTERNAL_DIR，直接重定向读取
+    case notFound           // 文件不存在
+    case offlineError       // 文件在 EXTERNAL_DIR 但硬盘离线
+    case deleted            // 文件已标记删除
 }
 
 class ReadRouter {
@@ -168,19 +196,22 @@ class ReadRouter {
 
         switch fileState.location {
         case .localOnly, .both:
-            // 文件在 LOCAL，更新访问时间
+            // 文件在 LOCAL_DIR，更新访问时间
             objectBox.updateAccessTime(virtualPath)
-            return .success(localPath(virtualPath))
+            return .success(.local(localPath(virtualPath)))
 
         case .externalOnly:
             if diskManager.isExternalConnected {
-                // 从 EXTERNAL 拉取到 LOCAL
-                let pullResult = pullToLocal(virtualPath)
-                return pullResult
+                // v3.0: 直接重定向到 EXTERNAL_DIR 读取 (零拷贝)
+                objectBox.updateAccessTime(virtualPath)
+                return .success(.external(externalPath(virtualPath)))
             } else {
                 // 硬盘离线，返回错误
                 return .failure(.offlineError)
             }
+
+        case .deleted:
+            return .failure(.deleted)
 
         case .notExists:
             return .failure(.notFound)
@@ -189,32 +220,41 @@ class ReadRouter {
 }
 ```
 
+**v3.0 关键变更:** EXTERNAL_ONLY 文件不再拉取到本地，直接重定向读取。
+
 ### 2.3 写入路由器 (WriteRouter)
 
-#### 2.3.1 职责
+#### 2.3.1 职责 (v3.0)
 
-- 拦截文件写入请求
-- 实现 Write-Back 策略
-- 管理脏数据队列
-- 触发异步同步
+- 拦截文件写入请求 (通过 TARGET_DIR)
+- 实现 Write-Back 策略 (写入 LOCAL_DIR)
+- 标记 isDirty，加入同步队列
+- 触发异步同步到 EXTERNAL_DIR
+- 写入时检查空间，触发 LRU 淘汰
 
-#### 2.3.2 Write-Back 流程
+#### 2.3.2 Write-Back 流程 (v3.0)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    Write-Back 写入流程                        │
+│                    Write-Back 写入流程 (v3.0)                  │
 └──────────────────────────────────────────────────────────────┘
 
-写入请求: ~/Downloads/new_file.zip
+写入请求: ~/Downloads/new_file.zip (TARGET_DIR)
          │
          ▼
 ┌─────────────────┐
-│ 写入 LOCAL      │  ◀── 立即完成，返回成功
+│ 检查本地空间    │
+│ 触发 LRU 淘汰   │ ←── 新增: 写入时淘汰检查
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│ 标记为 dirty    │
+│ 写入 LOCAL_DIR  │  ◀── 立即完成，返回成功
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 标记 isDirty    │
 │ 记录到 ObjectBox│
 └────────┬────────┘
          │
@@ -225,20 +265,20 @@ class ReadRouter {
          │
          ▼ (异步)
 ┌─────────────────┐     ┌─────────────────┐
-│ 检查 EXTERNAL   │────▶│ 未连接: 保持队列 │
-│ 连接状态        │     └─────────────────┘
-└────────┬────────┘
-         │ 已连接
+│ 检查 EXTERNAL   │────▶│ 离线: 队列等待   │
+│ 连接状态        │     │ (允许延迟)       │
+└────────┬────────┘     └─────────────────┘
+         │ 在线
          ▼
 ┌─────────────────┐
-│ rsync 同步到    │
-│ EXTERNAL        │
+│ 同步到          │
+│ EXTERNAL_DIR    │
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│ 清除 dirty 标记 │
-│ 更新 ObjectBox  │
+│ 清除 isDirty    │
+│ 状态变为 BOTH   │
 └─────────────────┘
 ```
 
@@ -464,9 +504,10 @@ class FileEntry: Entity {
 
 enum FileLocation: Int {
     case notExists = 0
-    case localOnly = 1
-    case externalOnly = 2
-    case both = 3
+    case localOnly = 1     // 仅在 LOCAL_DIR，待同步
+    case externalOnly = 2  // 仅在 EXTERNAL_DIR，直接重定向读取
+    case both = 3          // 两端都有，已同步
+    case deleted = 4       // v3.0: 外部被删除，拒绝访问
 }
 ```
 
@@ -514,10 +555,9 @@ class SyncHistory: Entity {
     var syncPairId: String = ""
 }
 
+// v3.0: 仅支持单向同步 LOCAL_DIR → EXTERNAL_DIR
 enum SyncDirection: Int {
-    case localToExternal = 0
-    case externalToLocal = 1
-    case bidirectional = 2
+    case localToExternal = 0  // LOCAL_DIR → EXTERNAL_DIR
 }
 
 enum SyncStatus: Int {
@@ -563,7 +603,7 @@ class DiskConfig: Entity {
 }
 ```
 
-#### 4.1.4 SyncPairConfig (同步对配置)
+#### 4.1.4 SyncPairConfig (同步对配置) v3.0
 
 ```swift
 // objectbox: entity
@@ -574,20 +614,17 @@ class SyncPairConfig: Entity {
     // objectbox: unique
     var pairId: String = ""
 
-    /// 关联的硬盘 ID
-    var diskId: String = ""
+    /// LOCAL_DIR 本地目录
+    var localDir: String = ""          // 如 ~/Downloads_Local
 
-    /// 本地路径
-    var localPath: String = ""
+    /// EXTERNAL_DIR 外部目录
+    var externalDir: String = ""       // 如 /Volumes/BACKUP/Downloads
 
-    /// 外置硬盘相对路径
-    var externalRelativePath: String = ""
+    /// TARGET_DIR FUSE 挂载点
+    var targetDir: String = ""         // 如 ~/Downloads
 
-    /// 同步方向
-    var direction: SyncDirection = .localToExternal
-
-    /// 是否创建符号链接
-    var createSymlink: Bool = true
+    /// 本地配额 (GB)
+    var localQuotaGB: Int = 50
 
     /// 是否启用
     var isEnabled: Bool = true
@@ -664,12 +701,12 @@ class FileRepository {
             .find()
     }
 
-    /// 获取可淘汰的文件 (按修改时间排序)
+    /// 获取可淘汰的文件 (v3.0: 按访问时间排序 LRU)
     func getEvictableFiles(limit: Int) -> [FileEntry] {
         return try! box.query {
             $0.location == .both && $0.isDirty == false
         }
-        .order(\.modifiedAt, ascending: true)
+        .order(\.accessedAt, ascending: true)  // LRU: 最久未访问优先
         .build()
         .find(limit: limit)
     }
@@ -683,7 +720,7 @@ class FileRepository {
         .find()
     }
 
-    /// 计算 LOCAL 缓存总大小
+    /// 计算 LOCAL_DIR 缓存总大小
     func calculateLocalCacheSize() -> Int64 {
         let files = try! box.query {
             $0.location == .localOnly || $0.location == .both
@@ -1210,4 +1247,4 @@ dependencies: [
 
 ---
 
-*文档维护: 技术变更时更新此文档*
+*文档维护: 技术变更时更新此文档 | v3.0 | 2026-01-21*

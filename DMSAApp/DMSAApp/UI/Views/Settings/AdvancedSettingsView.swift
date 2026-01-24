@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 /// Advanced settings view
 struct AdvancedSettingsView: View {
@@ -7,6 +8,9 @@ struct AdvancedSettingsView: View {
 
     @State private var showResetConfirmation: Bool = false
     @State private var showClearAllConfirmation: Bool = false
+
+    // 使用 PermissionManager
+    @StateObject private var permissionManager = PermissionManager.shared
 
     private var logPath: String {
         (config.logging.logPath as NSString).expandingTildeInPath
@@ -32,37 +36,80 @@ struct AdvancedSettingsView: View {
                 unit: L10n.Settings.Advanced.batchSizeUnit
             )
 
-            SectionDivider(title: L10n.Settings.Advanced.rsyncOptions)
+            SectionDivider(title: L10n.Settings.Advanced.syncOptions)
 
-            // rsync options
+            // 同步引擎选项
             VStack(alignment: .leading, spacing: 8) {
+                // 校验和
                 CheckboxRow(
-                    title: L10n.Settings.Advanced.rsyncArchive,
-                    isChecked: .constant(true) // Always on
-                )
-                .disabled(true)
-
-                CheckboxRow(
-                    title: L10n.Settings.Advanced.rsyncDelete,
-                    isChecked: .constant(true) // Default behavior
+                    title: L10n.Settings.Advanced.enableChecksum,
+                    description: L10n.Settings.Advanced.enableChecksumHint,
+                    isChecked: $config.syncEngine.enableChecksum
                 )
 
+                // 校验算法选择
+                if config.syncEngine.enableChecksum {
+                    PickerRow(
+                        title: L10n.Settings.Advanced.checksumAlgorithm,
+                        selection: $config.syncEngine.checksumAlgorithm
+                    ) {
+                        ForEach(SyncEngineConfig.ChecksumAlgorithm.allCases, id: \.self) { algo in
+                            Text(algo.displayName).tag(algo)
+                        }
+                    }
+                    .padding(.leading, 20)
+                }
+
+                // 复制后验证
                 CheckboxRow(
-                    title: L10n.Settings.Advanced.rsyncChecksum,
-                    description: L10n.Settings.Advanced.rsyncChecksumHint,
-                    isChecked: .constant(false)
+                    title: L10n.Settings.Advanced.verifyAfterCopy,
+                    description: L10n.Settings.Advanced.verifyAfterCopyHint,
+                    isChecked: $config.syncEngine.verifyAfterCopy
                 )
 
+                // 删除目标多余文件
                 CheckboxRow(
-                    title: L10n.Settings.Advanced.rsyncPartial,
-                    isChecked: .constant(true)
+                    title: L10n.Settings.Advanced.enableDelete,
+                    description: L10n.Settings.Advanced.enableDeleteHint,
+                    isChecked: $config.syncEngine.enableDelete
                 )
 
+                // 暂停/恢复
                 CheckboxRow(
-                    title: L10n.Settings.Advanced.rsyncCompress,
-                    description: L10n.Settings.Advanced.rsyncCompressHint,
-                    isChecked: .constant(false)
+                    title: L10n.Settings.Advanced.enablePauseResume,
+                    description: L10n.Settings.Advanced.enablePauseResumeHint,
+                    isChecked: $config.syncEngine.enablePauseResume
                 )
+            }
+
+            SectionDivider(title: L10n.Settings.Advanced.conflictResolution)
+
+            // 冲突解决策略
+            VStack(alignment: .leading, spacing: 8) {
+                PickerRow(
+                    title: L10n.Settings.Advanced.conflictStrategy,
+                    selection: $config.syncEngine.conflictStrategy
+                ) {
+                    ForEach(SyncEngineConfig.SyncConflictStrategy.allCases, id: \.self) { strategy in
+                        Text(strategy.displayName).tag(strategy)
+                    }
+                }
+
+                // 自动解决冲突
+                CheckboxRow(
+                    title: L10n.Settings.Advanced.autoResolveConflicts,
+                    description: L10n.Settings.Advanced.autoResolveConflictsHint,
+                    isChecked: $config.syncEngine.autoResolveConflicts
+                )
+
+                // 备份后缀
+                HStack {
+                    Text(L10n.Settings.Advanced.backupSuffix)
+                        .frame(width: 120, alignment: .leading)
+                    TextField("_backup", text: $config.syncEngine.backupSuffix)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 120)
+                }
             }
 
             SectionDivider(title: L10n.Settings.Advanced.logging)
@@ -105,6 +152,11 @@ struct AdvancedSettingsView: View {
                     openLogFolder()
                 }
             }
+
+            SectionDivider(title: "settings.advanced.permissions".localized)
+
+            // 权限管理
+            permissionsSection
 
             SectionDivider(title: L10n.Settings.Advanced.data)
 
@@ -153,6 +205,72 @@ struct AdvancedSettingsView: View {
             }
         } message: {
             Text(L10n.Settings.Advanced.clearAllDataConfirm)
+        }
+        .task {
+            await permissionManager.checkAllPermissions()
+        }
+    }
+
+    // MARK: - 权限管理部分
+
+    private var permissionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // 完全磁盘访问权限
+            PermissionRow(
+                title: "settings.advanced.fullDiskAccess".localized,
+                hint: "settings.advanced.fullDiskAccessHint".localized,
+                isChecking: permissionManager.isChecking,
+                isGranted: permissionManager.hasFullDiskAccess,
+                buttonText: permissionManager.authorizeButtonText(for: .fullDiskAccess)
+            ) {
+                Task {
+                    await permissionManager.authorize(.fullDiskAccess)
+                }
+            }
+
+            Divider()
+
+            // 通知权限
+            PermissionRow(
+                title: "settings.advanced.notificationPermission".localized,
+                hint: "settings.advanced.notificationPermissionHint".localized,
+                isChecking: permissionManager.isChecking,
+                isGranted: permissionManager.hasNotificationPermission,
+                buttonText: permissionManager.authorizeButtonText(for: .notifications)
+            ) {
+                Task {
+                    await permissionManager.authorize(.notifications)
+                }
+            }
+
+            Divider()
+
+            // 刷新按钮
+            HStack {
+                Spacer()
+                Button {
+                    Task {
+                        await permissionManager.refreshPermissions()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                        Text("settings.advanced.refreshPermissions".localized)
+                    }
+                }
+                .controlSize(.small)
+                .disabled(permissionManager.isChecking)
+            }
+        }
+    }
+
+    private func permissionStatusBadge(granted: Bool) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: granted ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .foregroundColor(granted ? .green : .red)
+            Text(granted ? "wizard.permissions.status.granted".localized : "wizard.permissions.status.notGranted".localized)
+                .font(.caption)
+                .foregroundColor(granted ? .green : .red)
         }
     }
 
@@ -203,20 +321,16 @@ struct AdvancedSettingsView: View {
         // Reset config
         config = AppConfig()
 
-        // Clear cache
-        let cachePath = "~/Library/Application Support/DMSA/LocalCache/"
-        let expandedPath = (cachePath as NSString).expandingTildeInPath
-        try? FileManager.default.removeItem(atPath: expandedPath)
-
         // Clear database
-        let dbPath = "~/Library/Application Support/DMSA/Data/"
-        let expandedDbPath = (dbPath as NSString).expandingTildeInPath
-        try? FileManager.default.removeItem(atPath: expandedDbPath)
+        let dbPath = Constants.Paths.database.path
+        try? FileManager.default.removeItem(atPath: dbPath)
 
         // Clear logs
-        let logDir = (config.logging.logPath as NSString).deletingLastPathComponent
-        let expandedLogDir = (logDir as NSString).expandingTildeInPath
-        try? FileManager.default.removeItem(atPath: expandedLogDir)
+        let logDir = Constants.Paths.logs.path
+        try? FileManager.default.removeItem(atPath: logDir)
+
+        // Note: Downloads_Local is user data, not cleared automatically
+        // User should manage ~/Downloads_Local manually if needed
 
         // Save fresh config
         configManager.saveConfig()

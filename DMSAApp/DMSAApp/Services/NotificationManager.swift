@@ -19,6 +19,7 @@ final class NotificationManager: NSObject {
 
     private let center = UNUserNotificationCenter.current()
     private var isAuthorized = false
+    private let databaseManager = DatabaseManager.shared
 
     private override init() {
         super.init()
@@ -50,6 +51,23 @@ final class NotificationManager: NSObject {
         body: String,
         userInfo: [String: Any] = [:]
     ) {
+        // 将 userInfo 转换为 [String: String]
+        var stringUserInfo: [String: String] = [:]
+        for (key, value) in userInfo {
+            stringUserInfo[key] = String(describing: value)
+        }
+
+        // 保存通知记录到数据库
+        let actionType = NotificationRecord.determineActionType(type: type.rawValue, userInfo: stringUserInfo)
+        let record = NotificationRecord(
+            type: type.rawValue,
+            title: title,
+            body: body,
+            userInfo: stringUserInfo,
+            actionType: actionType
+        )
+        databaseManager.saveNotificationRecord(record)
+
         // 检查配置是否允许此类通知
         guard shouldSendNotification(type: type) else {
             Logger.shared.debug("通知被配置禁用: \(type.rawValue)")
@@ -64,6 +82,7 @@ final class NotificationManager: NSObject {
 
         var info = userInfo
         info["type"] = type.rawValue
+        info["recordId"] = record.id
         content.userInfo = info
 
         let request = UNNotificationRequest(

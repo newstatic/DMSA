@@ -197,6 +197,7 @@ enum L10n {
         static var filters: String { "settings.filters".localized }
         static var cache: String { "settings.cache".localized }
         static var notifications: String { "settings.notifications".localized }
+        static var statistics: String { "settings.statistics".localized }
         static var advanced: String { "settings.advanced".localized }
         static var restoreDefaults: String { "settings.restoreDefaults".localized }
 
@@ -326,14 +327,26 @@ enum L10n {
             static var retryCount: String { "settings.advanced.retryCount".localized }
             static var retryCountUnit: String { "settings.advanced.retryCountUnit".localized }
             static var timeout: String { "settings.advanced.timeout".localized }
-            static var rsyncOptions: String { "settings.advanced.rsyncOptions".localized }
-            static var rsyncArchive: String { "settings.advanced.rsync.archive".localized }
-            static var rsyncDelete: String { "settings.advanced.rsync.delete".localized }
-            static var rsyncChecksum: String { "settings.advanced.rsync.checksum".localized }
-            static var rsyncChecksumHint: String { "settings.advanced.rsync.checksumHint".localized }
-            static var rsyncPartial: String { "settings.advanced.rsync.partial".localized }
-            static var rsyncCompress: String { "settings.advanced.rsync.compress".localized }
-            static var rsyncCompressHint: String { "settings.advanced.rsync.compressHint".localized }
+
+            // 同步选项 (替代 rsync)
+            static var syncOptions: String { "settings.advanced.syncOptions".localized }
+            static var enableChecksum: String { "settings.advanced.enableChecksum".localized }
+            static var enableChecksumHint: String { "settings.advanced.enableChecksumHint".localized }
+            static var checksumAlgorithm: String { "settings.advanced.checksumAlgorithm".localized }
+            static var verifyAfterCopy: String { "settings.advanced.verifyAfterCopy".localized }
+            static var verifyAfterCopyHint: String { "settings.advanced.verifyAfterCopyHint".localized }
+            static var enableDelete: String { "settings.advanced.enableDelete".localized }
+            static var enableDeleteHint: String { "settings.advanced.enableDeleteHint".localized }
+            static var enablePauseResume: String { "settings.advanced.enablePauseResume".localized }
+            static var enablePauseResumeHint: String { "settings.advanced.enablePauseResumeHint".localized }
+
+            // 冲突解决
+            static var conflictResolution: String { "settings.advanced.conflictResolution".localized }
+            static var conflictStrategy: String { "settings.advanced.conflictStrategy".localized }
+            static var autoResolveConflicts: String { "settings.advanced.autoResolveConflicts".localized }
+            static var autoResolveConflictsHint: String { "settings.advanced.autoResolveConflictsHint".localized }
+            static var backupSuffix: String { "settings.advanced.backupSuffix".localized }
+
             static var logging: String { "settings.advanced.logging".localized }
             static var logLevel: String { "settings.advanced.logLevel".localized }
             static var logLevelDebug: String { "settings.advanced.logLevel.debug".localized }
@@ -417,7 +430,7 @@ enum L10n {
             static var updated: String { "history.detail.updated".localized }
             static var deleted: String { "history.detail.deleted".localized }
             static var skipped: String { "history.detail.skipped".localized }
-            static var rsyncOutput: String { "history.detail.rsyncOutput".localized }
+            static var syncLog: String { "history.detail.syncLog".localized }
             static var copyLog: String { "history.detail.copyLog".localized }
             static var viewDetails: String { "history.detail.viewDetails".localized }
         }
@@ -523,7 +536,6 @@ enum L10n {
         static func permissionDenied(_ path: String) -> String {
             String(format: "error.permissionDenied".localized, path)
         }
-        static var rsyncFailed: String { "error.rsyncFailed".localized }
         static var configLoadFailed: String { "error.configLoadFailed".localized }
         static var configSaveFailed: String { "error.configSaveFailed".localized }
         static var syncAlreadyRunning: String { "error.syncAlreadyRunning".localized }

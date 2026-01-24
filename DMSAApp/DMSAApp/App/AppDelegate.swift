@@ -1,4 +1,5 @@
 import Cocoa
+import SwiftUI
 
 /// 应用代理
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -9,7 +10,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let configManager = ConfigManager.shared
     private let diskManager = DiskManager.shared
     private let syncEngine = SyncEngine.shared
-    private let notificationManager = NotificationManager.shared
+    private let alertManager = AlertManager.shared
+    private let appearanceManager = AppearanceManager.shared
+    private let privilegedClient = PrivilegedClient.shared
+
+    // MARK: - 窗口控制器
+
+    private var mainWindowController: MainWindowController?
+
+    // MARK: - 同步控制属性
+
+    /// 是否自动同步已启用
+    var isAutoSyncEnabled: Bool {
+        get { configManager.config.general.autoSyncEnabled }
+        set {
+            configManager.config.general.autoSyncEnabled = newValue
+            configManager.saveConfig()
+            Logger.shared.info("自动同步开关: \(newValue ? "开启" : "关闭")")
+        }
+    }
 
     // MARK: - 生命周期
 
@@ -21,8 +40,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupManagers()
         setupDiskCallbacks()
         checkInitialState()
+        applyAppearanceSettings()
+
+        // 检查权限
+        checkPermissionsOnStartup()
+
+        // 检查并安装 Helper
+        checkAndInstallHelper()
+
+        // 检查 macFUSE
+        checkMacFUSE()
+
+        // 启动时打开主窗口
+        mainWindowController?.showWindow()
 
         Logger.shared.info("应用初始化完成")
+        Logger.shared.info("自动同步状态: \(isAutoSyncEnabled ? "已启用" : "已禁用")")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -52,6 +85,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 设置同步引擎代理
         syncEngine.delegate = self
+
+        // 初始化主窗口控制器
+        mainWindowController = MainWindowController(configManager: configManager)
 
         Logger.shared.info("管理器初始化完成")
     }
@@ -109,6 +145,164 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Logger.shared.info("已创建默认配置: BACKUP 硬盘 + Downloads 同步对")
     }
 
+    private func applyAppearanceSettings() {
+        // 应用 Dock 图标显示设置
+        appearanceManager.applySettings(from: configManager.config.general)
+        Logger.shared.info("外观设置已应用")
+    }
+
+    private func checkPermissionsOnStartup() {
+        Task { @MainActor in
+            let permissionManager = PermissionManager.shared
+            await permissionManager.checkAllPermissions()
+
+            // 记录权限状态
+            Logger.shared.info("权限状态检查:")
+            Logger.shared.info("  - 完全磁盘访问: \(permissionManager.hasFullDiskAccess ? "已授权" : "未授权")")
+            Logger.shared.info("  - 通知权限: \(permissionManager.hasNotificationPermission ? "已授权" : "未授权")")
+
+            // 如果缺少关键权限，提醒用户
+            if !permissionManager.hasFullDiskAccess {
+                Logger.shared.warn("警告: 未获得完全磁盘访问权限，某些目录可能无法同步")
+            }
+
+            // 如果没有通知权限，请求
+            if !permissionManager.hasNotificationPermission {
+                _ = await permissionManager.requestNotificationPermission()
+            }
+        }
+    }
+
+    private func checkAndInstallHelper() {
+        Logger.shared.info("检查特权助手状态...")
+
+        let status = privilegedClient.getHelperStatus()
+        Logger.shared.info("Helper 状态: \(status)")
+
+        switch status {
+        case .notInstalled, .notFound:
+            Logger.shared.info("Helper 未安装，尝试安装...")
+            installHelper()
+        case .requiresApproval:
+            Logger.shared.warn("Helper 需要用户批准")
+            showHelperApprovalAlert()
+        case .installed:
+            Logger.shared.info("Helper 已安装")
+            verifyHelperVersion()
+        case .unknown:
+            Logger.shared.warn("Helper 状态未知")
+        }
+    }
+
+    private func installHelper() {
+        do {
+            try privilegedClient.installHelper()
+            Logger.shared.info("Helper 安装成功")
+        } catch {
+            Logger.shared.error("Helper 安装失败: \(error.localizedDescription)")
+            showHelperInstallFailedAlert(error: error)
+        }
+    }
+
+    private func verifyHelperVersion() {
+        Task {
+            do {
+                let version = try await privilegedClient.getHelperVersion()
+                Logger.shared.info("Helper 版本: \(version)")
+
+                if version != kDMSAHelperProtocolVersion {
+                    Logger.shared.warn("Helper 版本不匹配，需要更新")
+                    // 可以选择重新安装
+                }
+            } catch {
+                Logger.shared.warn("无法获取 Helper 版本: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func showHelperApprovalAlert() {
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "需要批准特权助手"
+            alert.informativeText = "DMSA 需要安装特权助手来保护本地缓存目录。\n\n请前往 系统设置 > 隐私与安全性 > 登录项与扩展 中批准 DMSA Helper。"
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "打开系统设置")
+            alert.addButton(withTitle: "稍后")
+
+            if alert.runModal() == .alertFirstButtonReturn {
+                // 打开系统设置
+                if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+    }
+
+    private func showHelperInstallFailedAlert(error: Error) {
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "特权助手安装失败"
+            alert.informativeText = "无法安装特权助手: \(error.localizedDescription)\n\n部分功能（如目录保护）可能无法正常工作。"
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "确定")
+            alert.runModal()
+        }
+    }
+
+    private func checkMacFUSE() {
+        Logger.shared.info("检查 macFUSE 状态...")
+
+        let availability = FUSEManager.shared.checkFUSEAvailability()
+
+        switch availability {
+        case .available(let version):
+            Logger.shared.info("macFUSE 已安装，版本: \(version)")
+        case .notInstalled, .frameworkMissing:
+            Logger.shared.warn("macFUSE 未安装")
+            showMacFUSENotInstalledAlert()
+        case .versionTooOld(let current, let required):
+            Logger.shared.warn("macFUSE 版本过旧: \(current)，需要 \(required)")
+            showMacFUSEUpdateAlert(current: current, required: required)
+        case .loadError(let error):
+            Logger.shared.error("macFUSE 加载失败: \(error.localizedDescription)")
+            showMacFUSENotInstalledAlert()
+        }
+    }
+
+    private func showMacFUSENotInstalledAlert() {
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "macFUSE 未安装"
+            alert.informativeText = "DMSA 需要 macFUSE 来创建虚拟文件系统。\n\n请从官方网站下载并安装 macFUSE。"
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "下载 macFUSE")
+            alert.addButton(withTitle: "稍后")
+
+            if alert.runModal() == .alertFirstButtonReturn {
+                if let url = URL(string: "https://macfuse.github.io/") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+    }
+
+    private func showMacFUSEUpdateAlert(current: String, required: String) {
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "macFUSE 需要更新"
+            alert.informativeText = "当前版本 \(current) 过旧，需要 \(required) 或更高版本。\n\n请从官方网站下载最新版本。"
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "下载更新")
+            alert.addButton(withTitle: "稍后")
+
+            if alert.runModal() == .alertFirstButtonReturn {
+                if let url = URL(string: "https://macfuse.github.io/") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+    }
+
     // MARK: - 硬盘事件处理
 
     private func handleDiskConnected(_ disk: DiskConfig) {
@@ -117,8 +311,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 更新菜单栏状态
         menuBarManager.updateDiskState(disk.name, state: .connected(diskName: disk.name, usedSpace: nil, totalSpace: nil))
 
-        // 发送通知
-        notificationManager.notifyDiskConnected(diskName: disk.name)
+        // 发送弹窗通知
+        alertManager.alertDiskConnected(diskName: disk.name)
+
+        // 检查自动同步开关
+        guard isAutoSyncEnabled else {
+            Logger.shared.info("自动同步已禁用，跳过自动同步")
+            return
+        }
 
         // 自动开始同步
         Task {
@@ -144,8 +344,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             menuBarManager.updateDiskState(firstDisk.name, state: .connected(diskName: firstDisk.name, usedSpace: nil, totalSpace: nil))
         }
 
-        // 发送通知
-        notificationManager.notifyDiskDisconnected(diskName: disk.name)
+        // 发送弹窗通知
+        alertManager.alertDiskDisconnected(diskName: disk.name)
     }
 
     private func restoreSymlinksForDisk(_ disk: DiskConfig) {
@@ -173,7 +373,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             Logger.shared.error("同步失败: \(error.localizedDescription)")
             menuBarManager.updateSyncState(.error(error.localizedDescription))
-            notificationManager.notifySyncFailed(error: error.localizedDescription)
+            alertManager.alertSyncFailed(error: error.localizedDescription)
         }
     }
 
@@ -190,19 +390,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - 设置窗口
 
-    private var settingsWindowController: NSWindowController?
-
     private func showSettings() {
-        // TODO: 实现设置窗口
-        Logger.shared.info("打开设置窗口 (待实现)")
+        Logger.shared.info("打开设置窗口")
+        mainWindowController?.showWindow()
+    }
 
-        // 临时：显示简单的提示
-        let alert = NSAlert()
-        alert.messageText = "设置"
-        alert.informativeText = "设置界面开发中...\n\n配置文件位置:\n\(configManager.config)"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "确定")
-        alert.runModal()
+    // MARK: - 公共方法
+
+    /// 切换自动同步开关
+    func toggleAutoSync() {
+        isAutoSyncEnabled = !isAutoSyncEnabled
+        menuBarManager.updateAutoSyncState(isEnabled: isAutoSyncEnabled)
     }
 }
 
@@ -218,9 +416,8 @@ extension AppDelegate: MenuBarDelegate {
         showSettings()
     }
 
-    func menuBarDidRequestHistory() {
-        Logger.shared.info("用户打开同步历史")
-        // History window is handled by MenuBarManager
+    func menuBarDidRequestToggleAutoSync() {
+        toggleAutoSync()
     }
 }
 
@@ -229,7 +426,7 @@ extension AppDelegate: MenuBarDelegate {
 extension AppDelegate: SyncEngineDelegate {
     func syncEngine(_ engine: SyncEngine, didStartTask task: SyncTask) {
         Logger.shared.info("同步任务开始: \(task.syncPair.localPath)")
-        notificationManager.notifySyncStarted(pairName: task.syncPair.localPath)
+        // 同步开始时不弹窗，避免打扰用户
     }
 
     func syncEngine(_ engine: SyncEngine, didUpdateProgress task: SyncTask, progress: Double, message: String) {
@@ -237,9 +434,9 @@ extension AppDelegate: SyncEngineDelegate {
         Logger.shared.debug("同步进度: \(Int(progress * 100))%")
     }
 
-    func syncEngine(_ engine: SyncEngine, didCompleteTask task: SyncTask, result: RsyncResult) {
+    func syncEngine(_ engine: SyncEngine, didCompleteTask task: SyncTask, result: SyncResult) {
         Logger.shared.info("同步任务完成: \(task.syncPair.localPath), 文件数: \(result.filesTransferred)")
-        notificationManager.notifySyncCompleted(
+        alertManager.alertSyncCompleted(
             filesCount: result.filesTransferred,
             totalSize: result.bytesTransferred,
             duration: result.duration
@@ -248,6 +445,6 @@ extension AppDelegate: SyncEngineDelegate {
 
     func syncEngine(_ engine: SyncEngine, didFailTask task: SyncTask, error: Error) {
         Logger.shared.error("同步任务失败: \(task.syncPair.localPath), 错误: \(error.localizedDescription)")
-        notificationManager.notifySyncFailed(error: error.localizedDescription)
+        alertManager.alertSyncFailed(error: error.localizedDescription)
     }
 }

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.ttttt.dmsa.sync</string>
+
+    <key>CFBundleName</key>
+    <string>DMSA Sync Service</string>
+
+    <key>CFBundleDisplayName</key>
+    <string>DMSA Sync Service</string>
+
+    <key>CFBundleVersion</key>
+    <string>4.0</string>
+
+    <key>CFBundleShortVersionString</key>
+    <string>4.0</string>
+
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+
+    <key>CFBundlePackageType</key>
+    <string>XPC!</string>
+
+    <key>SMAuthorizedClients</key>
+    <array>
+        <string>identifier "com.ttttt.dmsa" and anchor apple generic</string>
+        <string>identifier "com.ttttt.dmsa.vfs" and anchor apple generic</string>
+    </array>
+
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2026 DMSA. All rights reserved.</string>
+</dict>
+</plist>

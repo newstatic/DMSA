@@ -6,7 +6,7 @@
     <key>SMPrivilegedExecutables</key>
     <dict>
         <key>com.ttttt.dmsa.helper</key>
-        <string>identifier "com.ttttt.dmsa.helper" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: *" or certificate leaf[subject.CN] = "Developer ID Application: *"</string>
+        <string>identifier "com.ttttt.dmsa.helper" and anchor apple generic and certificate leaf[subject.OU] = "9QGKH6ZBPG"</string>
     </dict>
 </dict>
 </plist>

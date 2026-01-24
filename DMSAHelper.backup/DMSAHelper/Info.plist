@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.ttttt.dmsa.helper</string>
+    <key>CFBundleName</key>
+    <string>DMSAHelper</string>
+    <key>CFBundleDisplayName</key>
+    <string>DMSA Privileged Helper</string>
+    <key>CFBundleVersion</key>
+    <string>1.0.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundlePackageType</key>
+    <string>XPC!</string>
+    <key>CFBundleExecutable</key>
+    <string>com.ttttt.dmsa.helper</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+
+    <!-- SMJobBless 配置 -->
+    <key>SMAuthorizedClients</key>
+    <array>
+        <!-- 只允许 DMSA 主应用连接 (开发证书) -->
+        <string>identifier "com.ttttt.dmsa" and anchor apple generic and certificate leaf[subject.OU] = "9QGKH6ZBPG"</string>
+    </array>
+</dict>
+</plist>

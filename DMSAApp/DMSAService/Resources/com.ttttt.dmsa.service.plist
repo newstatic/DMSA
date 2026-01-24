@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Service identifier -->
+    <key>Label</key>
+    <string>com.ttttt.dmsa.service</string>
+
+    <!-- XPC Mach service -->
+    <key>MachServices</key>
+    <dict>
+        <key>com.ttttt.dmsa.service</key>
+        <true/>
+    </dict>
+
+    <!-- Program path (installed by SMAppService) -->
+    <key>Program</key>
+    <string>/Library/PrivilegedHelperTools/com.ttttt.dmsa.service</string>
+
+    <!-- Run as root -->
+    <key>UserName</key>
+    <string>root</string>
+
+    <!-- Keep alive settings -->
+    <key>KeepAlive</key>
+    <dict>
+        <!-- Restart if crashed -->
+        <key>SuccessfulExit</key>
+        <false/>
+        <!-- Only run when main app is running -->
+        <key>OtherJobEnabled</key>
+        <dict>
+            <key>com.ttttt.dmsa</key>
+            <true/>
+        </dict>
+    </dict>
+
+    <!-- Resource limits -->
+    <key>ProcessType</key>
+    <string>Interactive</string>
+
+    <!-- Environment variables -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/bin:/bin:/usr/sbin:/sbin:/Library/Frameworks</string>
+    </dict>
+
+    <!-- Standard output/error logging -->
+    <key>StandardOutPath</key>
+    <string>/var/log/dmsa-service.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/dmsa-service.error.log</string>
+
+    <!-- Terminate gracefully on shutdown -->
+    <key>ExitTimeOut</key>
+    <integer>30</integer>
+</dict>
+</plist>

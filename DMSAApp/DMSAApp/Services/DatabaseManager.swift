@@ -13,11 +13,13 @@ final class DatabaseManager {
     private let fileEntriesURL: URL
     private let syncHistoryURL: URL
     private let syncStatisticsURL: URL
+    private let notificationRecordsURL: URL
 
     // 内存缓存
     private var fileEntries: [String: FileEntry] = [:]  // virtualPath -> FileEntry
     private var syncHistory: [SyncHistory] = []
     private var syncStatistics: [String: SyncStatistics] = [:]  // dateKey -> Statistics
+    private var notificationRecords: [NotificationRecord] = []
 
     private let queue = DispatchQueue(label: "com.ttttt.dmsa.database")
 
@@ -31,6 +33,7 @@ final class DatabaseManager {
         fileEntriesURL = dataDirectory.appendingPathComponent("file_entries.json")
         syncHistoryURL = dataDirectory.appendingPathComponent("sync_history.json")
         syncStatisticsURL = dataDirectory.appendingPathComponent("sync_statistics.json")
+        notificationRecordsURL = dataDirectory.appendingPathComponent("notification_records.json")
 
         loadAllData()
     }
@@ -41,6 +44,7 @@ final class DatabaseManager {
         loadFileEntries()
         loadSyncHistory()
         loadSyncStatistics()
+        loadNotificationRecords()
         Logger.shared.info("数据库加载完成")
     }
 
@@ -73,6 +77,15 @@ final class DatabaseManager {
             (dateFormatter.string(from: $0.date) + "_" + $0.diskId, $0)
         })
         Logger.shared.debug("加载 \(syncStatistics.count) 条统计数据")
+    }
+
+    private func loadNotificationRecords() {
+        guard let data = try? Data(contentsOf: notificationRecordsURL),
+              let records = try? JSONDecoder().decode([NotificationRecord].self, from: data) else {
+            return
+        }
+        notificationRecords = records
+        Logger.shared.debug("加载 \(notificationRecords.count) 条通知记录")
     }
 
     // MARK: - 数据保存
@@ -111,6 +124,18 @@ final class DatabaseManager {
                 try data.write(to: self.syncStatisticsURL)
             } catch {
                 Logger.shared.error("保存统计数据失败: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func saveNotificationRecords() {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            do {
+                let data = try JSONEncoder().encode(self.notificationRecords)
+                try data.write(to: self.notificationRecordsURL)
+            } catch {
+                Logger.shared.error("保存通知记录失败: \(error.localizedDescription)")
             }
         }
     }
@@ -167,7 +192,77 @@ final class DatabaseManager {
     func getEvictableFiles() -> [FileEntry] {
         return queue.sync {
             fileEntries.values.filter { entry in
-                !entry.isDirty && entry.location == .both && entry.localPath != nil
+                !entry.isDirty &&
+                entry.location == .both &&
+                entry.localPath != nil &&
+                entry.lockState == .unlocked
+            }
+        }
+    }
+
+    /// 获取所有锁定的文件
+    func getLockedFiles() -> [FileEntry] {
+        return queue.sync {
+            fileEntries.values.filter { $0.lockState == .syncLocked }
+        }
+    }
+
+    /// 更新文件锁定状态
+    func updateLockState(virtualPath: String, lockState: LockState, direction: SyncLockDirection? = nil) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            if var entry = self.fileEntries[virtualPath] {
+                entry.lockState = lockState
+                if lockState == .syncLocked {
+                    entry.lockTime = Date()
+                    entry.lockDirection = direction
+                } else {
+                    entry.lockTime = nil
+                    entry.lockDirection = nil
+                }
+                self.fileEntries[virtualPath] = entry
+                self.saveFileEntries()
+            }
+        }
+    }
+
+    /// 批量更新锁定状态
+    func updateLockStates(virtualPaths: [String], lockState: LockState, direction: SyncLockDirection? = nil) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            for path in virtualPaths {
+                if var entry = self.fileEntries[path] {
+                    entry.lockState = lockState
+                    if lockState == .syncLocked {
+                        entry.lockTime = Date()
+                        entry.lockDirection = direction
+                    } else {
+                        entry.lockTime = nil
+                        entry.lockDirection = nil
+                    }
+                    self.fileEntries[path] = entry
+                }
+            }
+            self.saveFileEntries()
+        }
+    }
+
+    /// 清理超时的锁
+    func cleanupExpiredLocks() {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            var cleaned = 0
+            for (path, entry) in self.fileEntries {
+                if entry.isLockExpired {
+                    var mutableEntry = entry
+                    mutableEntry.unlock()
+                    self.fileEntries[path] = mutableEntry
+                    cleaned += 1
+                }
+            }
+            if cleaned > 0 {
+                Logger.shared.warn("清理超时锁: \(cleaned) 个")
+                self.saveFileEntries()
             }
         }
     }
@@ -221,8 +316,25 @@ final class DatabaseManager {
     }
 
     func getAllSyncHistory() -> [SyncHistory] {
-        return queue.sync {
-            Array(syncHistory.reversed())
+        // 使用异步方式避免阻塞调用线程
+        var result: [SyncHistory] = []
+        queue.sync {
+            result = Array(syncHistory.reversed())
+        }
+        return result
+    }
+
+    /// 异步获取所有同步历史 (推荐使用)
+    func getAllSyncHistoryAsync() async -> [SyncHistory] {
+        return await withCheckedContinuation { continuation in
+            queue.async { [weak self] in
+                guard let self = self else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                let result = Array(self.syncHistory.reversed())
+                continuation.resume(returning: result)
+            }
         }
     }
 
@@ -277,6 +389,82 @@ final class DatabaseManager {
         return queue.sync { syncStatistics[dateKey] }
     }
 
+    // MARK: - NotificationRecord 操作
+
+    func saveNotificationRecord(_ record: NotificationRecord) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.notificationRecords.insert(record, at: 0)
+
+            // 限制最多保存 500 条记录
+            if self.notificationRecords.count > 500 {
+                self.notificationRecords = Array(self.notificationRecords.prefix(500))
+            }
+
+            self.saveNotificationRecords()
+        }
+    }
+
+    func getNotificationRecords(limit: Int = 100) -> [NotificationRecord] {
+        return queue.sync {
+            Array(notificationRecords.prefix(limit))
+        }
+    }
+
+    func getAllNotificationRecords() -> [NotificationRecord] {
+        return queue.sync {
+            notificationRecords
+        }
+    }
+
+    func getUnreadNotificationRecords() -> [NotificationRecord] {
+        return queue.sync {
+            notificationRecords.filter { !$0.isRead }
+        }
+    }
+
+    func getUnreadCount() -> Int {
+        return queue.sync {
+            notificationRecords.filter { !$0.isRead }.count
+        }
+    }
+
+    func markNotificationAsRead(_ id: UInt64) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            if let index = self.notificationRecords.firstIndex(where: { $0.id == id }) {
+                self.notificationRecords[index].isRead = true
+                self.saveNotificationRecords()
+            }
+        }
+    }
+
+    func markAllNotificationsAsRead() {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            for i in 0..<self.notificationRecords.count {
+                self.notificationRecords[i].isRead = true
+            }
+            self.saveNotificationRecords()
+        }
+    }
+
+    func clearNotificationRecords(olderThan date: Date) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.notificationRecords.removeAll { $0.createdAt < date }
+            self.saveNotificationRecords()
+        }
+    }
+
+    func clearAllNotificationRecords() {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.notificationRecords.removeAll()
+            self.saveNotificationRecords()
+        }
+    }
+
     // MARK: - 清理
 
     func clearAllData() {
@@ -285,10 +473,12 @@ final class DatabaseManager {
             self.fileEntries.removeAll()
             self.syncHistory.removeAll()
             self.syncStatistics.removeAll()
+            self.notificationRecords.removeAll()
 
             try? self.fileManager.removeItem(at: self.fileEntriesURL)
             try? self.fileManager.removeItem(at: self.syncHistoryURL)
             try? self.fileManager.removeItem(at: self.syncStatisticsURL)
+            try? self.fileManager.removeItem(at: self.notificationRecordsURL)
 
             Logger.shared.info("所有数据已清除")
         }

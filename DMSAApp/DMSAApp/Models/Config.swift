@@ -12,6 +12,7 @@ struct AppConfig: Codable {
     var notifications: NotificationConfig = NotificationConfig()
     var logging: LoggingConfig = LoggingConfig()
     var ui: UIConfig = UIConfig()
+    var syncEngine: SyncEngineConfig = SyncEngineConfig()
 }
 
 // MARK: - General Config
@@ -21,6 +22,7 @@ struct GeneralConfig: Codable {
     var showInDock: Bool = false
     var checkForUpdates: Bool = true
     var language: String = "system"
+    var autoSyncEnabled: Bool = true  // 全局自动同步开关
 }
 
 // MARK: - Disk Config
@@ -66,6 +68,12 @@ struct SyncPairConfig: Codable, Identifiable, Equatable {
     var enabled: Bool = true
     var excludePatterns: [String] = []
 
+    /// 同步对名称 (用于显示)
+    var name: String {
+        // 从本地路径提取目录名作为名称
+        return (localPath as NSString).lastPathComponent
+    }
+
     init(diskId: String, localPath: String, externalRelativePath: String) {
         self.id = UUID().uuidString
         self.diskId = diskId
@@ -94,6 +102,34 @@ struct SyncPairConfig: Codable, Identifiable, Equatable {
     /// 展开本地路径
     var expandedLocalPath: String {
         return (localPath as NSString).expandingTildeInPath
+    }
+
+    // MARK: - VFS 属性 (v3.0)
+
+    /// TARGET_DIR - VFS 挂载点 (用户访问入口)
+    /// 例如: ~/Downloads
+    var targetDir: String {
+        return localPath  // 挂载到原始本地路径位置
+    }
+
+    /// LOCAL_DIR - 本地热数据缓存
+    /// 例如: ~/Downloads_Local
+    var localDir: String {
+        let path = (localPath as NSString).expandingTildeInPath
+        return path + "_Local"
+    }
+
+    /// EXTERNAL_DIR - 外部完整数据源
+    /// 例如: /Volumes/BACKUP/Downloads
+    var externalDir: String {
+        // 需要从 DiskConfig 获取挂载路径，这里返回相对路径
+        // 实际使用时需要与 DiskConfig 配合
+        return externalRelativePath
+    }
+
+    /// 获取完整的外部路径 (需要磁盘挂载路径)
+    func fullExternalDir(diskMountPath: String) -> String {
+        return (diskMountPath as NSString).appendingPathComponent(externalRelativePath)
     }
 }
 
@@ -281,6 +317,89 @@ enum FileLocation: Int, Codable {
         case .localOnly: return "仅本地"
         case .externalOnly: return "仅外置"
         case .both: return "两端都有"
+        }
+    }
+}
+
+// MARK: - Sync Engine Config
+
+struct SyncEngineConfig: Codable, Equatable {
+    /// 是否启用校验和
+    var enableChecksum: Bool = true
+
+    /// 校验算法
+    var checksumAlgorithm: ChecksumAlgorithm = .md5
+
+    /// 复制后验证
+    var verifyAfterCopy: Bool = true
+
+    /// 冲突解决策略
+    var conflictStrategy: SyncConflictStrategy = .localWinsWithBackup
+
+    /// 是否自动解决冲突
+    var autoResolveConflicts: Bool = true
+
+    /// 备份文件后缀
+    var backupSuffix: String = "_backup"
+
+    /// 是否启用删除
+    var enableDelete: Bool = true
+
+    /// 缓冲区大小 (字节)
+    var bufferSize: Int = 1024 * 1024  // 1MB
+
+    /// 并行操作数
+    var parallelOperations: Int = 4
+
+    /// 是否包含隐藏文件
+    var includeHidden: Bool = false
+
+    /// 是否跟随符号链接
+    var followSymlinks: Bool = false
+
+    /// 启用暂停/恢复
+    var enablePauseResume: Bool = true
+
+    /// 状态检查点间隔 (文件数)
+    var stateCheckpointInterval: Int = 50
+
+    /// 校验算法枚举
+    enum ChecksumAlgorithm: String, Codable, CaseIterable {
+        case md5 = "md5"
+        case sha256 = "sha256"
+        case xxhash64 = "xxhash64"
+
+        var displayName: String {
+            switch self {
+            case .md5: return "MD5 (推荐)"
+            case .sha256: return "SHA-256 (更安全)"
+            case .xxhash64: return "xxHash64 (最快)"
+            }
+        }
+    }
+
+    /// 冲突解决策略枚举
+    enum SyncConflictStrategy: String, Codable, CaseIterable {
+        case newerWins = "newer_wins"
+        case largerWins = "larger_wins"
+        case localWins = "local_wins"
+        case externalWins = "external_wins"
+        case localWinsWithBackup = "local_wins_backup"
+        case externalWinsWithBackup = "external_wins_backup"
+        case askUser = "ask_user"
+        case keepBoth = "keep_both"
+
+        var displayName: String {
+            switch self {
+            case .newerWins: return "新文件覆盖"
+            case .largerWins: return "大文件覆盖"
+            case .localWins: return "本地优先"
+            case .externalWins: return "外置优先"
+            case .localWinsWithBackup: return "本地优先 (备份)"
+            case .externalWinsWithBackup: return "外置优先 (备份)"
+            case .askUser: return "每次询问"
+            case .keepBoth: return "保留两者"
+            }
         }
     }
 }

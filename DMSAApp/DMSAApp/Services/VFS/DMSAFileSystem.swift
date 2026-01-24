@@ -13,7 +13,14 @@ import Foundation
 ///
 /// 注意: 需要安装 macFUSE 才能使用此类
 /// 下载地址: https://macfuse.github.io/
-@objc final class DMSAFileSystem: NSObject {
+/// DMSA 文件系统委托类
+///
+/// 由于 macFUSE 的 GMUserFileSystem 通过 ObjC 运行时动态调用 delegate 方法，
+/// 我们不需要显式继承或实现协议，只需要提供正确的 @objc 方法签名。
+///
+/// 重要: 这个类不能继承 NSObject 的 GMUserFileSystem 扩展，
+/// 因为那些方法有不同的签名。我们通过 @objc(selector) 显式指定选择器。
+@objc class DMSAFileSystem: NSObject {
 
     // MARK: - 属性
 
@@ -278,11 +285,14 @@ extension DMSAFileSystem {
     // MARK: - 读取文件
 
     /// 打开文件进行读取
-    @objc func openFile(atPath path: String, mode: Int32, userData: inout Any?) -> Bool {
+    /// macFUSE 选择器: openFileAtPath:mode:userData:error:
+    @objc(openFileAtPath:mode:userData:error:)
+    func dmsa_openFile(atPath path: String, mode: Int32, userData: AutoreleasingUnsafeMutablePointer<AnyObject?>?, error: NSErrorPointer) -> Bool {
         Logger.shared.debug("DMSAFileSystem: openFile \(path) mode: \(mode)")
 
         guard let actualPath = resolveActualPath(for: path) else {
             Logger.shared.warning("DMSAFileSystem: openFile - file not found: \(path)")
+            error?.pointee = NSError(domain: NSPOSIXErrorDomain, code: Int(ENOENT))
             return false
         }
 
@@ -292,23 +302,24 @@ extension DMSAFileSystem {
 
             if mode & O_WRONLY != 0 || mode & O_RDWR != 0 {
                 // 写入模式 - 使用本地路径
-                guard let localPath = localPath(for: path) else {
+                guard let lPath = localPath(for: path) else {
+                    error?.pointee = NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
                     return false
                 }
 
                 // 确保本地文件存在
                 let fm = FileManager.default
-                let localURL = URL(fileURLWithPath: localPath)
+                let localURL = URL(fileURLWithPath: lPath)
 
-                if !fm.fileExists(atPath: localPath) {
+                if !fm.fileExists(atPath: lPath) {
                     // 从外部复制
                     if let extPath = externalPath(for: path), fm.fileExists(atPath: extPath) {
                         try? fm.createDirectory(at: localURL.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
-                        try fm.copyItem(atPath: extPath, toPath: localPath)
+                        try fm.copyItem(atPath: extPath, toPath: lPath)
                     } else {
                         // 创建空文件
-                        fm.createFile(atPath: localPath, contents: nil)
+                        fm.createFile(atPath: lPath, contents: nil)
                     }
                 }
 
@@ -323,21 +334,23 @@ extension DMSAFileSystem {
             openFileHandles[path] = handle
             handleLock.unlock()
 
-            userData = path as AnyObject
+            userData?.pointee = path as AnyObject
 
             // 更新访问时间
             databaseManager.updateAccessTime(path)
 
             return true
-        } catch {
-            Logger.shared.error("DMSAFileSystem: openFile error: \(error)")
+        } catch let err {
+            Logger.shared.error("DMSAFileSystem: openFile error: \(err)")
+            error?.pointee = NSError(domain: NSPOSIXErrorDomain, code: Int(EIO))
             return false
         }
     }
 
     /// 读取文件数据
-    @objc func readFile(atPath path: String, userData: Any?, buffer: UnsafeMutablePointer<Int8>,
-                        size: Int, offset: off_t, error: NSErrorPointer) -> Int32 {
+    /// macFUSE 选择器: readFileAtPath:userData:buffer:size:offset:error:
+    @objc(readFileAtPath:userData:buffer:size:offset:error:)
+    func dmsa_readFile(atPath path: String, userData: Any?, buffer: UnsafeMutablePointer<Int8>, size: Int, offset: off_t, error: NSErrorPointer) -> Int32 {
         Logger.shared.debug("DMSAFileSystem: readFile \(path) offset:\(offset) size:\(size)")
 
         handleLock.lock()
@@ -356,14 +369,16 @@ extension DMSAFileSystem {
 
             data.copyBytes(to: UnsafeMutableBufferPointer(start: buffer, count: data.count))
             return Int32(data.count)
-        } catch {
-            Logger.shared.error("DMSAFileSystem: readFile error: \(error)")
+        } catch let err {
+            Logger.shared.error("DMSAFileSystem: readFile error: \(err)")
+            error?.pointee = NSError(domain: NSPOSIXErrorDomain, code: Int(EIO))
             return -1
         }
     }
 
     /// 关闭文件
-    @objc func releaseFile(atPath path: String, userData: Any?) {
+    @objc(releaseFileAtPath:userData:)
+    func dmsa_releaseFile(atPath path: String, userData: Any?) {
         Logger.shared.debug("DMSAFileSystem: releaseFile \(path)")
 
         handleLock.lock()
@@ -376,19 +391,20 @@ extension DMSAFileSystem {
     // MARK: - 写入文件
 
     /// 写入文件数据
-    @objc func writeFile(atPath path: String, userData: Any?, buffer: UnsafePointer<Int8>,
-                         size: Int, offset: off_t, error: NSErrorPointer) -> Int32 {
+    /// macFUSE 选择器: writeFileAtPath:userData:buffer:size:offset:error:
+    @objc(writeFileAtPath:userData:buffer:size:offset:error:)
+    func dmsa_writeFile(atPath path: String, userData: Any?, buffer: UnsafePointer<Int8>, size: Int, offset: off_t, error: NSErrorPointer) -> Int32 {
         Logger.shared.debug("DMSAFileSystem: writeFile \(path) offset:\(offset) size:\(size)")
 
         // 确保写入到本地目录
-        guard let localPath = localPath(for: path) else {
+        guard let lPath = localPath(for: path) else {
             error?.pointee = NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
             return -1
         }
 
         do {
             let fm = FileManager.default
-            let url = URL(fileURLWithPath: localPath)
+            let url = URL(fileURLWithPath: lPath)
 
             // 确保父目录存在
             let parentDir = url.deletingLastPathComponent()
@@ -397,8 +413,8 @@ extension DMSAFileSystem {
             }
 
             // 确保文件存在
-            if !fm.fileExists(atPath: localPath) {
-                fm.createFile(atPath: localPath, contents: nil)
+            if !fm.fileExists(atPath: lPath) {
+                fm.createFile(atPath: lPath, contents: nil)
             }
 
             // 写入数据
@@ -411,17 +427,17 @@ extension DMSAFileSystem {
 
             // 标记为脏数据
             Task {
-                if var entry = databaseManager.getFileEntry(virtualPath: path) {
+                if var entry = self.databaseManager.getFileEntry(virtualPath: path) {
                     entry.isDirty = true
                     entry.modifiedAt = Date()
-                    databaseManager.saveFileEntry(entry)
+                    self.databaseManager.saveFileEntry(entry)
                 }
-                await mergeEngine.invalidateCache(path)
+                await self.mergeEngine.invalidateCache(path)
             }
 
             return Int32(size)
-        } catch {
-            Logger.shared.error("DMSAFileSystem: writeFile error: \(error)")
+        } catch let err {
+            Logger.shared.error("DMSAFileSystem: writeFile error: \(err)")
             error?.pointee = NSError(domain: NSPOSIXErrorDomain, code: Int(EIO))
             return -1
         }
@@ -458,19 +474,21 @@ extension DMSAFileSystem {
     // MARK: - 创建/删除
 
     /// 创建目录
-    @objc func createDirectory(atPath path: String, attributes: [String: Any]?, error: NSErrorPointer) -> Bool {
+    /// macFUSE 选择器: createDirectoryAtPath:attributes:error:
+    @objc(createDirectoryAtPath:attributes:error:)
+    func dmsa_createDirectory(atPath path: String, attributes: [String: Any]?, error: NSErrorPointer) -> Bool {
         Logger.shared.debug("DMSAFileSystem: createDirectory \(path)")
 
-        guard let localPath = localPath(for: path) else {
+        guard let lPath = localPath(for: path) else {
             error?.pointee = NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
             return false
         }
 
         do {
-            try FileManager.default.createDirectory(atPath: localPath, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(atPath: lPath, withIntermediateDirectories: true)
 
             // 添加到数据库
-            let entry = FileEntry(virtualPath: path, localPath: localPath)
+            let entry = FileEntry(virtualPath: path, localPath: lPath)
             entry.isDirectory = true
             entry.location = .localOnly
             entry.isDirty = true
@@ -478,27 +496,30 @@ extension DMSAFileSystem {
             databaseManager.saveFileEntry(entry)
 
             Task {
-                await mergeEngine.invalidateCache(path)
+                await self.mergeEngine.invalidateCache(path)
             }
 
             return true
-        } catch {
-            Logger.shared.error("DMSAFileSystem: createDirectory error: \(error)")
+        } catch let err {
+            Logger.shared.error("DMSAFileSystem: createDirectory error: \(err)")
+            error?.pointee = NSError(domain: NSPOSIXErrorDomain, code: Int(EIO))
             return false
         }
     }
 
     /// 创建文件
-    @objc func createFile(atPath path: String, attributes: [String: Any]?,
-                          flags: Int32, userData: inout Any?) -> Bool {
+    /// macFUSE 选择器: createFileAtPath:attributes:flags:userData:error:
+    @objc(createFileAtPath:attributes:flags:userData:error:)
+    func dmsa_createFile(atPath path: String, attributes: [String: Any]?, flags: Int32, userData: AutoreleasingUnsafeMutablePointer<AnyObject?>?, error: NSErrorPointer) -> Bool {
         Logger.shared.debug("DMSAFileSystem: createFile \(path)")
 
-        guard let localPath = localPath(for: path) else {
+        guard let lPath = localPath(for: path) else {
+            error?.pointee = NSError(domain: NSPOSIXErrorDomain, code: Int(EINVAL))
             return false
         }
 
         let fm = FileManager.default
-        let url = URL(fileURLWithPath: localPath)
+        let url = URL(fileURLWithPath: lPath)
 
         do {
             // 确保父目录存在
@@ -508,10 +529,10 @@ extension DMSAFileSystem {
             }
 
             // 创建空文件
-            fm.createFile(atPath: localPath, contents: nil)
+            fm.createFile(atPath: lPath, contents: nil)
 
             // 添加到数据库
-            let entry = FileEntry(virtualPath: path, localPath: localPath)
+            let entry = FileEntry(virtualPath: path, localPath: lPath)
             entry.location = .localOnly
             entry.isDirty = true
             entry.syncPairId = syncPair.id
@@ -523,21 +544,24 @@ extension DMSAFileSystem {
             openFileHandles[path] = handle
             handleLock.unlock()
 
-            userData = path as AnyObject
+            userData?.pointee = path as AnyObject
 
             Task {
-                await mergeEngine.invalidateCache(path)
+                await self.mergeEngine.invalidateCache(path)
             }
 
             return true
-        } catch {
-            Logger.shared.error("DMSAFileSystem: createFile error: \(error)")
+        } catch let err {
+            Logger.shared.error("DMSAFileSystem: createFile error: \(err)")
+            error?.pointee = NSError(domain: NSPOSIXErrorDomain, code: Int(EIO))
             return false
         }
     }
 
     /// 删除文件
-    @objc func removeItem(atPath path: String, error: NSErrorPointer) -> Bool {
+    /// macFUSE 选择器: removeItemAtPath:error:
+    @objc(removeItemAtPath:error:)
+    func dmsa_removeItem(atPath path: String, error: NSErrorPointer) -> Bool {
         Logger.shared.debug("DMSAFileSystem: removeItem \(path)")
 
         let fm = FileManager.default
@@ -547,8 +571,9 @@ extension DMSAFileSystem {
         if let local = localPath(for: path), fm.fileExists(atPath: local) {
             do {
                 try fm.removeItem(atPath: local)
-            } catch {
-                Logger.shared.error("DMSAFileSystem: removeItem local error: \(error)")
+            } catch let err {
+                Logger.shared.error("DMSAFileSystem: removeItem local error: \(err)")
+                error?.pointee = NSError(domain: NSPOSIXErrorDomain, code: Int(EIO))
                 success = false
             }
         }
@@ -557,8 +582,8 @@ extension DMSAFileSystem {
         if let external = externalPath(for: path), fm.fileExists(atPath: external) {
             do {
                 try fm.removeItem(atPath: external)
-            } catch {
-                Logger.shared.warning("DMSAFileSystem: removeItem external error: \(error)")
+            } catch let err {
+                Logger.shared.warning("DMSAFileSystem: removeItem external error: \(err)")
             }
         }
 
@@ -566,15 +591,17 @@ extension DMSAFileSystem {
         databaseManager.deleteFileEntry(virtualPath: path)
 
         Task {
-            await mergeEngine.invalidateCache(path)
+            await self.mergeEngine.invalidateCache(path)
         }
 
         return success
     }
 
     /// 删除目录
-    @objc func removeDirectory(atPath path: String, error: NSErrorPointer) -> Bool {
-        return removeItem(atPath: path, error: error)
+    /// macFUSE 选择器: removeDirectoryAtPath:error:
+    @objc(removeDirectoryAtPath:error:)
+    func dmsa_removeDirectory(atPath path: String, error: NSErrorPointer) -> Bool {
+        return dmsa_removeItem(atPath: path, error: error)
     }
 
     // MARK: - 移动/重命名

@@ -7,46 +7,61 @@ enum SyncError: Error, LocalizedError {
     case fileNotFound(path: String)
     case permissionDenied(path: String)
     case insufficientSpace(required: Int64, available: Int64)
-    case rsyncNotFound
-    case rsyncFailed(String)
+    case syncFailed(String)
     case checksumMismatch(expected: String, actual: String)
-    case symlinkCreationFailed(path: String, error: String)
+    case verificationFailed(path: String)
+    case symlinkCreationFailed(String, String)
     case configurationError(String)
     case databaseError(String)
     case timeout
     case cancelled
     case alreadyInProgress
+    case renameLocalFailed(String, String)
+    case localBackupExists(String)
+    case fullDiskAccessRequired
+    case localDirectoryNotMigrated(String)
+    case symlinkNotCreated(String)
 
     var errorDescription: String? {
         switch self {
         case .diskNotConnected(let name):
-            return "外置硬盘 \(name) 未连接"
+            return "error.diskNotConnected".localized(with: name)
         case .sourceNotFound(let path):
-            return "源目录不存在: \(path)"
+            return "error.sourceNotFound".localized(with: path)
         case .fileNotFound(let path):
-            return "文件不存在: \(path)"
+            return "error.fileNotFound".localized(with: path)
         case .permissionDenied(let path):
-            return "权限不足: \(path)"
+            return "error.permissionDenied".localized(with: path)
         case .insufficientSpace(let required, let available):
-            return "空间不足: 需要 \(formatBytes(required)), 可用 \(formatBytes(available))"
-        case .rsyncNotFound:
-            return "rsync 未找到"
-        case .rsyncFailed(let msg):
-            return "同步失败: \(msg)"
+            return "error.insufficientSpace".localized(with: formatBytes(required), formatBytes(available))
+        case .syncFailed(let msg):
+            return "error.syncFailed".localized(with: msg)
         case .checksumMismatch(let expected, let actual):
-            return "文件校验失败: 期望 \(expected), 实际 \(actual)"
+            return "error.checksumMismatch".localized(with: expected, actual)
+        case .verificationFailed(let path):
+            return "error.verificationFailed".localized(with: path)
         case .symlinkCreationFailed(let path, let error):
-            return "创建符号链接失败 \(path): \(error)"
+            return "error.symlinkCreationFailed".localized(with: path, error)
         case .configurationError(let msg):
-            return "配置错误: \(msg)"
+            return "error.configurationError".localized(with: msg)
         case .databaseError(let msg):
-            return "数据库错误: \(msg)"
+            return "error.databaseError".localized(with: msg)
         case .timeout:
-            return "操作超时"
+            return "error.timeout".localized
         case .cancelled:
-            return "操作已取消"
+            return "error.cancelled".localized
         case .alreadyInProgress:
-            return "同步任务已在进行中"
+            return "error.alreadyInProgress".localized
+        case .renameLocalFailed(let path, let error):
+            return "error.renameLocalFailed".localized(with: path, error)
+        case .localBackupExists(let path):
+            return "error.localBackupExists".localized(with: path)
+        case .fullDiskAccessRequired:
+            return "error.fullDiskAccessRequired".localized
+        case .localDirectoryNotMigrated(let path):
+            return "error.localDirectoryNotMigrated".localized(with: path)
+        case .symlinkNotCreated(let path):
+            return "error.symlinkNotCreated".localized(with: path)
         }
     }
 }
@@ -77,4 +92,73 @@ func formatBytes(_ bytes: Int64) -> String {
     let formatter = ByteCountFormatter()
     formatter.countStyle = .file
     return formatter.string(fromByteCount: bytes)
+}
+
+/// Helper 错误
+enum HelperError: Error, LocalizedError {
+    case notInstalled
+    case installFailed(String)
+    case connectionFailed(String)
+    case operationFailed(String)
+    case pathNotAllowed(String)
+    case authorizationFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .notInstalled:
+            return "Helper 服务未安装"
+        case .installFailed(let msg):
+            return "Helper 安装失败: \(msg)"
+        case .connectionFailed(let msg):
+            return "Helper 连接失败: \(msg)"
+        case .operationFailed(let msg):
+            return "Helper 操作失败: \(msg)"
+        case .pathNotAllowed(let path):
+            return "路径不允许操作: \(path)"
+        case .authorizationFailed:
+            return "授权失败"
+        }
+    }
+}
+
+/// 通用 DMSA 错误
+enum DMSAError: Error, LocalizedError {
+    case xpcConnectionFailed(String)
+    case xpcCallFailed(String)
+    case operationFailed(String)
+    case invalidResponse
+    case timeout
+    case notFound(String)
+    case permissionDenied
+    case serviceNotAvailable(String)
+    case vfsError(String)
+    case syncError(String)
+    case helperError(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .xpcConnectionFailed(let service):
+            return "XPC 连接失败: \(service)"
+        case .xpcCallFailed(let message):
+            return "XPC 调用失败: \(message)"
+        case .operationFailed(let message):
+            return "操作失败: \(message)"
+        case .invalidResponse:
+            return "无效响应"
+        case .timeout:
+            return "操作超时"
+        case .notFound(let item):
+            return "未找到: \(item)"
+        case .permissionDenied:
+            return "权限被拒绝"
+        case .serviceNotAvailable(let service):
+            return "服务不可用: \(service)"
+        case .vfsError(let message):
+            return "VFS 错误: \(message)"
+        case .syncError(let message):
+            return "同步错误: \(message)"
+        case .helperError(let message):
+            return "助手错误: \(message)"
+        }
+    }
 }

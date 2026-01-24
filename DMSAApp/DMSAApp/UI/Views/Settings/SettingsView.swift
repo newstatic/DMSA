@@ -1,42 +1,58 @@
 import SwiftUI
 
 /// Main settings window with sidebar navigation
+/// Note: This is kept for backward compatibility. Use MainView for the new single-window architecture.
 struct SettingsView: View {
     @ObservedObject var configManager: ConfigManager
     @ObservedObject private var localizationManager = LocalizationManager.shared
-    @State private var selectedTab: SettingsTab? = .general
+    @State private var selectedTab: SettingsTab? = .dashboard
 
     enum SettingsTab: String, CaseIterable, Identifiable {
+        case dashboard
         case general
         case disks
         case syncPairs
         case filters
-        case cache
+        case vfs
         case notifications
+        case notificationHistory
+        case logs
+        case history
+        case statistics
         case advanced
 
         var id: String { rawValue }
 
         var title: String {
             switch self {
+            case .dashboard: return "dashboard.title".localized
             case .general: return L10n.Settings.general
             case .disks: return L10n.Settings.disks
             case .syncPairs: return L10n.Settings.syncPairs
             case .filters: return L10n.Settings.filters
-            case .cache: return L10n.Settings.cache
+            case .vfs: return "虚拟文件系统"
             case .notifications: return L10n.Settings.notifications
+            case .notificationHistory: return "settings.notificationHistory".localized
+            case .logs: return "settings.logs".localized
+            case .history: return "settings.history".localized
+            case .statistics: return L10n.Settings.statistics
             case .advanced: return L10n.Settings.advanced
             }
         }
 
         var icon: String {
             switch self {
+            case .dashboard: return "house.fill"
             case .general: return "gearshape"
             case .disks: return "externaldrive"
             case .syncPairs: return "folder"
             case .filters: return "line.3.horizontal.decrease.circle"
-            case .cache: return "internaldrive"
+            case .vfs: return "externaldrive.connected.to.line.below"
             case .notifications: return "bell"
+            case .notificationHistory: return "bell.badge"
+            case .logs: return "doc.text"
+            case .history: return "clock.arrow.circlepath"
+            case .statistics: return "chart.bar.xaxis"
             case .advanced: return "slider.horizontal.3"
             }
         }
@@ -63,8 +79,8 @@ struct SettingsView: View {
             // Default content
             GeneralSettingsView(config: $configManager.config)
         }
-        .frame(minWidth: 600, minHeight: 450)
-        .frame(idealWidth: 700, idealHeight: 500)
+        .frame(minWidth: 750, minHeight: 500)
+        .frame(idealWidth: 850, idealHeight: 600)
         // Force view refresh when language changes
         .id(localizationManager.currentLanguage)
     }
@@ -72,6 +88,8 @@ struct SettingsView: View {
     @ViewBuilder
     private func destinationView(for tab: SettingsTab) -> some View {
         switch tab {
+        case .dashboard:
+            DashboardView(config: $configManager.config)
         case .general:
             GeneralSettingsView(config: $configManager.config)
         case .disks:
@@ -80,10 +98,18 @@ struct SettingsView: View {
             SyncPairSettingsView(config: $configManager.config)
         case .filters:
             FilterSettingsView(config: $configManager.config)
-        case .cache:
-            CacheSettingsView(config: $configManager.config)
+        case .vfs:
+            VFSSettingsView(config: $configManager.config)
         case .notifications:
             NotificationSettingsView(config: $configManager.config)
+        case .notificationHistory:
+            NotificationHistoryView()
+        case .logs:
+            LogView()
+        case .history:
+            HistoryContentView()
+        case .statistics:
+            StatisticsView(config: $configManager.config)
         case .advanced:
             AdvancedSettingsView(config: $configManager.config, configManager: configManager)
         }
@@ -140,8 +166,8 @@ class SettingsWindowController {
         let newWindow = NSWindow(contentViewController: hostingController)
         newWindow.title = L10n.Settings.title
         newWindow.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        newWindow.setContentSize(NSSize(width: 700, height: 500))
-        newWindow.minSize = NSSize(width: 600, height: 450)
+        newWindow.setContentSize(NSSize(width: 850, height: 600))
+        newWindow.minSize = NSSize(width: 750, height: 500)
         newWindow.center()
 
         // Set window to release when closed
@@ -164,7 +190,7 @@ class SettingsWindowController {
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
         SettingsView(configManager: ConfigManager.shared)
-            .frame(width: 700, height: 500)
+            .frame(width: 850, height: 600)
     }
 }
 #endif

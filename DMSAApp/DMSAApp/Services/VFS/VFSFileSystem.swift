@@ -47,9 +47,9 @@ class VFSFileSystem: FUSEFileSystemOperations {
                 ? mode_t(S_IFDIR) | mode_t(attrs.permissions)
                 : mode_t(S_IFREG) | mode_t(attrs.permissions)
             st.st_nlink = attrs.isDirectory ? 2 : 1
-            st.st_mtime = time_t(attrs.modifiedAt.timeIntervalSince1970)
-            st.st_atime = time_t(attrs.accessedAt.timeIntervalSince1970)
-            st.st_ctime = time_t(attrs.createdAt.timeIntervalSince1970)
+            st.st_mtimespec.tv_sec = time_t(attrs.modifiedAt.timeIntervalSince1970)
+            st.st_atimespec.tv_sec = time_t(attrs.accessedAt.timeIntervalSince1970)
+            st.st_ctimespec.tv_sec = time_t(attrs.createdAt.timeIntervalSince1970)
             st.st_uid = getuid()
             st.st_gid = getgid()
 
@@ -218,15 +218,15 @@ class VFSFileSystem: FUSEFileSystemOperations {
             return .error(ENOENT)
         }
 
-        // 使用 getxattr 系统调用
+        // 使用 Darwin.getxattr 系统调用
         let nameC = name.cString(using: .utf8)!
-        var size = getxattr(actualPath, nameC, nil, 0, 0, 0)
+        var size = Darwin.getxattr(actualPath, nameC, nil, 0, 0, 0)
         if size < 0 {
             return .error(errno)
         }
 
         var buffer = [UInt8](repeating: 0, count: size)
-        size = getxattr(actualPath, nameC, &buffer, size, 0, 0)
+        size = Darwin.getxattr(actualPath, nameC, &buffer, size, 0, 0)
         if size < 0 {
             return .error(errno)
         }
@@ -241,7 +241,7 @@ class VFSFileSystem: FUSEFileSystemOperations {
 
         let nameC = name.cString(using: .utf8)!
         let result = data.withUnsafeBytes { buffer in
-            setxattr(localPath, nameC, buffer.baseAddress, data.count, 0, flags)
+            Darwin.setxattr(localPath, nameC, buffer.baseAddress, data.count, 0, flags)
         }
 
         return result == 0 ? .success : .error(errno)
@@ -259,7 +259,7 @@ class VFSFileSystem: FUSEFileSystemOperations {
             return .error(ENOENT)
         }
 
-        var size = listxattr(actualPath, nil, 0, 0)
+        var size = Darwin.listxattr(actualPath, nil, 0, 0)
         if size < 0 {
             return .error(errno)
         }
@@ -269,7 +269,7 @@ class VFSFileSystem: FUSEFileSystemOperations {
         }
 
         var buffer = [Int8](repeating: 0, count: size)
-        size = listxattr(actualPath, &buffer, size, 0)
+        size = Darwin.listxattr(actualPath, &buffer, size, 0)
         if size < 0 {
             return .error(errno)
         }
@@ -283,7 +283,7 @@ class VFSFileSystem: FUSEFileSystemOperations {
         }
 
         let nameC = name.cString(using: .utf8)!
-        let result = removexattr(localPath, nameC, 0)
+        let result = Darwin.removexattr(localPath, nameC, 0)
 
         return result == 0 ? .success : .error(errno)
     }
@@ -291,23 +291,38 @@ class VFSFileSystem: FUSEFileSystemOperations {
     // MARK: - 可选操作
 
     func statfs(_ path: String) async -> FUSEStatfsResult {
-        // 返回组合的统计信息
-        var st = Darwin.statfs()
+        // 使用 FileManager 获取文件系统统计
+        let localDir = syncPair.localDir
+        let fm = FileManager.default
 
-        // 使用 LOCAL_DIR 的 statfs
-        let localDir = (syncPair.localDir as NSString).expandingTildeInPath
-        if Darwin.statfs(localDir, &st) == 0 {
+        do {
+            let attrs = try fm.attributesOfFileSystem(forPath: localDir)
+
+            var st = Darwin.statfs()
+            st.f_bsize = UInt32((attrs[.systemSize] as? Int64) ?? 4096)
+
+            let totalSize = (attrs[.systemSize] as? Int64) ?? 0
+            let freeSize = (attrs[.systemFreeSize] as? Int64) ?? 0
+            let blockSize: Int64 = 4096
+
+            st.f_blocks = UInt64(totalSize / blockSize)
+            st.f_bfree = UInt64(freeSize / blockSize)
+            st.f_bavail = UInt64(freeSize / blockSize)
+            st.f_files = (attrs[.systemNodes] as? UInt64) ?? 1_000_000
+            st.f_ffree = (attrs[.systemFreeNodes] as? UInt64) ?? 500_000
+            st.f_bsize = UInt32(blockSize)
+
             return .success(st)
+        } catch {
+            // 返回默认值
+            return .success(Darwin.statfs.defaultStats())
         }
-
-        // 返回默认值
-        return .success(Darwin.statfs.defaultStats())
     }
 
     func flush(_ path: String, fh: UInt64) async -> FUSEResult {
         // 同步文件缓冲区
         if let fileInfo = getFileInfo(fh), let fd = fileInfo.fd {
-            if fsync(fd) != 0 {
+            if Darwin.fsync(fd) != 0 {
                 return .error(errno)
             }
         }

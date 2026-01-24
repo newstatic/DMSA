@@ -21,7 +21,7 @@ class VFSCore {
     private let lockManager: LockManager
     private let privilegedClient: PrivilegedClient
     private let configManager: ConfigManager
-    private let treeVersionManager: TreeVersionManager
+    // TreeVersionManager 是 actor，按需访问 TreeVersionManager.shared
     private let databaseManager: DatabaseManager
 
     // MARK: - 状态
@@ -50,7 +50,6 @@ class VFSCore {
         self.lockManager = LockManager.shared
         self.privilegedClient = PrivilegedClient.shared
         self.configManager = ConfigManager.shared
-        self.treeVersionManager = TreeVersionManager.shared
         self.databaseManager = DatabaseManager.shared
     }
 
@@ -110,13 +109,14 @@ class VFSCore {
         try await prepareDirectories(syncPair: syncPair)
 
         // 2. 检查并执行版本重建
-        let versionCheck = await treeVersionManager.checkVersionsOnStartup(for: syncPair)
-        if versionCheck.needRebuildLocal {
-            try await treeVersionManager.rebuildTree(for: syncPair, source: .local)
-        }
-        if versionCheck.needRebuildExternal && versionCheck.externalConnected {
-            try await treeVersionManager.rebuildTree(for: syncPair, source: .external)
-        }
+        // TODO: 需要将 TreeVersionManager.swift 添加到 Xcode 项目中
+        // let versionCheck = await TreeVersionManager.shared.checkVersionsOnStartup(for: syncPair)
+        // if versionCheck.needRebuildLocal {
+        //     try await TreeVersionManager.shared.rebuildTree(for: syncPair, source: TreeSource.local)
+        // }
+        // if versionCheck.needRebuildExternal && versionCheck.externalConnected {
+        //     try await TreeVersionManager.shared.rebuildTree(for: syncPair, source: TreeSource.external)
+        // }
 
         // 3. 保护 LOCAL_DIR (防止用户直接访问)
         do {
@@ -603,14 +603,8 @@ extension ConfigManager {
     }
 }
 
-// MARK: - LockManager 扩展
-
-extension LockManager {
-    /// 检查路径是否被锁定
-    func isLocked(_ path: String) -> Bool {
-        return isFileLocked(path)
-    }
-}
+// MARK: - LockManager 已有 isLocked 方法 (在 LockManager.swift:161)
+// 不需要额外扩展
 
 // MARK: - WriteRouter 扩展
 

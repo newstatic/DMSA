@@ -1,6 +1,6 @@
 # Delt MACOS Sync App (DMSA) 需求规格文档
 
-> 版本: 2.0 | 更新日期: 2026-01-20
+> 版本: 3.0 | 更新日期: 2026-01-21
 
 ---
 
@@ -8,7 +8,7 @@
 
 ### 1.1 产品定位
 
-macOS 菜单栏应用，用于自动同步本地目录与外置硬盘，支持多硬盘、多目录、双向同步、文件监控等高级功能。
+macOS 菜单栏应用，基于 FUSE 虚拟文件系统实现本地目录与外置硬盘的智能合并与同步。支持多同步对配置、单向同步 (LOCAL_DIR → EXTERNAL_DIR)、LRU 淘汰、零拷贝读取等高级功能。
 
 ### 1.2 目标用户
 
@@ -20,10 +20,11 @@ macOS 菜单栏应用，用于自动同步本地目录与外置硬盘，支持�
 
 | 价值点 | 描述 |
 |--------|------|
+| 透明访问 | 通过 FUSE 挂载点 (TARGET_DIR) 访问，智能合并 LOCAL_DIR 和 EXTERNAL_DIR |
+| 零拷贝读取 | EXTERNAL_ONLY 文件直接重定向读取，不复制到本地 |
 | 自动化 | 硬盘插入自动触发同步，无需手动操作 |
-| 透明切换 | 通过符号链接实现目录无感切换 |
-| 数据安全 | 完整的异常保护和数据恢复机制 |
-| 灵活配置 | 支持多硬盘、多目录、多种同步策略 |
+| 数据安全 | EXTERNAL_DIR 作为完整数据源，淘汰前验证备份存在 |
+| 灵活配置 | 支持多同步对 (SyncPair)，每对独立配额 |
 
 ---
 
@@ -59,14 +60,14 @@ macOS 菜单栏应用，用于自动同步本地目录与外置硬盘，支持�
 | P0-DIR-03 | 每个目录对可独立启用/禁用 |
 | P0-DIR-04 | 支持为不同硬盘配置不同的目录映射 |
 
-#### 2.2.3 同步方向配置
+#### 2.2.3 同步方向配置 (v3.0)
 
 | 需求ID | 需求描述 |
 |--------|----------|
-| P0-SYNC-01 | 支持三种同步方向: 本地→外置、外置→本地、双向同步 |
-| P0-SYNC-02 | 每个目录对可独立配置同步方向 |
-| P0-SYNC-03 | 双向同步时以修改时间较新的文件为准 |
-| P0-SYNC-04 | 同步前检查源目录有效性 |
+| P0-SYNC-01 | **单向同步**: LOCAL_DIR → EXTERNAL_DIR (EXTERNAL 作为只读备份) |
+| P0-SYNC-02 | 写入通过 TARGET_DIR 触发，先写 LOCAL_DIR，异步同步到 EXTERNAL_DIR |
+| P0-SYNC-03 | EXTERNAL_DIR 新增文件显示为 EXTERNAL_ONLY，直接重定向读取 |
+| P0-SYNC-04 | 同步前检查 EXTERNAL_DIR 可访问性 |
 
 #### 2.2.4 文件过滤
 
@@ -206,49 +207,31 @@ macOS 菜单栏应用，用于自动同步本地目录与外置硬盘，支持�
 
 ## 4. 数据结构设计
 
-### 4.1 配置文件结构
+### 4.1 配置文件结构 (v3.0)
 
 ```json
 {
-  "version": "2.0",
+  "version": "3.0",
   "general": {
     "launchAtLogin": true,
     "showNotifications": true,
     "logLevel": "info"
   },
-  "disks": [
-    {
-      "id": "uuid-1",
-      "name": "BACKUP",
-      "mountPath": "/Volumes/BACKUP",
-      "priority": 1,
-      "enabled": true
-    },
-    {
-      "id": "uuid-2",
-      "name": "PORTABLE",
-      "mountPath": "/Volumes/PORTABLE",
-      "priority": 2,
-      "enabled": true
-    }
-  ],
   "syncPairs": [
     {
       "id": "uuid-a",
-      "diskId": "uuid-1",
-      "localPath": "~/Downloads",
-      "externalPath": "Downloads",
-      "direction": "local_to_external",
-      "createSymlink": true,
+      "localDir": "~/Downloads_Local",
+      "externalDir": "/Volumes/BACKUP/Downloads",
+      "targetDir": "~/Downloads",
+      "localQuotaGB": 50,
       "enabled": true
     },
     {
       "id": "uuid-b",
-      "diskId": "uuid-1",
-      "localPath": "~/Documents",
-      "externalPath": "Documents",
-      "direction": "bidirectional",
-      "createSymlink": false,
+      "localDir": "~/Documents_Local",
+      "externalDir": "/Volumes/NAS/Documents",
+      "targetDir": "~/Documents",
+      "localQuotaGB": 100,
       "enabled": true
     }
   ],
@@ -268,31 +251,37 @@ macOS 菜单栏应用，用于自动同步本地目录与外置硬盘，支持�
   "monitoring": {
     "enabled": true,
     "debounceSeconds": 5
+  },
+  "eviction": {
+    "enabled": true,
+    "reserveGB": 5,
+    "maxEvictPerRound": 100,
+    "minFileAgeDays": 7
   }
 }
 ```
 
-### 4.2 同步方向枚举
+### 4.2 文件位置状态 (v3.0)
 
-| 值 | 含义 |
+| 状态 | 含义 |
 |----|------|
-| `local_to_external` | 本地 → 外置硬盘 |
-| `external_to_local` | 外置硬盘 → 本地 |
-| `bidirectional` | 双向同步 (以较新文件为准) |
+| `LOCAL_ONLY` | 仅在 LOCAL_DIR，待同步到 EXTERNAL_DIR |
+| `EXTERNAL_ONLY` | 仅在 EXTERNAL_DIR，直接重定向读取 |
+| `BOTH` | 两端都有，已同步 |
+| `DELETED` | 外部被删除，拒绝访问 |
 
-### 4.3 同步历史记录结构
+### 4.3 同步历史记录结构 (v3.0)
 
 ```json
 {
   "id": "uuid",
   "timestamp": "2026-01-20T10:30:00Z",
-  "diskId": "uuid-1",
   "syncPairId": "uuid-a",
-  "direction": "local_to_external",
   "status": "success",
   "filesCount": 42,
   "totalSize": 1073741824,
   "duration": 15.5,
+  "syncedFiles": [],
   "errors": []
 }
 ```
@@ -422,11 +411,13 @@ desktop.ini
 
 ### 8.2 参考资料
 
-- [rsync 文档](https://rsync.samba.org/documentation.html)
+- [FUSE-T](https://www.fuse-t.org/) - 推荐的 FUSE 实现
+- [macFUSE](https://macfuse.github.io/) - 备选 FUSE 实现
+- [ObjectBox Swift](https://docs.objectbox.io/swift) - 数据存储
 - [FSEvents 编程指南](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/FSEvents_ProgGuide/)
 - [SwiftUI 文档](https://developer.apple.com/documentation/swiftui/)
 - [LaunchAgent 配置](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html)
 
 ---
 
-*文档维护: 需求变更时更新此文档并记录版本*
+*文档维护: 需求变更时更新此文档并记录版本 | v3.0 | 2026-01-21*

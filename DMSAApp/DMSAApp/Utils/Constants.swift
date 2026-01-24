@@ -19,8 +19,15 @@ enum Constants {
 
         static let config = appSupport.appendingPathComponent("config.json")
         static let configBackup = appSupport.appendingPathComponent("config.backup.json")
-        static let localCache = appSupport.appendingPathComponent("LocalCache")
         static let database = appSupport.appendingPathComponent("Database")
+
+        /// Downloads_Local - 原始 ~/Downloads 重命名后的本地存储目录
+        static let downloadsLocal = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Downloads_Local")
+
+        /// 虚拟 Downloads - FUSE 挂载点
+        static let virtualDownloads = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Downloads")
 
         static let logs = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/DMSA")
@@ -32,12 +39,11 @@ enum Constants {
 
     /// 默认配置值
     enum Defaults {
-        static let maxCacheSize: Int64 = 10 * 1024 * 1024 * 1024  // 10 GB
-        static let reserveBuffer: Int64 = 500 * 1024 * 1024       // 500 MB
-        static let evictionCheckInterval: Int = 300               // 5 分钟
         static let debounceSeconds: Int = 5
         static let maxRetryCount: Int = 3
         static let diskMountDelay: TimeInterval = 2.0
+        static let syncLockTimeout: TimeInterval = 5.0
+        static let writeBackDelay: TimeInterval = 5.0
     }
 
     /// 排除文件模式
@@ -48,4 +54,23 @@ enum Constants {
         "Thumbs.db", "desktop.ini",
         "*.part", "*.crdownload", "*.download", "*.partial"
     ]
+
+    /// XPC Service Identifiers
+    enum XPCService {
+        static let vfs = "com.ttttt.dmsa.vfs"
+        static let sync = "com.ttttt.dmsa.sync"
+        static let helper = "com.ttttt.dmsa.helper"
+    }
+
+    /// 分布式通知名称
+    enum Notifications {
+        static let vfsMounted = "com.ttttt.dmsa.vfs.mounted"
+        static let vfsUnmounted = "com.ttttt.dmsa.vfs.unmounted"
+        static let syncCompleted = "com.ttttt.dmsa.sync.completed"
+        static let syncFailed = "com.ttttt.dmsa.sync.failed"
+        static let fileWritten = "com.ttttt.dmsa.vfs.fileWritten"
+        static let configChanged = "com.ttttt.dmsa.configChanged"
+        static let diskConnected = "com.ttttt.dmsa.diskConnected"
+        static let diskDisconnected = "com.ttttt.dmsa.diskDisconnected"
+    }
 }

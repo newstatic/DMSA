@@ -5,6 +5,9 @@ struct GeneralSettingsView: View {
     @Binding var config: AppConfig
     @ObservedObject private var localizationManager = LocalizationManager.shared
 
+    private let launchAtLoginManager = LaunchAtLoginManager.shared
+    private let appearanceManager = AppearanceManager.shared
+
     var body: some View {
         SettingsContentView(title: L10n.Settings.General.title) {
             // Startup Section
@@ -13,12 +16,24 @@ struct GeneralSettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 CheckboxRow(
                     title: L10n.Settings.General.launchAtLogin,
-                    isChecked: $config.general.launchAtLogin
+                    isChecked: Binding(
+                        get: { config.general.launchAtLogin },
+                        set: { newValue in
+                            config.general.launchAtLogin = newValue
+                            launchAtLoginManager.setEnabled(newValue)
+                        }
+                    )
                 )
 
                 CheckboxRow(
                     title: L10n.Settings.General.showInDock,
-                    isChecked: $config.general.showInDock
+                    isChecked: Binding(
+                        get: { config.general.showInDock },
+                        set: { newValue in
+                            config.general.showInDock = newValue
+                            appearanceManager.setShowInDock(newValue)
+                        }
+                    )
                 )
             }
 

@@ -17,7 +17,7 @@ struct SyncHistoryRecord: Identifiable {
     let deletedFiles: Int
     let skippedFiles: Int
     let errorMessage: String?
-    let rsyncOutput: String?
+    let syncLog: String?
 }
 
 /// History window view
@@ -53,6 +53,8 @@ struct HistoryView: View {
             }
         }
     }
+
+    @State private var isLoading: Bool = false
 
     init(databaseManager: DatabaseManager = DatabaseManager.shared) {
         self.databaseManager = databaseManager
@@ -124,7 +126,10 @@ struct HistoryView: View {
             Divider()
 
             // Content
-            if filteredRecords.isEmpty {
+            if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if filteredRecords.isEmpty {
                 emptyStateView
             } else {
                 recordsList
@@ -136,8 +141,8 @@ struct HistoryView: View {
             footerBar
         }
         .frame(minWidth: 600, minHeight: 400)
-        .onAppear {
-            loadRecords()
+        .task {
+            await loadRecordsAsync()
         }
         .sheet(item: $selectedRecord) { record in
             HistoryDetailView(record: record)
@@ -264,10 +269,13 @@ struct HistoryView: View {
         .padding()
     }
 
-    private func loadRecords() {
-        // Load from database
-        let historyEntries = databaseManager.getAllSyncHistory()
-        records = historyEntries.map { entry in
+    private func loadRecordsAsync() async {
+        isLoading = true
+
+        // Load from database asynchronously
+        let historyEntries = await databaseManager.getAllSyncHistoryAsync()
+
+        let loadedRecords = historyEntries.map { entry in
             SyncHistoryRecord(
                 id: String(entry.id),
                 timestamp: entry.startedAt,
@@ -284,8 +292,13 @@ struct HistoryView: View {
                 deletedFiles: 0,
                 skippedFiles: 0,
                 errorMessage: entry.errorMessage,
-                rsyncOutput: nil
+                syncLog: nil
             )
+        }
+
+        await MainActor.run {
+            records = loadedRecords
+            isLoading = false
         }
     }
 
@@ -526,11 +539,11 @@ struct HistoryDetailView: View {
                 }
             }
 
-            // rsync output
-            if let output = record.rsyncOutput {
+            // sync log
+            if let output = record.syncLog {
                 Divider()
 
-                Text(L10n.History.Detail.rsyncOutput)
+                Text(L10n.History.Detail.syncLog)
                     .font(.subheadline)
                     .fontWeight(.medium)
 

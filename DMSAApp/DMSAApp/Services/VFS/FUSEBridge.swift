@@ -415,9 +415,9 @@ extension stat {
         st.st_mode = mode
         st.st_size = size
         st.st_nlink = 1
-        st.st_mtime = mtime
-        st.st_atime = mtime
-        st.st_ctime = mtime
+        st.st_mtimespec.tv_sec = mtime
+        st.st_atimespec.tv_sec = mtime
+        st.st_ctimespec.tv_sec = mtime
         return st
     }
 
@@ -427,9 +427,9 @@ extension stat {
         var st = stat()
         st.st_mode = mode
         st.st_nlink = 2
-        st.st_mtime = mtime
-        st.st_atime = mtime
-        st.st_ctime = mtime
+        st.st_mtimespec.tv_sec = mtime
+        st.st_atimespec.tv_sec = mtime
+        st.st_ctimespec.tv_sec = mtime
         return st
     }
 }
