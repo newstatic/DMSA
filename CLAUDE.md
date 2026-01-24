@@ -1,7 +1,7 @@
 # Delt MACOS Sync App (DMSA) 项目记忆文档
 
 > 此文档供 Claude Code 跨会话持续参考，保持项目上下文记忆。
-> 版本: 4.3 | 更新日期: 2026-01-24
+> 版本: 4.4 | 更新日期: 2026-01-24
 > 项目简称: DMSA
 
 ---
@@ -387,6 +387,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | **(服务合并)** | **2026-01-24** | **v4.1 服务统一** | **VFS+Sync+Helper 合并为 DMSAService** |
 | **(FUSE迁移)** | **2026-01-24** | **v4.2 FUSE服务迁移** | **FUSE挂载从DMSAApp移至DMSAService** |
 | **(LRU淘汰)** | **2026-01-24** | **v4.3 EvictionManager** | **DMSAService中实现LRU淘汰机制** |
+| **(架构清理)** | **2026-01-24** | **v4.4 业务逻辑迁移** | **全部业务逻辑迁移到DMSAService** |
 
 ---
 
@@ -726,6 +727,145 @@ func evictionUpdateConfig(triggerThreshold: Int64, targetFreeSpace: Int64, autoE
 **同步集成:**
 - TreeVersionManager 在 VFSCore.mount() 中启用
 - 启动时自动检查版本文件，按需重建文件树
+
+---
+
+### v4.4 架构清理 - 业务逻辑全面迁移 (2026-01-24)
+
+**变更概要:**
+将 DMSAApp 中剩余的业务逻辑代码全面迁移到 DMSAService，App 端仅保留 UI 和 XPC 客户端。
+
+| 维度 | v4.3 (旧) | v4.4 (新) |
+|------|-----------|-----------|
+| **DMSAApp 代码量** | ~8000 行 | ~2500 行 |
+| **DMSAApp 职责** | UI + 部分业务逻辑 | 纯 UI 客户端 |
+| **数据管理** | App 端持久化 | Service 端持久化 |
+| **文件监控** | App 端 FSEvents | Service 端 FSEvents |
+
+**Phase 1: 同步逻辑迁移**
+
+已迁移到 `DMSAService/Sync/`:
+- NativeSyncEngine.swift
+- FileScanner.swift
+- FileHasher.swift
+- DiffEngine.swift
+- FileCopier.swift
+- ConflictResolver.swift
+- SyncStateManager.swift
+
+**Phase 2: VFS 代码清理**
+
+已迁移到 `DMSAService/VFS/`:
+- MergeEngine.swift
+- ReadRouter.swift
+- WriteRouter.swift
+- LockManager.swift
+
+**Phase 3: 数据管理迁移**
+
+新建 `DMSAService/Data/`:
+- ServiceDatabaseManager.swift - 完整数据库管理
+- ServiceTreeVersionManager.swift - 文件树版本管理
+- ServiceConfigManager.swift - 配置管理
+
+App 端变更:
+- DatabaseManager.swift → 仅内存缓存，通过 XPC 获取数据
+- TreeVersionManager.swift → XPC 客户端包装
+
+**Phase 4: 监控迁移**
+
+新建 `DMSAService/Monitor/`:
+- ServiceFSEventsMonitor.swift - 文件系统监控
+- ServiceDiskMonitor.swift - 磁盘状态管理
+
+App 端变更:
+- DiskManager.swift → 精简为事件通知 + UI 回调
+
+**Phase 5: AppDelegate 重构**
+
+| 变更项 | 旧 | 新 |
+|--------|-----|-----|
+| 代码行数 | ~500 行 | ~320 行 |
+| SyncEngine 依赖 | 直接调用 | 通过 XPC |
+| 同步回调 | SyncEngineDelegate | 无 |
+| 业务逻辑 | 混合 | 纯 UI |
+
+**新增 XPC 协议方法:**
+
+```swift
+// 数据查询
+func dataGetFileEntry(virtualPath: String, syncPairId: String, withReply: ...)
+func dataGetAllFileEntries(syncPairId: String, withReply: ...)
+func dataGetSyncHistory(limit: Int, withReply: ...)
+func dataGetTreeVersion(syncPairId: String, source: String, withReply: ...)
+func dataCheckTreeVersions(localDir: String, externalDir: String?, syncPairId: String, withReply: ...)
+func dataRebuildTree(rootPath: String, syncPairId: String, source: String, withReply: ...)
+func dataInvalidateTreeVersion(syncPairId: String, source: String, withReply: ...)
+```
+
+**DMSAService 最终目录结构:**
+
+```
+DMSAService/
+├── main.swift
+├── ServiceDelegate.swift
+├── ServiceImplementation.swift
+├── VFS/
+│   ├── VFSManager.swift
+│   ├── FUSEFileSystem.swift
+│   ├── EvictionManager.swift
+│   ├── MergeEngine.swift
+│   ├── ReadRouter.swift
+│   ├── WriteRouter.swift
+│   └── LockManager.swift
+├── Sync/
+│   ├── SyncManager.swift
+│   ├── NativeSyncEngine.swift
+│   ├── FileScanner.swift
+│   ├── FileHasher.swift
+│   ├── DiffEngine.swift
+│   ├── FileCopier.swift
+│   ├── ConflictResolver.swift
+│   └── SyncStateManager.swift
+├── Data/
+│   ├── ServiceDatabaseManager.swift
+│   ├── ServiceTreeVersionManager.swift
+│   └── ServiceConfigManager.swift
+├── Monitor/
+│   ├── ServiceFSEventsMonitor.swift
+│   └── ServiceDiskMonitor.swift
+└── Privileged/
+    └── PrivilegedOperations.swift
+```
+
+**DMSAApp 最终目录结构:**
+
+```
+DMSAApp/
+├── App/
+│   └── AppDelegate.swift          # ~320 行，纯生命周期管理
+├── Services/
+│   ├── ServiceClient.swift        # XPC 客户端
+│   ├── ConfigManager.swift        # 配置管理
+│   ├── DatabaseManager.swift      # 内存缓存
+│   ├── DiskManager.swift          # 事件通知
+│   ├── TreeVersionManager.swift   # XPC 包装
+│   └── FUSEManager.swift          # macFUSE 检测
+├── UI/
+│   ├── MenuBarManager.swift
+│   ├── AlertManager.swift
+│   └── Views/
+└── Utils/
+    ├── Constants.swift
+    └── Logger.swift
+```
+
+**架构优势:**
+
+1. **App 退出无影响**: 所有核心功能在 Service 中运行
+2. **代码职责清晰**: App = UI，Service = 业务逻辑
+3. **维护更简单**: 业务逻辑集中在一处
+4. **测试更容易**: Service 可独立测试
 
 ---
 

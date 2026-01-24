@@ -1,5 +1,55 @@
 import Foundation
 
+/// 同步状态
+public enum SyncStatus: String, Codable, Sendable {
+    case pending = "pending"
+    case scanning = "scanning"
+    case comparing = "comparing"
+    case syncing = "syncing"
+    case verifying = "verifying"
+    case completed = "completed"
+    case failed = "failed"
+    case cancelled = "cancelled"
+    case paused = "paused"
+
+    public var description: String {
+        switch self {
+        case .pending: return "等待中"
+        case .scanning: return "扫描中"
+        case .comparing: return "比较中"
+        case .syncing: return "同步中"
+        case .verifying: return "验证中"
+        case .completed: return "已完成"
+        case .failed: return "失败"
+        case .cancelled: return "已取消"
+        case .paused: return "已暂停"
+        }
+    }
+
+    public var isActive: Bool {
+        switch self {
+        case .scanning, .comparing, .syncing, .verifying:
+            return true
+        default:
+            return false
+        }
+    }
+
+    public var icon: String {
+        switch self {
+        case .pending: return "clock"
+        case .scanning: return "magnifyingglass"
+        case .comparing: return "arrow.left.arrow.right"
+        case .syncing: return "arrow.triangle.2.circlepath"
+        case .verifying: return "checkmark.shield"
+        case .completed: return "checkmark.circle.fill"
+        case .failed: return "exclamationmark.triangle.fill"
+        case .cancelled: return "xmark.circle"
+        case .paused: return "pause.circle"
+        }
+    }
+}
+
 /// 同步进度
 public struct SyncProgress: Codable, Sendable {
     public var syncPairId: String
@@ -14,6 +64,9 @@ public struct SyncProgress: Codable, Sendable {
     public var errorMessage: String?
     public var speed: Int64  // bytes per second
 
+    /// 当前阶段
+    public var phase: SyncPhase
+
     public init(syncPairId: String) {
         self.syncPairId = syncPairId
         self.status = .pending
@@ -26,6 +79,7 @@ public struct SyncProgress: Codable, Sendable {
         self.endTime = nil
         self.errorMessage = nil
         self.speed = 0
+        self.phase = .idle
     }
 
     public var progress: Double {
@@ -79,94 +133,41 @@ public struct SyncProgress: Codable, Sendable {
     }
 }
 
-/// 同步计划
-public struct SyncPlan: Codable, Sendable {
-    public var syncPairId: String
-    public var filesToAdd: [String]
-    public var filesToUpdate: [String]
-    public var filesToDelete: [String]
-    public var filesToSkip: [String]
-    public var conflicts: [ConflictInfo]
-    public var totalSize: Int64
-    public var createdAt: Date
+/// 同步阶段
+public enum SyncPhase: String, Codable, Sendable {
+    case idle = "idle"
+    case scanning = "scanning"
+    case checksumming = "checksumming"
+    case diffing = "diffing"
+    case syncing = "syncing"
+    case verifying = "verifying"
+    case completed = "completed"
+    case failed = "failed"
+    case cancelled = "cancelled"
+    case paused = "paused"
 
-    public init(syncPairId: String) {
-        self.syncPairId = syncPairId
-        self.filesToAdd = []
-        self.filesToUpdate = []
-        self.filesToDelete = []
-        self.filesToSkip = []
-        self.conflicts = []
-        self.totalSize = 0
-        self.createdAt = Date()
-    }
-
-    public var totalOperations: Int {
-        return filesToAdd.count + filesToUpdate.count + filesToDelete.count
-    }
-
-    public var hasConflicts: Bool {
-        return !conflicts.isEmpty
+    public var description: String {
+        switch self {
+        case .idle: return "空闲"
+        case .scanning: return "扫描文件"
+        case .checksumming: return "计算校验和"
+        case .diffing: return "比较差异"
+        case .syncing: return "同步文件"
+        case .verifying: return "验证完整性"
+        case .completed: return "已完成"
+        case .failed: return "失败"
+        case .cancelled: return "已取消"
+        case .paused: return "已暂停"
+        }
     }
 }
 
-/// 冲突信息
-public struct ConflictInfo: Codable, Identifiable, Sendable {
-    public var id: String
-    public var virtualPath: String
-    public var localModified: Date?
-    public var externalModified: Date?
-    public var localSize: Int64
-    public var externalSize: Int64
-    public var resolution: ConflictResolution?
-    public var resolved: Bool
+// MARK: - 工具函数
 
-    public init(virtualPath: String) {
-        self.id = UUID().uuidString
-        self.virtualPath = virtualPath
-        self.localModified = nil
-        self.externalModified = nil
-        self.localSize = 0
-        self.externalSize = 0
-        self.resolution = nil
-        self.resolved = false
-    }
-
-    public enum ConflictResolution: String, Codable, Sendable {
-        case useLocal
-        case useExternal
-        case keepBoth
-        case skip
-    }
-}
-
-/// 文件元数据
-public struct FileMetadata: Codable, Sendable {
-    public var path: String
-    public var size: Int64
-    public var modifiedAt: Date
-    public var createdAt: Date
-    public var checksum: String?
-    public var isDirectory: Bool
-    public var permissions: UInt16
-
-    public init(path: String) {
-        self.path = path
-        self.size = 0
-        self.modifiedAt = Date()
-        self.createdAt = Date()
-        self.checksum = nil
-        self.isDirectory = false
-        self.permissions = 0o644
-    }
-
-    public init(path: String, attributes: [FileAttributeKey: Any]) {
-        self.path = path
-        self.size = attributes[.size] as? Int64 ?? 0
-        self.modifiedAt = attributes[.modificationDate] as? Date ?? Date()
-        self.createdAt = attributes[.creationDate] as? Date ?? Date()
-        self.isDirectory = (attributes[.type] as? FileAttributeType) == .typeDirectory
-        self.permissions = (attributes[.posixPermissions] as? UInt16) ?? 0o644
-        self.checksum = nil
-    }
+/// 格式化字节数
+public func formatBytes(_ bytes: Int64) -> String {
+    let formatter = ByteCountFormatter()
+    formatter.allowedUnits = [.useAll]
+    formatter.countStyle = .file
+    return formatter.string(fromByteCount: bytes)
 }

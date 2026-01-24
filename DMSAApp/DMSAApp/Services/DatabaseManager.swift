@@ -1,486 +1,307 @@
 import Foundation
 
-/// 数据库管理器
-/// 注意: 这是一个简化实现，使用 JSON 文件存储数据
-/// 如果需要更高性能，可以替换为 ObjectBox 或 Core Data
+/// App 端数据管理器
+/// ⚠️ 架构说明 (v4.3):
+/// - App 不再持久化数据，所有数据来源于 DMSAService
+/// - 通过 ServiceClient XPC 调用获取数据
+/// - 仅保留内存缓存用于 UI 显示优化
+///
+/// 数据流向:
+/// DMSAService (持久化) → XPC → App (内存缓存) → UI
 final class DatabaseManager {
     static let shared = DatabaseManager()
 
-    private let fileManager = FileManager.default
-    private let dataDirectory: URL
+    private let logger = Logger.shared
 
-    // 数据存储文件
-    private let fileEntriesURL: URL
-    private let syncHistoryURL: URL
-    private let syncStatisticsURL: URL
-    private let notificationRecordsURL: URL
+    // 内存缓存 (用于 UI 显示优化，非持久化)
+    private var cachedFileEntries: [String: FileEntry] = [:]
+    private var cachedSyncHistory: [SyncHistory] = []
+    private var cachedNotifications: [NotificationRecord] = []
 
-    // 内存缓存
-    private var fileEntries: [String: FileEntry] = [:]  // virtualPath -> FileEntry
-    private var syncHistory: [SyncHistory] = []
-    private var syncStatistics: [String: SyncStatistics] = [:]  // dateKey -> Statistics
-    private var notificationRecords: [NotificationRecord] = []
-
-    private let queue = DispatchQueue(label: "com.ttttt.dmsa.database")
+    private let queue = DispatchQueue(label: "com.ttttt.dmsa.database.cache")
 
     private init() {
-        dataDirectory = fileManager.homeDirectoryForCurrentUser
+        logger.info("DatabaseManager 初始化 (仅内存缓存模式)")
+    }
+
+    // MARK: - FileEntry 缓存 (UI 显示用)
+
+    /// 缓存文件条目 (从服务获取后缓存)
+    func cacheFileEntry(_ entry: FileEntry) {
+        queue.async { [weak self] in
+            self?.cachedFileEntries[entry.virtualPath] = entry
+        }
+    }
+
+    /// 批量缓存文件条目
+    func cacheFileEntries(_ entries: [FileEntry]) {
+        queue.async { [weak self] in
+            for entry in entries {
+                self?.cachedFileEntries[entry.virtualPath] = entry
+            }
+        }
+    }
+
+    /// 获取缓存的文件条目
+    func getCachedFileEntry(virtualPath: String) -> FileEntry? {
+        return queue.sync { cachedFileEntries[virtualPath] }
+    }
+
+    /// 获取所有缓存的文件条目
+    func getAllCachedFileEntries() -> [FileEntry] {
+        return queue.sync { Array(cachedFileEntries.values) }
+    }
+
+    /// 清除文件缓存
+    func clearFileEntryCache() {
+        queue.async { [weak self] in
+            self?.cachedFileEntries.removeAll()
+        }
+    }
+
+    // MARK: - SyncHistory 缓存
+
+    /// 缓存同步历史 (从服务获取后缓存)
+    func cacheSyncHistory(_ history: [SyncHistory]) {
+        queue.async { [weak self] in
+            self?.cachedSyncHistory = history
+        }
+    }
+
+    /// 获取缓存的同步历史
+    func getCachedSyncHistory(limit: Int = 100) -> [SyncHistory] {
+        return queue.sync {
+            Array(cachedSyncHistory.prefix(limit))
+        }
+    }
+
+    /// 清除同步历史缓存
+    func clearSyncHistoryCache() {
+        queue.async { [weak self] in
+            self?.cachedSyncHistory.removeAll()
+        }
+    }
+
+    // MARK: - NotificationRecord 本地管理
+    // 通知记录保留在 App 端，因为这是 UI 相关的本地数据
+
+    private var notificationRecordsURL: URL {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/DMSA/Data")
-
-        // 确保数据目录存在
-        try? fileManager.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
-
-        fileEntriesURL = dataDirectory.appendingPathComponent("file_entries.json")
-        syncHistoryURL = dataDirectory.appendingPathComponent("sync_history.json")
-        syncStatisticsURL = dataDirectory.appendingPathComponent("sync_statistics.json")
-        notificationRecordsURL = dataDirectory.appendingPathComponent("notification_records.json")
-
-        loadAllData()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("notifications.json")
     }
 
-    // MARK: - 数据加载
-
-    private func loadAllData() {
-        loadFileEntries()
-        loadSyncHistory()
-        loadSyncStatistics()
-        loadNotificationRecords()
-        Logger.shared.info("数据库加载完成")
-    }
-
-    private func loadFileEntries() {
-        guard let data = try? Data(contentsOf: fileEntriesURL),
-              let entries = try? JSONDecoder().decode([FileEntry].self, from: data) else {
-            return
+    /// 加载通知记录
+    func loadNotifications() {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            guard let data = try? Data(contentsOf: self.notificationRecordsURL),
+                  let records = try? JSONDecoder().decode([NotificationRecord].self, from: data) else {
+                return
+            }
+            self.cachedNotifications = records
         }
-        fileEntries = Dictionary(uniqueKeysWithValues: entries.map { ($0.virtualPath, $0) })
-        Logger.shared.debug("加载 \(fileEntries.count) 个文件索引")
     }
 
-    private func loadSyncHistory() {
-        guard let data = try? Data(contentsOf: syncHistoryURL),
-              let history = try? JSONDecoder().decode([SyncHistory].self, from: data) else {
-            return
-        }
-        syncHistory = history
-        Logger.shared.debug("加载 \(syncHistory.count) 条同步历史")
-    }
-
-    private func loadSyncStatistics() {
-        guard let data = try? Data(contentsOf: syncStatisticsURL),
-              let stats = try? JSONDecoder().decode([SyncStatistics].self, from: data) else {
-            return
-        }
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        syncStatistics = Dictionary(uniqueKeysWithValues: stats.map {
-            (dateFormatter.string(from: $0.date) + "_" + $0.diskId, $0)
-        })
-        Logger.shared.debug("加载 \(syncStatistics.count) 条统计数据")
-    }
-
-    private func loadNotificationRecords() {
-        guard let data = try? Data(contentsOf: notificationRecordsURL),
-              let records = try? JSONDecoder().decode([NotificationRecord].self, from: data) else {
-            return
-        }
-        notificationRecords = records
-        Logger.shared.debug("加载 \(notificationRecords.count) 条通知记录")
-    }
-
-    // MARK: - 数据保存
-
-    private func saveFileEntries() {
+    /// 保存通知记录
+    private func saveNotifications() {
         queue.async { [weak self] in
             guard let self = self else { return }
             do {
-                let entries = Array(self.fileEntries.values)
-                let data = try JSONEncoder().encode(entries)
-                try data.write(to: self.fileEntriesURL)
+                let data = try JSONEncoder().encode(self.cachedNotifications)
+                try data.write(to: self.notificationRecordsURL, options: .atomic)
             } catch {
-                Logger.shared.error("保存文件索引失败: \(error.localizedDescription)")
+                self.logger.error("保存通知记录失败: \(error)")
             }
         }
     }
 
-    private func saveSyncHistory() {
+    /// 添加通知记录
+    func saveNotificationRecord(_ record: NotificationRecord) {
         queue.async { [weak self] in
             guard let self = self else { return }
-            do {
-                let data = try JSONEncoder().encode(self.syncHistory)
-                try data.write(to: self.syncHistoryURL)
-            } catch {
-                Logger.shared.error("保存同步历史失败: \(error.localizedDescription)")
+            self.cachedNotifications.insert(record, at: 0)
+
+            // 限制最多保存 500 条
+            if self.cachedNotifications.count > 500 {
+                self.cachedNotifications = Array(self.cachedNotifications.prefix(500))
+            }
+
+            self.saveNotifications()
+        }
+    }
+
+    /// 获取通知记录
+    func getNotificationRecords(limit: Int = 100) -> [NotificationRecord] {
+        return queue.sync {
+            Array(cachedNotifications.prefix(limit))
+        }
+    }
+
+    /// 获取所有通知记录
+    func getAllNotificationRecords() -> [NotificationRecord] {
+        return queue.sync { cachedNotifications }
+    }
+
+    /// 获取未读通知
+    func getUnreadNotificationRecords() -> [NotificationRecord] {
+        return queue.sync {
+            cachedNotifications.filter { !$0.isRead }
+        }
+    }
+
+    /// 获取未读数量
+    func getUnreadCount() -> Int {
+        return queue.sync {
+            cachedNotifications.filter { !$0.isRead }.count
+        }
+    }
+
+    /// 标记通知为已读
+    func markNotificationAsRead(_ id: UInt64) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            if let index = self.cachedNotifications.firstIndex(where: { $0.id == id }) {
+                self.cachedNotifications[index].isRead = true
+                self.saveNotifications()
             }
         }
     }
 
-    private func saveSyncStatistics() {
+    /// 标记所有通知为已读
+    func markAllNotificationsAsRead() {
         queue.async { [weak self] in
             guard let self = self else { return }
-            do {
-                let stats = Array(self.syncStatistics.values)
-                let data = try JSONEncoder().encode(stats)
-                try data.write(to: self.syncStatisticsURL)
-            } catch {
-                Logger.shared.error("保存统计数据失败: \(error.localizedDescription)")
+            for i in 0..<self.cachedNotifications.count {
+                self.cachedNotifications[i].isRead = true
             }
+            self.saveNotifications()
         }
     }
 
-    private func saveNotificationRecords() {
+    /// 清除旧通知
+    func clearNotificationRecords(olderThan date: Date) {
         queue.async { [weak self] in
             guard let self = self else { return }
-            do {
-                let data = try JSONEncoder().encode(self.notificationRecords)
-                try data.write(to: self.notificationRecordsURL)
-            } catch {
-                Logger.shared.error("保存通知记录失败: \(error.localizedDescription)")
-            }
+            self.cachedNotifications.removeAll { $0.createdAt < date }
+            self.saveNotifications()
         }
     }
 
-    // MARK: - FileEntry 操作
+    /// 清除所有通知
+    func clearAllNotificationRecords() {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.cachedNotifications.removeAll()
+            self.saveNotifications()
+        }
+    }
 
+    // MARK: - 已弃用方法 (兼容旧代码)
+
+    @available(*, deprecated, message: "Use ServiceClient to get data from service")
     func getFileEntry(virtualPath: String) -> FileEntry? {
-        return queue.sync { fileEntries[virtualPath] }
+        return getCachedFileEntry(virtualPath: virtualPath)
     }
 
+    @available(*, deprecated, message: "Use ServiceClient to save data to service")
     func saveFileEntry(_ entry: FileEntry) {
-        queue.async { [weak self] in
-            self?.fileEntries[entry.virtualPath] = entry
-            self?.saveFileEntries()
-        }
+        cacheFileEntry(entry)
     }
 
+    @available(*, deprecated, message: "Use ServiceClient to get data from service")
+    func getAllFileEntries() -> [FileEntry] {
+        return getAllCachedFileEntries()
+    }
+
+    @available(*, deprecated, message: "Use ServiceClient.getSyncHistory()")
+    func getSyncHistory(limit: Int = 100) -> [SyncHistory] {
+        return getCachedSyncHistory(limit: limit)
+    }
+
+    @available(*, deprecated, message: "Use ServiceClient.getSyncHistory()")
+    func getAllSyncHistory() -> [SyncHistory] {
+        return queue.sync { cachedSyncHistory }
+    }
+
+    @available(*, deprecated, message: "Use cacheFileEntries() instead")
     func updateFileLocation(virtualPath: String, location: FileLocation, localPath: String? = nil, externalPath: String? = nil) {
         queue.async { [weak self] in
             guard let self = self else { return }
-            if var entry = self.fileEntries[virtualPath] {
+            if var entry = self.cachedFileEntries[virtualPath] {
                 entry.location = location
                 if let local = localPath { entry.localPath = local }
                 if let external = externalPath { entry.externalPath = external }
                 entry.modifiedAt = Date()
-                self.fileEntries[virtualPath] = entry
-                self.saveFileEntries()
+                self.cachedFileEntries[virtualPath] = entry
             }
         }
     }
 
+    @available(*, deprecated, message: "Data managed by service")
     func markClean(_ virtualPath: String) {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            if var entry = self.fileEntries[virtualPath] {
-                entry.isDirty = false
-                self.fileEntries[virtualPath] = entry
-                self.saveFileEntries()
-            }
-        }
+        // No-op: 服务端管理脏标记
     }
 
+    @available(*, deprecated, message: "Data managed by service")
     func updateAccessTime(_ virtualPath: String) {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            if var entry = self.fileEntries[virtualPath] {
-                entry.accessedAt = Date()
-                self.fileEntries[virtualPath] = entry
-                // 不立即保存，减少 I/O
-            }
-        }
+        // No-op: 服务端管理访问时间
     }
 
-    func getEvictableFiles() -> [FileEntry] {
-        return queue.sync {
-            fileEntries.values.filter { entry in
-                !entry.isDirty &&
-                entry.location == .both &&
-                entry.localPath != nil &&
-                entry.lockState == .unlocked
-            }
-        }
-    }
-
-    /// 获取所有锁定的文件
-    func getLockedFiles() -> [FileEntry] {
-        return queue.sync {
-            fileEntries.values.filter { $0.lockState == .syncLocked }
-        }
-    }
-
-    /// 更新文件锁定状态
-    func updateLockState(virtualPath: String, lockState: LockState, direction: SyncLockDirection? = nil) {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            if var entry = self.fileEntries[virtualPath] {
-                entry.lockState = lockState
-                if lockState == .syncLocked {
-                    entry.lockTime = Date()
-                    entry.lockDirection = direction
-                } else {
-                    entry.lockTime = nil
-                    entry.lockDirection = nil
-                }
-                self.fileEntries[virtualPath] = entry
-                self.saveFileEntries()
-            }
-        }
-    }
-
-    /// 批量更新锁定状态
-    func updateLockStates(virtualPaths: [String], lockState: LockState, direction: SyncLockDirection? = nil) {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            for path in virtualPaths {
-                if var entry = self.fileEntries[path] {
-                    entry.lockState = lockState
-                    if lockState == .syncLocked {
-                        entry.lockTime = Date()
-                        entry.lockDirection = direction
-                    } else {
-                        entry.lockTime = nil
-                        entry.lockDirection = nil
-                    }
-                    self.fileEntries[path] = entry
-                }
-            }
-            self.saveFileEntries()
-        }
-    }
-
-    /// 清理超时的锁
-    func cleanupExpiredLocks() {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            var cleaned = 0
-            for (path, entry) in self.fileEntries {
-                if entry.isLockExpired {
-                    var mutableEntry = entry
-                    mutableEntry.unlock()
-                    self.fileEntries[path] = mutableEntry
-                    cleaned += 1
-                }
-            }
-            if cleaned > 0 {
-                Logger.shared.warn("清理超时锁: \(cleaned) 个")
-                self.saveFileEntries()
-            }
-        }
-    }
-
+    @available(*, deprecated, message: "Data managed by service")
     func getDirtyFiles() -> [FileEntry] {
-        return queue.sync {
-            fileEntries.values.filter { $0.isDirty }
-        }
+        return []
     }
 
-    func getAllFileEntries() -> [FileEntry] {
-        return queue.sync { Array(fileEntries.values) }
+    @available(*, deprecated, message: "Data managed by service")
+    func getEvictableFiles() -> [FileEntry] {
+        return []
     }
 
-    func deleteFileEntry(virtualPath: String) {
-        queue.async { [weak self] in
-            self?.fileEntries.removeValue(forKey: virtualPath)
-            self?.saveFileEntries()
-        }
+    @available(*, deprecated, message: "Data managed by service")
+    func getLockedFiles() -> [FileEntry] {
+        return []
     }
 
-    // MARK: - SyncHistory 操作
-
+    @available(*, deprecated, message: "Data managed by service")
     func saveSyncHistory(_ history: SyncHistory) {
-        queue.async { [weak self] in
-            self?.syncHistory.append(history)
-            self?.saveSyncHistory()
-            self?.updateStatistics(from: history)
-        }
+        // No-op: 服务端管理同步历史
     }
 
-    func getSyncHistory(limit: Int = 100) -> [SyncHistory] {
-        return queue.sync {
-            Array(syncHistory.suffix(limit).reversed())
-        }
-    }
-
-    func getSyncHistory(forDiskId diskId: String, limit: Int = 50) -> [SyncHistory] {
-        return queue.sync {
-            syncHistory.filter { $0.diskId == diskId }
-                .suffix(limit)
-                .reversed() as [SyncHistory]
-        }
-    }
-
+    @available(*, deprecated, message: "Data managed by service")
     func clearSyncHistory(olderThan date: Date) {
-        queue.async { [weak self] in
-            self?.syncHistory.removeAll { $0.startedAt < date }
-            self?.saveSyncHistory()
-        }
+        // No-op: 服务端管理同步历史
     }
 
-    func getAllSyncHistory() -> [SyncHistory] {
-        // 使用异步方式避免阻塞调用线程
-        var result: [SyncHistory] = []
-        queue.sync {
-            result = Array(syncHistory.reversed())
-        }
-        return result
-    }
-
-    /// 异步获取所有同步历史 (推荐使用)
-    func getAllSyncHistoryAsync() async -> [SyncHistory] {
-        return await withCheckedContinuation { continuation in
-            queue.async { [weak self] in
-                guard let self = self else {
-                    continuation.resume(returning: [])
-                    return
-                }
-                let result = Array(self.syncHistory.reversed())
-                continuation.resume(returning: result)
-            }
-        }
-    }
-
+    @available(*, deprecated, message: "Data managed by service")
     func clearAllSyncHistory() {
-        queue.async { [weak self] in
-            self?.syncHistory.removeAll()
-            self?.saveSyncHistory()
-        }
+        // No-op: 服务端管理同步历史
     }
 
-    // MARK: - Statistics 操作
-
-    private func updateStatistics(from history: SyncHistory) {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let dateKey = dateFormatter.string(from: history.startedAt) + "_" + history.diskId
-
-        var stats = syncStatistics[dateKey] ?? SyncStatistics(date: history.startedAt, diskId: history.diskId)
-
-        stats.totalSyncs += 1
-        if history.status == .completed {
-            stats.successfulSyncs += 1
-        } else if history.status == .failed {
-            stats.failedSyncs += 1
-        }
-        stats.totalFilesTransferred += history.filesCount
-        stats.totalBytesTransferred += history.totalSize
-
-        // 更新平均耗时
-        if stats.totalSyncs > 0 {
-            let totalDuration = stats.averageDuration * Double(stats.totalSyncs - 1) + history.duration
-            stats.averageDuration = totalDuration / Double(stats.totalSyncs)
-        }
-
-        syncStatistics[dateKey] = stats
-        saveSyncStatistics()
-    }
-
+    @available(*, deprecated, message: "Data managed by service")
     func getStatistics(forDiskId diskId: String, days: Int = 30) -> [SyncStatistics] {
-        return queue.sync {
-            let cutoffDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
-            return syncStatistics.values
-                .filter { $0.diskId == diskId && $0.date >= cutoffDate }
-                .sorted { $0.date < $1.date }
-        }
+        return []
     }
 
+    @available(*, deprecated, message: "Data managed by service")
     func getTodayStatistics(forDiskId diskId: String) -> SyncStatistics? {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let dateKey = dateFormatter.string(from: Date()) + "_" + diskId
-        return queue.sync { syncStatistics[dateKey] }
-    }
-
-    // MARK: - NotificationRecord 操作
-
-    func saveNotificationRecord(_ record: NotificationRecord) {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            self.notificationRecords.insert(record, at: 0)
-
-            // 限制最多保存 500 条记录
-            if self.notificationRecords.count > 500 {
-                self.notificationRecords = Array(self.notificationRecords.prefix(500))
-            }
-
-            self.saveNotificationRecords()
-        }
-    }
-
-    func getNotificationRecords(limit: Int = 100) -> [NotificationRecord] {
-        return queue.sync {
-            Array(notificationRecords.prefix(limit))
-        }
-    }
-
-    func getAllNotificationRecords() -> [NotificationRecord] {
-        return queue.sync {
-            notificationRecords
-        }
-    }
-
-    func getUnreadNotificationRecords() -> [NotificationRecord] {
-        return queue.sync {
-            notificationRecords.filter { !$0.isRead }
-        }
-    }
-
-    func getUnreadCount() -> Int {
-        return queue.sync {
-            notificationRecords.filter { !$0.isRead }.count
-        }
-    }
-
-    func markNotificationAsRead(_ id: UInt64) {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            if let index = self.notificationRecords.firstIndex(where: { $0.id == id }) {
-                self.notificationRecords[index].isRead = true
-                self.saveNotificationRecords()
-            }
-        }
-    }
-
-    func markAllNotificationsAsRead() {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            for i in 0..<self.notificationRecords.count {
-                self.notificationRecords[i].isRead = true
-            }
-            self.saveNotificationRecords()
-        }
-    }
-
-    func clearNotificationRecords(olderThan date: Date) {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            self.notificationRecords.removeAll { $0.createdAt < date }
-            self.saveNotificationRecords()
-        }
-    }
-
-    func clearAllNotificationRecords() {
-        queue.async { [weak self] in
-            guard let self = self else { return }
-            self.notificationRecords.removeAll()
-            self.saveNotificationRecords()
-        }
+        return nil
     }
 
     // MARK: - 清理
 
-    func clearAllData() {
+    func clearAllCaches() {
         queue.async { [weak self] in
-            guard let self = self else { return }
-            self.fileEntries.removeAll()
-            self.syncHistory.removeAll()
-            self.syncStatistics.removeAll()
-            self.notificationRecords.removeAll()
-
-            try? self.fileManager.removeItem(at: self.fileEntriesURL)
-            try? self.fileManager.removeItem(at: self.syncHistoryURL)
-            try? self.fileManager.removeItem(at: self.syncStatisticsURL)
-            try? self.fileManager.removeItem(at: self.notificationRecordsURL)
-
-            Logger.shared.info("所有数据已清除")
+            self?.cachedFileEntries.removeAll()
+            self?.cachedSyncHistory.removeAll()
+            self?.logger.info("所有缓存已清除")
         }
+    }
+
+    func clearAllData() {
+        clearAllCaches()
+        clearAllNotificationRecords()
+        logger.info("所有本地数据已清除")
     }
 }

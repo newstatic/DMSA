@@ -1,7 +1,7 @@
 import Foundation
 
-/// 同步任务
-struct SyncTask: Identifiable {
+/// 同步任务 (用于内部调度)
+struct InternalSyncTask: Identifiable {
     let id: String
     let syncPairId: String
     let files: [String]  // 空表示全量同步
@@ -12,17 +12,26 @@ struct SyncTask: Identifiable {
 }
 
 /// 同步管理器
+/// - 整合 NativeSyncEngine 提供完善的同步功能
+/// - 使用 ServiceDatabaseManager 持久化同步历史
+/// - 使用 ServiceConfigManager 保存同步状态
 actor SyncManager {
 
     private let logger = Logger.forService("Sync")
     private var config: AppConfig?
 
-    // 同步状态
+    // 数据持久化
+    private let database = ServiceDatabaseManager.shared
+    private let configManager = ServiceConfigManager.shared
+
+    // 同步引擎 (使用 NativeSyncEngine)
+    private var syncEngine: NativeSyncEngine?
+
+    // 同步状态 (内存缓存，定期持久化)
     private var syncStatuses: [String: SyncStatusInfo] = [:]
     private var syncProgress: [String: SyncProgress] = [:]
-    private var pendingTasks: [String: [SyncTask]] = [:]  // [syncPairId: [tasks]]
+    private var pendingTasks: [String: [InternalSyncTask]] = [:]  // [syncPairId: [tasks]]
     private var dirtyFiles: [String: Set<String>] = [:]   // [syncPairId: [virtualPaths]]
-    private var syncHistory: [String: [SyncHistory]] = [:]  // [syncPairId: [history]]
 
     // 调度器
     private var schedulerTask: Task<Void, Never>?
@@ -30,7 +39,6 @@ actor SyncManager {
 
     // 配置
     private let debounceInterval: TimeInterval = 5.0
-    private let maxHistoryPerPair = 100
 
     // MARK: - 生命周期
 
@@ -38,11 +46,33 @@ actor SyncManager {
         self.config = config
         logger.info("启动同步调度器")
 
+        // 从配置管理器加载同步配置
+        let serviceConfig = await configManager.getConfig()
+
+        // 初始化同步引擎
+        let engineConfig = NativeSyncEngine.Config(
+            enableChecksum: serviceConfig.sync.enableChecksum,
+            checksumAlgorithm: serviceConfig.sync.checksumAlgorithm == "sha256" ? .sha256 : .md5,
+            verifyAfterCopy: serviceConfig.sync.verifyAfterCopy,
+            conflictStrategy: ConflictStrategy(rawValue: serviceConfig.sync.conflictStrategy) ?? .localWinsWithBackup,
+            enableDelete: serviceConfig.sync.enableDelete,
+            excludePatterns: serviceConfig.sync.excludePatterns.isEmpty ? Constants.defaultExcludePatterns : serviceConfig.sync.excludePatterns,
+            enablePauseResume: true
+        )
+        syncEngine = NativeSyncEngine(config: engineConfig)
+
         // 初始化同步对状态
         for syncPair in config?.syncPairs ?? [] {
-            syncStatuses[syncPair.id] = SyncStatusInfo(syncPairId: syncPair.id)
+            // 尝试从配置管理器恢复状态
+            if let savedState = await configManager.getSyncState(syncPairId: syncPair.id) {
+                var status = SyncStatusInfo(syncPairId: syncPair.id)
+                status.lastSyncTime = savedState.lastSyncTime
+                status.dirtyFiles = savedState.dirtyFileCount
+                syncStatuses[syncPair.id] = status
+            } else {
+                syncStatuses[syncPair.id] = SyncStatusInfo(syncPairId: syncPair.id)
+            }
             dirtyFiles[syncPair.id] = []
-            syncHistory[syncPair.id] = []
         }
 
         // 启动定时同步任务
@@ -69,8 +99,16 @@ actor SyncManager {
         }
         debounceTimers.removeAll()
 
-        // 等待当前正在进行的同步完成
-        // ...
+        // 保存状态到配置管理器
+        for (syncPairId, status) in syncStatuses {
+            var syncState = SyncState(syncPairId: syncPairId)
+            syncState.lastSyncTime = status.lastSyncTime
+            syncState.dirtyFileCount = dirtyFiles[syncPairId]?.count ?? 0
+            await configManager.setSyncState(syncState)
+        }
+
+        // 强制保存数据库
+        await database.forceSave()
 
         logger.info("同步管理器已关闭")
     }
@@ -268,8 +306,8 @@ actor SyncManager {
         progress.startTime = Date()
         syncProgress[syncPairId] = progress
 
-        // 创建历史记录
-        var history = SyncHistory(syncPairId: syncPairId, diskId: disk.id)
+        // 创建历史记录 (使用服务端实体)
+        var history = ServiceSyncHistory(syncPairId: syncPairId, diskId: disk.id)
 
         logger.info("开始同步: \(syncPair.name)")
         logger.info("  LOCAL_DIR: \(syncPair.localDir)")
@@ -336,11 +374,8 @@ actor SyncManager {
 
                 } catch {
                     logger.error("同步文件失败: \(virtualPath) - \(error)")
-                    history.details.append(SyncOperationDetail(
-                        path: virtualPath,
-                        operation: .update,
-                        size: 0
-                    ))
+                    // ServiceSyncHistory 不支持 details，记录错误
+                    history.filesSkipped += 1
                 }
 
                 syncProgress[syncPairId] = progress
@@ -356,8 +391,9 @@ actor SyncManager {
             status.dirtyFiles = dirtyFiles[syncPairId]?.count ?? 0
             syncStatuses[syncPairId] = status
 
-            history.status = .completed
+            history.status = SyncStatus.completed.rawValue
             history.endTime = Date()
+            history.totalFiles = filesToSync.count
 
             logger.info("同步完成: \(syncPair.name), \(history.filesUpdated) 个文件")
 
@@ -379,24 +415,20 @@ actor SyncManager {
             status.status = .failed
             syncStatuses[syncPairId] = status
 
-            history.status = .failed
+            history.status = SyncStatus.failed.rawValue
             history.endTime = Date()
             history.errorMessage = error.localizedDescription
+            history.totalFiles = filesToSync.count
 
             logger.error("同步失败: \(syncPair.name) - \(error)")
             throw error
         }
 
-        // 保存历史记录
-        if syncHistory[syncPairId] == nil {
-            syncHistory[syncPairId] = []
-        }
-        syncHistory[syncPairId]?.insert(history, at: 0)
+        // 保存历史记录到数据库
+        await database.saveSyncHistory(history)
 
-        // 限制历史记录数量
-        if let count = syncHistory[syncPairId]?.count, count > maxHistoryPerPair {
-            syncHistory[syncPairId]?.removeLast(count - maxHistoryPerPair)
-        }
+        // 更新同步状态到配置管理器
+        await configManager.markSyncCompleted(syncPairId: syncPairId)
     }
 
     // MARK: - 状态查询
@@ -417,27 +449,17 @@ actor SyncManager {
         return Array(dirtyFiles[syncPairId] ?? [])
     }
 
-    func getSyncHistory(syncPairId: String, limit: Int) async -> [SyncHistory] {
-        return Array((syncHistory[syncPairId] ?? []).prefix(limit))
+    func getSyncHistory(syncPairId: String, limit: Int) async -> [ServiceSyncHistory] {
+        return await database.getSyncHistory(syncPairId: syncPairId, limit: limit)
     }
 
-    func getSyncStatistics(syncPairId: String) async -> SyncStatistics? {
-        // 计算统计信息
-        guard let history = syncHistory[syncPairId] else { return nil }
+    func getSyncStatistics(syncPairId: String) async -> ServiceSyncStatistics? {
+        // 从数据库获取今日统计
+        return await database.getTodayStatistics(syncPairId: syncPairId)
+    }
 
-        var stats = SyncStatistics(syncPairId: syncPairId)
-        stats.totalSyncs = history.count
-        stats.successfulSyncs = history.filter { $0.status == .completed }.count
-        stats.failedSyncs = history.filter { $0.status == .failed }.count
-        stats.totalFilesProcessed = history.reduce(0) { $0 + $1.totalFiles }
-        stats.totalBytesTransferred = history.reduce(0) { $0 + $1.bytesTransferred }
-
-        let durations = history.compactMap { $0.duration }
-        if !durations.isEmpty {
-            stats.averageDuration = durations.reduce(0, +) / Double(durations.count)
-        }
-
-        return stats
+    func getStatisticsForDays(syncPairId: String, days: Int) async -> [ServiceSyncStatistics] {
+        return await database.getStatistics(syncPairId: syncPairId, days: days)
     }
 
     // MARK: - 脏文件管理
@@ -516,26 +538,12 @@ actor SyncManager {
         return syncProgress[syncPairId]
     }
 
-    func getHistory(syncPairId: String, limit: Int) -> [SyncHistory] {
-        return Array((syncHistory[syncPairId] ?? []).prefix(limit))
+    func getHistory(syncPairId: String, limit: Int) async -> [ServiceSyncHistory] {
+        return await database.getSyncHistory(syncPairId: syncPairId, limit: limit)
     }
 
-    func getStatistics(syncPairId: String) -> SyncStatistics? {
-        guard let history = syncHistory[syncPairId] else { return nil }
-
-        var stats = SyncStatistics(syncPairId: syncPairId)
-        stats.totalSyncs = history.count
-        stats.successfulSyncs = history.filter { $0.status == .completed }.count
-        stats.failedSyncs = history.filter { $0.status == .failed }.count
-        stats.totalFilesProcessed = history.reduce(0) { $0 + $1.totalFiles }
-        stats.totalBytesTransferred = history.reduce(0) { $0 + $1.bytesTransferred }
-
-        let durations = history.compactMap { $0.duration }
-        if !durations.isEmpty {
-            stats.averageDuration = durations.reduce(0, +) / Double(durations.count)
-        }
-
-        return stats
+    func getStatistics(syncPairId: String) async -> ServiceSyncStatistics? {
+        return await database.getTodayStatistics(syncPairId: syncPairId)
     }
 
     func pause(syncPairId: String) {

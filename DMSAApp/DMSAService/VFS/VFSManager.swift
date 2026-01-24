@@ -1,6 +1,6 @@
 import Foundation
 
-/// VFS 挂载点信息
+/// VFS 挂载点信息 (内存中)
 struct VFSMountPoint {
     let syncPairId: String
     var localDir: String
@@ -13,7 +13,7 @@ struct VFSMountPoint {
 }
 
 /// 索引统计
-struct IndexStats: Codable {
+struct IndexStats: Codable, Sendable {
     var totalFiles: Int
     var totalDirectories: Int
     var totalSize: Int64
@@ -25,11 +25,16 @@ struct IndexStats: Codable {
 }
 
 /// VFS 管理器
+/// - 使用 ServiceDatabaseManager 持久化文件索引
+/// - 使用 ServiceConfigManager 保存挂载状态
 actor VFSManager {
 
     private let logger = Logger.forService("VFS")
     private var mountPoints: [String: VFSMountPoint] = [:]
-    private var fileIndex: [String: [String: FileEntry]] = [:]  // [syncPairId: [virtualPath: FileEntry]]
+
+    // 数据持久化
+    private let database = ServiceDatabaseManager.shared
+    private let configManager = ServiceConfigManager.shared
 
     var mountedCount: Int {
         return mountPoints.count
@@ -115,8 +120,16 @@ actor VFSManager {
 
         mountPoints[syncPairId] = mountPoint
 
-        // 构建文件索引
+        // 构建文件索引并持久化
         await buildIndex(for: syncPairId)
+
+        // 保存挂载状态到配置
+        var mountState = MountState(syncPairId: syncPairId, targetDir: targetDir, localDir: localDir)
+        mountState.externalDir = externalDir
+        mountState.isMounted = true
+        mountState.isExternalOnline = mountPoint.isExternalOnline
+        mountState.mountedAt = Date()
+        await configManager.setMountState(mountState)
 
         logger.info("VFS 挂载成功: \(targetDir)")
     }
@@ -126,6 +139,9 @@ actor VFSManager {
             throw VFSError.notMounted(syncPairId)
         }
 
+        // 保存文件索引到数据库
+        await database.forceSave()
+
         // 执行卸载
         if let fuseFS = mountPoint.fuseFileSystem {
             try await fuseFS.unmount()
@@ -133,7 +149,9 @@ actor VFSManager {
 
         // 移除记录
         mountPoints.removeValue(forKey: syncPairId)
-        fileIndex.removeValue(forKey: syncPairId)
+
+        // 移除挂载状态
+        await configManager.removeMountState(syncPairId: syncPairId)
 
         logger.info("VFS 卸载成功: \(mountPoint.targetDir)")
     }
@@ -152,8 +170,10 @@ actor VFSManager {
         return mountPoints[syncPairId] != nil
     }
 
-    func getAllMounts() -> [MountInfo] {
-        return mountPoints.values.map { mp in
+    func getAllMounts() async -> [MountInfo] {
+        var results: [MountInfo] = []
+
+        for mp in mountPoints.values {
             var info = MountInfo(
                 syncPairId: mp.syncPairId,
                 targetDir: mp.targetDir,
@@ -164,14 +184,15 @@ actor VFSManager {
             info.isExternalOnline = mp.isExternalOnline
             info.mountedAt = mp.mountedAt
 
-            // 获取统计信息
-            if let index = fileIndex[mp.syncPairId] {
-                info.fileCount = index.count
-                info.totalSize = index.values.reduce(0) { $0 + $1.size }
-            }
+            // 从数据库获取统计信息
+            let stats = await database.getIndexStats(syncPairId: mp.syncPairId)
+            info.fileCount = stats.totalFiles + stats.totalDirectories
+            info.totalSize = stats.totalSize
 
-            return info
+            results.append(info)
         }
+
+        return results
     }
 
     // MARK: - 配置更新
@@ -219,14 +240,17 @@ actor VFSManager {
         mountPoint.fuseFileSystem?.setReadOnly(readOnly)
     }
 
-    // MARK: - 文件索引
+    // MARK: - 文件索引 (通过 ServiceDatabaseManager)
 
-    func getFileEntry(virtualPath: String, syncPairId: String) async -> FileEntry? {
-        return fileIndex[syncPairId]?[virtualPath]
+    func getFileEntry(virtualPath: String, syncPairId: String) async -> ServiceFileEntry? {
+        return await database.getFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
     }
 
     func getFileLocation(virtualPath: String, syncPairId: String) async -> FileLocation {
-        return fileIndex[syncPairId]?[virtualPath]?.location ?? .notExists
+        guard let entry = await database.getFileEntry(virtualPath: virtualPath, syncPairId: syncPairId) else {
+            return .notExists
+        }
+        return entry.fileLocation
     }
 
     func rebuildIndex(syncPairId: String) async throws {
@@ -237,41 +261,20 @@ actor VFSManager {
         await buildIndex(for: syncPairId)
     }
 
-    func getIndexStats(syncPairId: String) async -> IndexStats? {
-        guard let index = fileIndex[syncPairId] else { return nil }
+    func getIndexStats(syncPairId: String) async -> IndexStats {
+        return await database.getIndexStats(syncPairId: syncPairId)
+    }
 
-        var stats = IndexStats(
-            totalFiles: 0,
-            totalDirectories: 0,
-            totalSize: 0,
-            localOnlyCount: 0,
-            externalOnlyCount: 0,
-            bothCount: 0,
-            dirtyCount: 0,
-            lastUpdated: Date()
-        )
+    func getAllFileEntries(syncPairId: String) async -> [ServiceFileEntry] {
+        return await database.getAllFileEntries(syncPairId: syncPairId)
+    }
 
-        for entry in index.values {
-            if entry.isDirectory {
-                stats.totalDirectories += 1
-            } else {
-                stats.totalFiles += 1
-                stats.totalSize += entry.size
-            }
+    func getDirtyFiles(syncPairId: String) async -> [ServiceFileEntry] {
+        return await database.getDirtyFiles(syncPairId: syncPairId)
+    }
 
-            switch entry.location {
-            case .localOnly: stats.localOnlyCount += 1
-            case .externalOnly: stats.externalOnlyCount += 1
-            case .both: stats.bothCount += 1
-            default: break
-            }
-
-            if entry.isDirty {
-                stats.dirtyCount += 1
-            }
-        }
-
-        return stats
+    func getEvictableFiles(syncPairId: String) async -> [ServiceFileEntry] {
+        return await database.getEvictableFiles(syncPairId: syncPairId)
     }
 
     private func buildIndex(for syncPairId: String) async {
@@ -279,7 +282,11 @@ actor VFSManager {
 
         logger.info("构建文件索引: \(syncPairId)")
 
-        var index: [String: FileEntry] = [:]
+        // 清除旧索引
+        await database.clearFileEntries(syncPairId: syncPairId)
+
+        var entries: [ServiceFileEntry] = []
+        var localPaths: [String: ServiceFileEntry] = [:]
         let fm = FileManager.default
 
         // 扫描 LOCAL_DIR
@@ -290,8 +297,8 @@ actor VFSManager {
                 // 跳过排除的文件
                 if shouldExclude(path: relativePath) { continue }
 
-                var entry = FileEntry(virtualPath: "/" + relativePath, localPath: fullPath)
-                entry.syncPairId = syncPairId
+                var entry = ServiceFileEntry(virtualPath: "/" + relativePath, syncPairId: syncPairId)
+                entry.localPath = fullPath
 
                 if let attrs = try? fm.attributesOfItem(atPath: fullPath) {
                     entry.size = attrs[.size] as? Int64 ?? 0
@@ -300,8 +307,8 @@ actor VFSManager {
                     entry.isDirectory = (attrs[.type] as? FileAttributeType) == .typeDirectory
                 }
 
-                entry.location = .localOnly
-                index[entry.virtualPath] = entry
+                entry.location = FileLocation.localOnly.rawValue
+                localPaths[entry.virtualPath] = entry
             }
         }
 
@@ -315,15 +322,15 @@ actor VFSManager {
                     // 跳过排除的文件
                     if shouldExclude(path: relativePath) { continue }
 
-                    if var entry = index[virtualPath] {
+                    if var entry = localPaths[virtualPath] {
                         // 本地也存在，更新为 BOTH
                         entry.externalPath = fullPath
-                        entry.location = .both
-                        index[virtualPath] = entry
+                        entry.location = FileLocation.both.rawValue
+                        localPaths[virtualPath] = entry
                     } else {
                         // 仅外部存在
-                        var entry = FileEntry(virtualPath: virtualPath, externalPath: fullPath)
-                        entry.syncPairId = syncPairId
+                        var entry = ServiceFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
+                        entry.externalPath = fullPath
 
                         if let attrs = try? fm.attributesOfItem(atPath: fullPath) {
                             entry.size = attrs[.size] as? Int64 ?? 0
@@ -332,15 +339,26 @@ actor VFSManager {
                             entry.isDirectory = (attrs[.type] as? FileAttributeType) == .typeDirectory
                         }
 
-                        entry.location = .externalOnly
-                        index[virtualPath] = entry
+                        entry.location = FileLocation.externalOnly.rawValue
+                        localPaths[virtualPath] = entry
                     }
                 }
             }
         }
 
-        fileIndex[syncPairId] = index
-        logger.info("索引构建完成: \(index.count) 个文件/目录")
+        // 批量保存到数据库
+        entries = Array(localPaths.values)
+        await database.saveFileEntries(entries)
+
+        logger.info("索引构建完成: \(entries.count) 个文件/目录")
+
+        // 更新挂载状态统计
+        if var mountState = await configManager.getMountState(syncPairId: syncPairId) {
+            let stats = await database.getIndexStats(syncPairId: syncPairId)
+            mountState.fileCount = stats.totalFiles + stats.totalDirectories
+            mountState.totalSize = stats.totalSize
+            await configManager.setMountState(mountState)
+        }
     }
 
     private func shouldExclude(path: String) -> Bool {
@@ -370,19 +388,9 @@ actor VFSManager {
 
     // MARK: - 文件操作回调
 
-    func onFileWritten(virtualPath: String, syncPairId: String) {
-        // 更新索引
-        if var entry = fileIndex[syncPairId]?[virtualPath] {
-            entry.isDirty = true
-            entry.modifiedAt = Date()
-            entry.accessedAt = Date()
-
-            if entry.location == .externalOnly {
-                entry.location = .both
-            }
-
-            fileIndex[syncPairId]?[virtualPath] = entry
-        }
+    func onFileWritten(virtualPath: String, syncPairId: String) async {
+        // 更新数据库中的索引
+        await database.markFileDirty(virtualPath: virtualPath, syncPairId: syncPairId, dirty: true)
 
         // 更新共享状态并通知 Sync Service
         SharedState.update { state in
@@ -402,17 +410,33 @@ actor VFSManager {
         logger.debug("文件写入: \(virtualPath)")
     }
 
-    func onFileRead(virtualPath: String, syncPairId: String) {
+    func onFileRead(virtualPath: String, syncPairId: String) async {
         // 更新访问时间 (LRU)
-        if var entry = fileIndex[syncPairId]?[virtualPath] {
-            entry.accessedAt = Date()
-            fileIndex[syncPairId]?[virtualPath] = entry
-        }
+        await database.updateAccessTime(virtualPath: virtualPath, syncPairId: syncPairId)
     }
 
-    func onFileDeleted(virtualPath: String, syncPairId: String) {
-        fileIndex[syncPairId]?.removeValue(forKey: virtualPath)
+    func onFileDeleted(virtualPath: String, syncPairId: String) async {
+        await database.deleteFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
         logger.debug("文件删除: \(virtualPath)")
+    }
+
+    func onFileCreated(virtualPath: String, syncPairId: String, localPath: String, isDirectory: Bool = false) async {
+        // 新文件创建
+        var entry = ServiceFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
+        entry.localPath = localPath
+        entry.location = FileLocation.localOnly.rawValue
+        entry.isDirty = true
+        entry.isDirectory = isDirectory
+
+        let fm = FileManager.default
+        if let attrs = try? fm.attributesOfItem(atPath: localPath) {
+            entry.size = attrs[.size] as? Int64 ?? 0
+            entry.modifiedAt = attrs[.modificationDate] as? Date ?? Date()
+            entry.createdAt = attrs[.creationDate] as? Date ?? Date()
+        }
+
+        await database.saveFileEntry(entry)
+        logger.debug("文件创建: \(virtualPath)")
     }
 
     // MARK: - 健康检查
@@ -441,6 +465,12 @@ extension VFSManager: VFSFileSystemDelegate {
     nonisolated func fileDeleted(virtualPath: String, syncPairId: String) {
         Task {
             await onFileDeleted(virtualPath: virtualPath, syncPairId: syncPairId)
+        }
+    }
+
+    nonisolated func fileCreated(virtualPath: String, syncPairId: String, localPath: String, isDirectory: Bool) {
+        Task {
+            await onFileCreated(virtualPath: virtualPath, syncPairId: syncPairId, localPath: localPath, isDirectory: isDirectory)
         }
     }
 }

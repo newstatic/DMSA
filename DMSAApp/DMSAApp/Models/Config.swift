@@ -134,28 +134,7 @@ struct SyncPairConfig: Codable, Identifiable, Equatable {
 }
 
 // MARK: - Sync Direction
-
-enum SyncDirection: String, Codable, CaseIterable {
-    case localToExternal = "local_to_external"
-    case externalToLocal = "external_to_local"
-    case bidirectional = "bidirectional"
-
-    var displayName: String {
-        switch self {
-        case .localToExternal: return "本地 → 外置"
-        case .externalToLocal: return "外置 → 本地"
-        case .bidirectional: return "双向同步"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .localToExternal: return "arrow.right"
-        case .externalToLocal: return "arrow.left"
-        case .bidirectional: return "arrow.left.arrow.right"
-        }
-    }
-}
+// SyncDirection 已移至 DMSAShared/Models/Sync/SyncPlan.swift
 
 // MARK: - Filter Config
 

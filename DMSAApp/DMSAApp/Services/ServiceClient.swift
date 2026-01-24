@@ -496,6 +496,101 @@ final class ServiceClient {
             }
         }
     }
+
+    // MARK: - Data Query Operations
+
+    /// 获取文件条目
+    func getFileEntry(virtualPath: String, syncPairId: String) async throws -> FileEntry? {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.dataGetFileEntry(virtualPath: virtualPath, syncPairId: syncPairId) { data in
+                if let data = data,
+                   let entry = try? JSONDecoder().decode(FileEntry.self, from: data) {
+                    continuation.resume(returning: entry)
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+
+    /// 获取所有文件条目
+    func getAllFileEntries(syncPairId: String) async throws -> [FileEntry] {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.dataGetAllFileEntries(syncPairId: syncPairId) { data in
+                let entries = (try? JSONDecoder().decode([FileEntry].self, from: data)) ?? []
+                continuation.resume(returning: entries)
+            }
+        }
+    }
+
+    /// 获取全部同步历史
+    func getAllSyncHistory(limit: Int = 200) async throws -> [SyncHistory] {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.dataGetSyncHistory(limit: limit) { data in
+                continuation.resume(returning: SyncHistory.arrayFrom(data: data))
+            }
+        }
+    }
+
+    /// 获取树版本
+    func getTreeVersion(syncPairId: String, source: String) async throws -> String? {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.dataGetTreeVersion(syncPairId: syncPairId, source: source) { version in
+                continuation.resume(returning: version)
+            }
+        }
+    }
+
+    /// 检查树版本
+    func checkTreeVersions(localDir: String, externalDir: String?, syncPairId: String) async throws -> TreeVersionManager.VersionCheckResult {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.dataCheckTreeVersions(localDir: localDir, externalDir: externalDir, syncPairId: syncPairId) { data in
+                var result = TreeVersionManager.VersionCheckResult()
+                if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    result.externalConnected = dict["externalConnected"] as? Bool ?? false
+                    result.needRebuildLocal = dict["needRebuildLocal"] as? Bool ?? true
+                    result.needRebuildExternal = dict["needRebuildExternal"] as? Bool ?? false
+                }
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    /// 重建文件树
+    func rebuildTree(rootPath: String, syncPairId: String, source: String) async throws {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.dataRebuildTree(rootPath: rootPath, syncPairId: syncPairId, source: source) { success, _, error in
+                if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: ServiceError.operationFailed(error ?? "重建失败"))
+                }
+            }
+        }
+    }
+
+    /// 使树版本失效
+    func invalidateTreeVersion(syncPairId: String, source: String) async throws {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.dataInvalidateTreeVersion(syncPairId: syncPairId, source: source) { _ in
+                continuation.resume()
+            }
+        }
+    }
 }
 
 // MARK: - ServiceError

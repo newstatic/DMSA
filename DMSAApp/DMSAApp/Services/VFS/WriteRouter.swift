@@ -3,6 +3,9 @@ import Foundation
 /// 写入路由器
 /// 负责处理文件写入请求，实现 Write-Back 策略
 /// 写入到 Downloads_Local，异步同步到 EXTERNAL
+///
+/// ⚠️ NOTE: FUSE 写入操作已迁移至 DMSAService。
+/// 此类保留用于 App 端触发同步调度。
 final class WriteRouter {
 
     static let shared = WriteRouter()

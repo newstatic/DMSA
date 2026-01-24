@@ -2,6 +2,9 @@ import Foundation
 
 /// 智能合并引擎 - 合并 LOCAL_DIR 和 EXTERNAL_DIR 的文件视图
 /// 对应 VFS_DESIGN.md 第 7 章: 智能合并视图
+///
+/// ⚠️ NOTE: 此类仍在 App 端使用，用于 UI 显示目录合并视图。
+/// FUSE 回调中的合并操作已迁移至 DMSAService。
 actor MergeEngine {
 
     // MARK: - 类型定义

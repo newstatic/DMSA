@@ -506,6 +506,99 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         }
     }
 
+    // MARK: - ========== 数据查询操作 ==========
+
+    func dataGetFileEntry(virtualPath: String,
+                          syncPairId: String,
+                          withReply reply: @escaping (Data?) -> Void) {
+        Task {
+            let entry = await ServiceDatabaseManager.shared.getFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
+            let data = entry != nil ? try? JSONEncoder().encode(entry) : nil
+            reply(data)
+        }
+    }
+
+    func dataGetAllFileEntries(syncPairId: String,
+                               withReply reply: @escaping (Data) -> Void) {
+        Task {
+            let entries = await ServiceDatabaseManager.shared.getAllFileEntries(syncPairId: syncPairId)
+            let data = (try? JSONEncoder().encode(entries)) ?? Data()
+            reply(data)
+        }
+    }
+
+    func dataGetSyncHistory(limit: Int,
+                            withReply reply: @escaping (Data) -> Void) {
+        Task {
+            let history = await ServiceDatabaseManager.shared.getAllSyncHistory(limit: limit)
+            let data = (try? JSONEncoder().encode(history)) ?? Data()
+            reply(data)
+        }
+    }
+
+    func dataGetTreeVersion(syncPairId: String,
+                            source: String,
+                            withReply reply: @escaping (String?) -> Void) {
+        Task {
+            let treeSource: ServiceTreeSource = source == "local" ? .local : .external
+            let version = await ServiceTreeVersionManager.shared.getCurrentVersion(syncPairId: syncPairId, source: treeSource)
+            reply(version)
+        }
+    }
+
+    func dataCheckTreeVersions(localDir: String,
+                               externalDir: String?,
+                               syncPairId: String,
+                               withReply reply: @escaping (Data) -> Void) {
+        Task {
+            let result = await ServiceTreeVersionManager.shared.checkVersionsOnStartup(
+                localDir: localDir,
+                externalDir: externalDir,
+                syncPairId: syncPairId
+            )
+            // 编码结果
+            let resultDict: [String: Any] = [
+                "externalConnected": result.externalConnected,
+                "needRebuildLocal": result.needRebuildLocal,
+                "needRebuildExternal": result.needRebuildExternal,
+                "needsAnyRebuild": result.needsAnyRebuild
+            ]
+            let data = (try? JSONSerialization.data(withJSONObject: resultDict)) ?? Data()
+            reply(data)
+        }
+    }
+
+    func dataRebuildTree(rootPath: String,
+                         syncPairId: String,
+                         source: String,
+                         withReply reply: @escaping (Bool, String?, String?) -> Void) {
+        Task {
+            do {
+                let treeSource: ServiceTreeSource = source == "local" ? .local : .external
+                let (entries, version) = try await ServiceTreeVersionManager.shared.rebuildTree(
+                    rootPath: rootPath,
+                    syncPairId: syncPairId,
+                    source: treeSource
+                )
+                // 保存到数据库
+                await ServiceDatabaseManager.shared.saveFileEntries(entries)
+                reply(true, version, nil)
+            } catch {
+                reply(false, nil, error.localizedDescription)
+            }
+        }
+    }
+
+    func dataInvalidateTreeVersion(syncPairId: String,
+                                   source: String,
+                                   withReply reply: @escaping (Bool) -> Void) {
+        Task {
+            let treeSource: ServiceTreeSource = source == "local" ? .local : .external
+            await ServiceTreeVersionManager.shared.invalidateVersion(syncPairId: syncPairId, source: treeSource)
+            reply(true)
+        }
+    }
+
     // MARK: - ========== 通用操作 ==========
 
     func reloadConfig(withReply reply: @escaping (Bool, String?) -> Void) {

@@ -251,6 +251,43 @@ import Foundation
                               autoEnabled: Bool,
                               withReply reply: @escaping (Bool) -> Void)
 
+    // MARK: - ========== 数据查询操作 ==========
+
+    /// 获取文件条目
+    func dataGetFileEntry(virtualPath: String,
+                          syncPairId: String,
+                          withReply reply: @escaping (Data?) -> Void)
+
+    /// 获取所有文件条目
+    func dataGetAllFileEntries(syncPairId: String,
+                               withReply reply: @escaping (Data) -> Void)
+
+    /// 获取全部同步历史
+    func dataGetSyncHistory(limit: Int,
+                            withReply reply: @escaping (Data) -> Void)
+
+    /// 获取树版本信息
+    func dataGetTreeVersion(syncPairId: String,
+                            source: String,
+                            withReply reply: @escaping (String?) -> Void)
+
+    /// 检查树版本 (启动时)
+    func dataCheckTreeVersions(localDir: String,
+                               externalDir: String?,
+                               syncPairId: String,
+                               withReply reply: @escaping (Data) -> Void)
+
+    /// 重建文件树
+    func dataRebuildTree(rootPath: String,
+                         syncPairId: String,
+                         source: String,
+                         withReply reply: @escaping (Bool, String?, String?) -> Void)
+
+    /// 使树版本失效
+    func dataInvalidateTreeVersion(syncPairId: String,
+                                   source: String,
+                                   withReply reply: @escaping (Bool) -> Void)
+
     // MARK: - ========== 通用操作 ==========
 
     /// 重新加载配置

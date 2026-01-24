@@ -2,6 +2,10 @@ import Foundation
 
 /// VFS 文件系统实现
 /// 实现 FUSEFileSystemOperations 协议，桥接 FUSE 回调和 VFSCore
+///
+/// ⚠️ DEPRECATED: 此类不再使用，FUSE 操作已迁移至 DMSAService/VFS/FUSEFileSystem.swift
+/// 保留此文件是为了向后兼容，将在未来版本中删除。
+@available(*, deprecated, message: "Use DMSAService FUSEFileSystem instead")
 class VFSFileSystem: FUSEFileSystemOperations {
 
     // MARK: - 属性

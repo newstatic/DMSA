@@ -3,6 +3,9 @@ import Foundation
 /// 读取路由器
 /// 负责决定从 Downloads_Local 或 EXTERNAL 读取文件
 /// 如果文件正在同步，直接从源读取（不阻塞）
+///
+/// ⚠️ NOTE: FUSE 读取操作已迁移至 DMSAService。
+/// 此类保留用于 App 端的非 FUSE 读取场景（如 UI 预览）。
 final class ReadRouter {
 
     static let shared = ReadRouter()
