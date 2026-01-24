@@ -92,6 +92,7 @@
 "settings.filters" = "Filters";
 "settings.cache" = "Cache";
 "settings.notifications" = "Notifications";
+"settings.statistics" = "Statistics";
 "settings.advanced" = "Advanced";
 "settings.restoreDefaults" = "Restore Defaults";
 
@@ -213,14 +214,24 @@
 "settings.advanced.retryCount" = "Retry count";
 "settings.advanced.retryCountUnit" = "times";
 "settings.advanced.timeout" = "Timeout";
-"settings.advanced.rsyncOptions" = "rsync Options";
-"settings.advanced.rsync.archive" = "Archive mode (-a)";
-"settings.advanced.rsync.delete" = "Delete extra files (--delete)";
-"settings.advanced.rsync.checksum" = "Use checksum (--checksum)";
-"settings.advanced.rsync.checksumHint" = "More accurate but slower";
-"settings.advanced.rsync.partial" = "Resume transfers (--partial)";
-"settings.advanced.rsync.compress" = "Compress transfer (-z)";
-"settings.advanced.rsync.compressHint" = "Enable for network storage";
+// Sync Options
+"settings.advanced.syncOptions" = "Sync Options";
+"settings.advanced.enableChecksum" = "Enable file checksum";
+"settings.advanced.enableChecksumHint" = "Use MD5 to verify file integrity";
+"settings.advanced.checksumAlgorithm" = "Checksum algorithm";
+"settings.advanced.verifyAfterCopy" = "Verify after copy";
+"settings.advanced.verifyAfterCopyHint" = "Re-verify checksum after copying";
+"settings.advanced.enableDelete" = "Delete extra files in destination";
+"settings.advanced.enableDeleteHint" = "Remove files that don't exist in source";
+"settings.advanced.enablePauseResume" = "Support pause/resume";
+"settings.advanced.enablePauseResumeHint" = "Allow interrupting and resuming sync";
+
+// Conflict Resolution
+"settings.advanced.conflictResolution" = "Conflict Resolution";
+"settings.advanced.conflictStrategy" = "Conflict strategy";
+"settings.advanced.autoResolveConflicts" = "Auto-resolve conflicts";
+"settings.advanced.autoResolveConflictsHint" = "Automatically handle using strategy";
+"settings.advanced.backupSuffix" = "Backup file suffix";
 "settings.advanced.logging" = "Logging";
 "settings.advanced.logLevel" = "Log level";
 "settings.advanced.logLevel.debug" = "Debug (verbose)";
@@ -237,6 +248,16 @@
 "settings.advanced.danger" = "Danger Zone";
 "settings.advanced.clearAllData" = "Clear All Data and Reset...";
 "settings.advanced.clearAllDataConfirm" = "This will delete all settings, sync history, and cached data. This cannot be undone. Continue?";
+
+// Permission Management
+"settings.advanced.permissions" = "Permission Management";
+"settings.advanced.fullDiskAccess" = "Full Disk Access";
+"settings.advanced.fullDiskAccessHint" = "Required for accessing protected directories like Downloads";
+"settings.advanced.notificationPermission" = "Notification Permission";
+"settings.advanced.notificationPermissionHint" = "Required for sync completion and error notifications";
+"settings.advanced.authorize" = "Authorize";
+"settings.advanced.reauthorize" = "Re-authorize";
+"settings.advanced.refreshPermissions" = "Refresh Permission Status";
 
 // MARK: - Progress Window
 "progress.title" = "Syncing...";
@@ -283,7 +304,7 @@
 "history.detail.updated" = "Updated";
 "history.detail.deleted" = "Deleted";
 "history.detail.skipped" = "Skipped (unchanged)";
-"history.detail.rsyncOutput" = "rsync Output";
+"history.detail.syncLog" = "Sync Log";
 "history.detail.copyLog" = "Copy Log";
 "history.detail.viewDetails" = "View Details";
 
@@ -346,19 +367,36 @@
 
 // MARK: - Errors
 "error.title" = "Error";
-"error.syncFailed" = "Sync Failed";
+"error.syncFailed" = "Sync failed: %@";
 "error.diskDisconnected" = "Disk disconnected unexpectedly";
 "error.diskNotFound" = "Disk not found: %@";
 "error.pathNotFound" = "Path not found: %@";
-"error.permissionDenied" = "Permission denied: %@";
-"error.rsyncFailed" = "rsync command failed";
 "error.configLoadFailed" = "Failed to load configuration";
 "error.configSaveFailed" = "Failed to save configuration";
 "error.syncAlreadyRunning" = "Sync already in progress";
-"error.insufficientSpace" = "Insufficient disk space";
 "error.unknown" = "Unknown error occurred";
 "error.viewLog" = "View Log";
 "error.reconnectAndRetry" = "Reconnect and Retry";
+
+// SyncError localizations
+"error.diskNotConnected" = "External disk %@ not connected";
+"error.sourceNotFound" = "Source directory not found: %@";
+"error.fileNotFound" = "File not found: %@";
+"error.permissionDenied" = "Permission denied: %@";
+"error.insufficientSpace" = "Insufficient space: requires %@, available %@";
+"error.checksumMismatch" = "Checksum mismatch: expected %@, actual %@";
+"error.verificationFailed" = "Verification failed: %@";
+"error.symlinkCreationFailed" = "Failed to create symlink %@: %@";
+"error.configurationError" = "Configuration error: %@";
+"error.databaseError" = "Database error: %@";
+"error.timeout" = "Operation timed out";
+"error.cancelled" = "Operation cancelled";
+"error.alreadyInProgress" = "Sync task already in progress";
+"error.renameLocalFailed" = "Failed to rename local directory %@: %@";
+"error.localBackupExists" = "Local backup directory already exists: %@, please handle manually";
+"error.fullDiskAccessRequired" = "Full Disk Access permission is required to sync. Please authorize in System Settings.";
+"error.localDirectoryNotMigrated" = "Local directory %@ has not been migrated. Please complete migration first.";
+"error.symlinkNotCreated" = "Virtual mount point %@ has not been created. Please create symlink first.";
 
 // MARK: - Recovery
 "recovery.title" = "Data Recovery Wizard";
@@ -394,6 +432,26 @@
 "time.hoursAgo" = "%d hours ago";
 "time.daysAgo" = "%d days ago";
 
+// MARK: - Statistics
+"settings.statistics.title" = "Statistics Dashboard";
+"settings.statistics.overview" = "Overview";
+"settings.statistics.trends" = "Trends";
+"settings.statistics.export" = "Export Data";
+"settings.statistics.timeRange" = "Time Range";
+"settings.statistics.disk" = "Disk";
+"settings.statistics.refresh" = "Refresh";
+"settings.statistics.totalSyncs" = "Total Syncs";
+"settings.statistics.successRate" = "Success Rate";
+"settings.statistics.totalData" = "Total Data";
+"settings.statistics.avgSpeed" = "Avg Speed";
+"settings.statistics.syncFrequency" = "Sync Frequency";
+"settings.statistics.dataVolume" = "Data Volume";
+"settings.statistics.noData" = "No statistics data available";
+"settings.statistics.exportFormat" = "Export Format";
+"settings.statistics.exportData" = "Export Data";
+"settings.statistics.today" = "Today";
+"settings.statistics.syncs" = "syncs";
+
 // MARK: - Units
 "unit.bytes" = "B";
 "unit.kb" = "KB";
@@ -403,3 +461,115 @@
 "unit.files" = "files";
 "unit.seconds" = "s";
 "unit.minutes" = "min";
+
+// MARK: - Menu Bar (New)
+"menu.autoSync" = "Auto Sync";
+"menu.autoSyncEnabled" = "Auto Sync: On";
+"menu.autoSyncDisabled" = "Auto Sync: Off";
+
+// MARK: - Settings Tabs (New)
+"settings.notificationHistory" = "Notification History";
+"settings.logs" = "Logs";
+"settings.history" = "Sync History";
+
+// MARK: - Logs View
+"logs.level" = "Level";
+"logs.allLevels" = "All Levels";
+"logs.search" = "Search logs...";
+"logs.autoScroll" = "Auto Scroll";
+"logs.count" = "%d / %d entries";
+"logs.fileSize" = "Log file: %@";
+"logs.clearLogs" = "Clear Logs";
+"logs.clearLogsConfirm" = "Are you sure you want to clear all log entries? This cannot be undone.";
+
+// MARK: - Notifications History View
+"notifications.allTypes" = "All Types";
+"notifications.unread" = "%d unread";
+"notifications.markAllRead" = "Mark All Read";
+"notifications.noRecords" = "No notification records";
+"notifications.totalCount" = "%d notifications";
+"notifications.clearHistory" = "Clear Notification History";
+"notifications.clearHistoryConfirm" = "Are you sure you want to clear all notification history? This cannot be undone.";
+
+// MARK: - Notification Detail
+"notifications.detail.title" = "Notification Details";
+"notifications.detail.notificationTitle" = "Title";
+"notifications.detail.content" = "Content";
+"notifications.detail.time" = "Time";
+"notifications.detail.type" = "Type";
+"notifications.detail.additionalInfo" = "Additional Info";
+
+// MARK: - Notification Types
+"notification.type.syncCompleted" = "Sync Completed";
+"notification.type.syncFailed" = "Sync Failed";
+"notification.type.syncStarted" = "Sync Started";
+"notification.type.diskConnected" = "Disk Connected";
+"notification.type.diskDisconnected" = "Disk Disconnected";
+"notification.type.cacheWarning" = "Cache Warning";
+"notification.type.error" = "Error";
+
+// MARK: - Notification Actions
+"notification.action.openSettings" = "Open Settings";
+"notification.action.openDiskSettings" = "Open Disk Settings";
+"notification.action.openSyncPairSettings" = "Open Sync Pair Settings";
+"notification.action.openLogs" = "Open Logs";
+"notification.action.openHistory" = "Open History";
+
+// MARK: - Dashboard
+"dashboard.title" = "Dashboard";
+"dashboard.today" = "Today";
+"dashboard.syncControl" = "Sync Control";
+"dashboard.diskStatus" = "Disk Status";
+"dashboard.quickStats" = "Quick Stats";
+"dashboard.recentActivity" = "Recent Activity";
+"dashboard.noDisksConfigured" = "No disks configured. Add one in Disk settings.";
+"dashboard.noRecentActivity" = "No sync history yet";
+"dashboard.startSync" = "Start Sync";
+"dashboard.pause" = "Pause";
+"dashboard.resume" = "Resume";
+"dashboard.stop" = "Stop";
+"dashboard.status.ready" = "Ready";
+"dashboard.status.syncing" = "Syncing...";
+"dashboard.status.paused" = "Paused";
+"dashboard.status.noDisk" = "No disk connected";
+"dashboard.status.starting" = "Starting...";
+"dashboard.totalSyncs" = "Total Syncs";
+"dashboard.successRate" = "Success Rate";
+"dashboard.filesTransferred" = "Files";
+"dashboard.dataTransferred" = "Data";
+"dashboard.available" = "available";
+"dashboard.notConnected" = "Not connected";
+"dashboard.loading" = "Loading...";
+"dashboard.files" = "files";
+
+// MARK: - Alert Messages
+"alert.viewLogs" = "View Logs";
+"alert.viewHistory" = "View History";
+"alert.diskConnected.title" = "External Disk Connected";
+"alert.diskConnected.body" = "%@ has been connected, ready to sync";
+"alert.diskDisconnected.title" = "External Disk Disconnected";
+"alert.diskDisconnected.body" = "%@ has been safely disconnected";
+"alert.syncStarted.title" = "Sync Started";
+"alert.syncStarted.body" = "Syncing %@";
+"alert.syncCompleted.title" = "Sync Completed";
+"alert.syncCompleted.body" = "Synced %d files (%@) in %@ seconds";
+"alert.syncFailed.title" = "Sync Failed";
+"alert.cacheWarning.title" = "Cache Space Low";
+"alert.cacheWarning.body" = "Used %@ / %@ (%d%%), cleaning up old files";
+
+// MARK: - FUSE
+"fuse.install.title" = "macFUSE Required";
+"fuse.install.message" = "DMSA requires macFUSE to create virtual file systems. Please download and install macFUSE to continue.";
+"fuse.install.download" = "Download macFUSE";
+"fuse.update.title" = "macFUSE Update Recommended";
+"fuse.update.message" = "Your macFUSE version (%@) is outdated. Version %@ or later is recommended for best compatibility.";
+"fuse.update.download" = "Download Update";
+"fuse.missing.title" = "macFUSE Installation Incomplete";
+"fuse.missing.message" = "macFUSE appears to be installed but some components are missing. Please reinstall macFUSE.";
+"fuse.status.available" = "macFUSE %@ installed";
+"fuse.status.notInstalled" = "macFUSE not installed";
+"fuse.status.versionTooOld" = "macFUSE %@ installed (requires %@)";
+"fuse.status.frameworkMissing" = "macFUSE framework incomplete";
+"fuse.status.loadError" = "Failed to load macFUSE";
+"common.later" = "Later";
+"common.quit" = "Quit";

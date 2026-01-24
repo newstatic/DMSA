@@ -92,6 +92,7 @@
 "settings.filters" = "过滤规则";
 "settings.cache" = "缓存";
 "settings.notifications" = "通知";
+"settings.statistics" = "统计";
 "settings.advanced" = "高级";
 "settings.restoreDefaults" = "恢复默认";
 
@@ -213,14 +214,24 @@
 "settings.advanced.retryCount" = "重试次数";
 "settings.advanced.retryCountUnit" = "次";
 "settings.advanced.timeout" = "超时时间";
-"settings.advanced.rsyncOptions" = "rsync 选项";
-"settings.advanced.rsync.archive" = "归档模式 (-a)";
-"settings.advanced.rsync.delete" = "删除目标多余文件 (--delete)";
-"settings.advanced.rsync.checksum" = "使用校验和 (--checksum)";
-"settings.advanced.rsync.checksumHint" = "更准确但更慢";
-"settings.advanced.rsync.partial" = "断点续传 (--partial)";
-"settings.advanced.rsync.compress" = "压缩传输 (-z)";
-"settings.advanced.rsync.compressHint" = "网络存储时启用";
+// 同步选项
+"settings.advanced.syncOptions" = "同步选项";
+"settings.advanced.enableChecksum" = "启用文件校验";
+"settings.advanced.enableChecksumHint" = "使用 MD5 校验确保文件完整性";
+"settings.advanced.checksumAlgorithm" = "校验算法";
+"settings.advanced.verifyAfterCopy" = "复制后验证";
+"settings.advanced.verifyAfterCopyHint" = "复制完成后再次校验确保正确";
+"settings.advanced.enableDelete" = "删除目标多余文件";
+"settings.advanced.enableDeleteHint" = "同步时删除目标目录中源没有的文件";
+"settings.advanced.enablePauseResume" = "支持暂停/恢复";
+"settings.advanced.enablePauseResumeHint" = "允许中断同步并从断点继续";
+
+// 冲突解决
+"settings.advanced.conflictResolution" = "冲突解决";
+"settings.advanced.conflictStrategy" = "冲突策略";
+"settings.advanced.autoResolveConflicts" = "自动解决冲突";
+"settings.advanced.autoResolveConflictsHint" = "按策略自动处理，无需手动确认";
+"settings.advanced.backupSuffix" = "备份文件后缀";
 "settings.advanced.logging" = "日志";
 "settings.advanced.logLevel" = "日志级别";
 "settings.advanced.logLevel.debug" = "Debug (详细)";
@@ -237,6 +248,16 @@
 "settings.advanced.danger" = "危险操作";
 "settings.advanced.clearAllData" = "清除所有数据并重置...";
 "settings.advanced.clearAllDataConfirm" = "这将删除所有设置、同步历史和缓存数据。此操作无法撤销。是否继续？";
+
+// 权限管理
+"settings.advanced.permissions" = "权限管理";
+"settings.advanced.fullDiskAccess" = "完全磁盘访问权限";
+"settings.advanced.fullDiskAccessHint" = "用于访问 Downloads 等受保护目录";
+"settings.advanced.notificationPermission" = "通知权限";
+"settings.advanced.notificationPermissionHint" = "用于同步完成、错误提醒等通知";
+"settings.advanced.authorize" = "授权";
+"settings.advanced.reauthorize" = "重新授权";
+"settings.advanced.refreshPermissions" = "刷新权限状态";
 
 // MARK: - Progress Window
 "progress.title" = "正在同步...";
@@ -283,7 +304,7 @@
 "history.detail.updated" = "更新";
 "history.detail.deleted" = "删除";
 "history.detail.skipped" = "跳过 (未变化)";
-"history.detail.rsyncOutput" = "rsync 输出";
+"history.detail.syncLog" = "同步日志";
 "history.detail.copyLog" = "复制日志";
 "history.detail.viewDetails" = "查看详情";
 
@@ -346,19 +367,36 @@
 
 // MARK: - Errors
 "error.title" = "错误";
-"error.syncFailed" = "同步失败";
 "error.diskDisconnected" = "硬盘意外断开";
 "error.diskNotFound" = "未找到硬盘: %@";
 "error.pathNotFound" = "路径不存在: %@";
-"error.permissionDenied" = "权限被拒绝: %@";
-"error.rsyncFailed" = "rsync 命令执行失败";
 "error.configLoadFailed" = "加载配置失败";
 "error.configSaveFailed" = "保存配置失败";
 "error.syncAlreadyRunning" = "同步已在进行中";
-"error.insufficientSpace" = "磁盘空间不足";
 "error.unknown" = "发生未知错误";
 "error.viewLog" = "查看日志";
 "error.reconnectAndRetry" = "重新连接并重试";
+
+// SyncError 本地化
+"error.diskNotConnected" = "外置硬盘 %@ 未连接";
+"error.sourceNotFound" = "源目录不存在: %@";
+"error.fileNotFound" = "文件不存在: %@";
+"error.permissionDenied" = "权限不足: %@";
+"error.insufficientSpace" = "空间不足: 需要 %@，可用 %@";
+"error.syncFailed" = "同步失败: %@";
+"error.checksumMismatch" = "文件校验失败: 期望 %@，实际 %@";
+"error.verificationFailed" = "验证失败: %@";
+"error.symlinkCreationFailed" = "创建符号链接失败 %@: %@";
+"error.configurationError" = "配置错误: %@";
+"error.databaseError" = "数据库错误: %@";
+"error.timeout" = "操作超时";
+"error.cancelled" = "操作已取消";
+"error.alreadyInProgress" = "同步任务已在进行中";
+"error.renameLocalFailed" = "重命名本地目录失败 %@: %@";
+"error.localBackupExists" = "本地备份目录已存在: %@，请手动处理";
+"error.fullDiskAccessRequired" = "需要完全磁盘访问权限才能同步。请在系统设置中授权。";
+"error.localDirectoryNotMigrated" = "本地目录 %@ 尚未迁移。请先完成目录迁移。";
+"error.symlinkNotCreated" = "虚拟硬盘挂载点 %@ 尚未创建。请先创建符号链接。";
 
 // MARK: - Recovery
 "recovery.title" = "数据恢复向导";
@@ -394,6 +432,26 @@
 "time.hoursAgo" = "%d 小时前";
 "time.daysAgo" = "%d 天前";
 
+// MARK: - Statistics
+"settings.statistics.title" = "统计面板";
+"settings.statistics.overview" = "概览";
+"settings.statistics.trends" = "趋势";
+"settings.statistics.export" = "导出数据";
+"settings.statistics.timeRange" = "时间范围";
+"settings.statistics.disk" = "硬盘";
+"settings.statistics.refresh" = "刷新";
+"settings.statistics.totalSyncs" = "总同步次数";
+"settings.statistics.successRate" = "成功率";
+"settings.statistics.totalData" = "总数据量";
+"settings.statistics.avgSpeed" = "平均速度";
+"settings.statistics.syncFrequency" = "同步频率";
+"settings.statistics.dataVolume" = "数据量";
+"settings.statistics.noData" = "暂无统计数据";
+"settings.statistics.exportFormat" = "导出格式";
+"settings.statistics.exportData" = "导出数据";
+"settings.statistics.today" = "今天";
+"settings.statistics.syncs" = "次同步";
+
 // MARK: - Units
 "unit.bytes" = "B";
 "unit.kb" = "KB";
@@ -403,3 +461,115 @@
 "unit.files" = "个文件";
 "unit.seconds" = "秒";
 "unit.minutes" = "分钟";
+
+// MARK: - Menu Bar (New)
+"menu.autoSync" = "自动同步";
+"menu.autoSyncEnabled" = "自动同步: 开启";
+"menu.autoSyncDisabled" = "自动同步: 关闭";
+
+// MARK: - Settings Tabs (New)
+"settings.notificationHistory" = "通知记录";
+"settings.logs" = "日志";
+"settings.history" = "同步历史";
+
+// MARK: - Logs View
+"logs.level" = "级别";
+"logs.allLevels" = "全部级别";
+"logs.search" = "搜索日志...";
+"logs.autoScroll" = "自动滚动";
+"logs.count" = "%d / %d 条";
+"logs.fileSize" = "日志文件: %@";
+"logs.clearLogs" = "清除日志";
+"logs.clearLogsConfirm" = "确定要清除所有日志吗？此操作无法撤销。";
+
+// MARK: - Notifications History View
+"notifications.allTypes" = "全部类型";
+"notifications.unread" = "%d 条未读";
+"notifications.markAllRead" = "全部标记已读";
+"notifications.noRecords" = "暂无通知记录";
+"notifications.totalCount" = "共 %d 条通知";
+"notifications.clearHistory" = "清除通知记录";
+"notifications.clearHistoryConfirm" = "确定要清除所有通知记录吗？此操作无法撤销。";
+
+// MARK: - Notification Detail
+"notifications.detail.title" = "通知详情";
+"notifications.detail.notificationTitle" = "标题";
+"notifications.detail.content" = "内容";
+"notifications.detail.time" = "时间";
+"notifications.detail.type" = "类型";
+"notifications.detail.additionalInfo" = "附加信息";
+
+// MARK: - Notification Types
+"notification.type.syncCompleted" = "同步完成";
+"notification.type.syncFailed" = "同步失败";
+"notification.type.syncStarted" = "同步开始";
+"notification.type.diskConnected" = "硬盘已连接";
+"notification.type.diskDisconnected" = "硬盘已断开";
+"notification.type.cacheWarning" = "缓存警告";
+"notification.type.error" = "错误";
+
+// MARK: - Notification Actions
+"notification.action.openSettings" = "打开设置";
+"notification.action.openDiskSettings" = "打开硬盘设置";
+"notification.action.openSyncPairSettings" = "打开同步对设置";
+"notification.action.openLogs" = "打开日志";
+"notification.action.openHistory" = "打开历史";
+
+// MARK: - Dashboard
+"dashboard.title" = "首页";
+"dashboard.today" = "今天";
+"dashboard.syncControl" = "同步控制";
+"dashboard.diskStatus" = "硬盘状态";
+"dashboard.quickStats" = "快速统计";
+"dashboard.recentActivity" = "最近活动";
+"dashboard.noDisksConfigured" = "未配置硬盘，请在「硬盘」设置中添加";
+"dashboard.noRecentActivity" = "暂无同步记录";
+"dashboard.startSync" = "开始同步";
+"dashboard.pause" = "暂停";
+"dashboard.resume" = "继续";
+"dashboard.stop" = "停止";
+"dashboard.status.ready" = "准备就绪";
+"dashboard.status.syncing" = "正在同步...";
+"dashboard.status.paused" = "已暂停";
+"dashboard.status.noDisk" = "无硬盘连接";
+"dashboard.status.starting" = "正在启动...";
+"dashboard.totalSyncs" = "同步次数";
+"dashboard.successRate" = "成功率";
+"dashboard.filesTransferred" = "文件数";
+"dashboard.dataTransferred" = "传输量";
+"dashboard.available" = "可用";
+"dashboard.notConnected" = "未连接";
+"dashboard.loading" = "加载中...";
+"dashboard.files" = "个文件";
+
+// MARK: - Alert Messages
+"alert.viewLogs" = "查看日志";
+"alert.viewHistory" = "查看历史";
+"alert.diskConnected.title" = "外置硬盘已连接";
+"alert.diskConnected.body" = "%@ 已连接，准备同步";
+"alert.diskDisconnected.title" = "外置硬盘已断开";
+"alert.diskDisconnected.body" = "%@ 已安全断开";
+"alert.syncStarted.title" = "开始同步";
+"alert.syncStarted.body" = "正在同步 %@";
+"alert.syncCompleted.title" = "同步完成";
+"alert.syncCompleted.body" = "已同步 %d 个文件 (%@)，耗时 %@ 秒";
+"alert.syncFailed.title" = "同步失败";
+"alert.cacheWarning.title" = "本地缓存空间不足";
+"alert.cacheWarning.body" = "已使用 %@ / %@ (%d%%)，正在清理旧文件";
+
+// MARK: - FUSE
+"fuse.install.title" = "需要安装 macFUSE";
+"fuse.install.message" = "DMSA 需要 macFUSE 来创建虚拟文件系统。请下载并安装 macFUSE 以继续。";
+"fuse.install.download" = "下载 macFUSE";
+"fuse.update.title" = "建议更新 macFUSE";
+"fuse.update.message" = "您的 macFUSE 版本 (%@) 已过时。建议升级到 %@ 或更高版本以获得最佳兼容性。";
+"fuse.update.download" = "下载更新";
+"fuse.missing.title" = "macFUSE 安装不完整";
+"fuse.missing.message" = "macFUSE 似乎已安装，但某些组件缺失。请重新安装 macFUSE。";
+"fuse.status.available" = "macFUSE %@ 已安装";
+"fuse.status.notInstalled" = "macFUSE 未安装";
+"fuse.status.versionTooOld" = "macFUSE %@ 已安装 (需要 %@)";
+"fuse.status.frameworkMissing" = "macFUSE 框架不完整";
+"fuse.status.loadError" = "加载 macFUSE 失败";
+"common.later" = "稍后";
+"common.quit" = "退出";
