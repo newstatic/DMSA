@@ -45,15 +45,50 @@ enum AlertType: String {
 }
 
 /// 弹窗管理器 - 使用应用内对话框替代系统通知
+/// v4.6: 通过 XPC 与 DMSAService 通信
+@MainActor
 final class AlertManager {
     static let shared = AlertManager()
 
-    private let databaseManager = DatabaseManager.shared
     private var alertQueue: [(type: AlertType, title: String, body: String, userInfo: [String: String])] = []
     private var isShowingAlert = false
     private let queue = DispatchQueue(label: "com.dmsa.alertManager")
 
+    // 缓存的通知配置
+    private var cachedNotificationConfig: NotificationConfig?
+    private var lastConfigFetch: Date?
+    private let configCacheTimeout: TimeInterval = 60 // 1分钟缓存
+
     private init() {}
+
+    // MARK: - Config Cache
+
+    /// 获取通知配置 (带缓存)
+    private func getNotificationConfig() async -> NotificationConfig {
+        // 检查缓存是否有效
+        if let cached = cachedNotificationConfig,
+           let lastFetch = lastConfigFetch,
+           Date().timeIntervalSince(lastFetch) < configCacheTimeout {
+            return cached
+        }
+
+        // 从服务获取配置
+        do {
+            let config = try await ServiceClient.shared.getNotificationConfig()
+            cachedNotificationConfig = config
+            lastConfigFetch = Date()
+            return config
+        } catch {
+            Logger.shared.error("获取通知配置失败: \(error)")
+            return cachedNotificationConfig ?? NotificationConfig()
+        }
+    }
+
+    /// 使配置缓存失效
+    func invalidateConfigCache() {
+        cachedNotificationConfig = nil
+        lastConfigFetch = nil
+    }
 
     // MARK: - 发送弹窗
 
@@ -69,33 +104,36 @@ final class AlertManager {
             stringUserInfo[key] = String(describing: value)
         }
 
-        // 保存通知记录到数据库
-        let actionType = NotificationRecord.determineActionType(type: type.rawValue, userInfo: stringUserInfo)
-        let record = NotificationRecord(
-            type: type.rawValue,
-            title: title,
-            body: body,
-            userInfo: stringUserInfo,
-            actionType: actionType
-        )
-        databaseManager.saveNotificationRecord(record)
-
-        // 检查配置是否允许此类通知
-        guard shouldShowAlert(type: type) else {
-            Logger.shared.debug("弹窗被配置禁用: \(type.rawValue)")
-            return
+        // 保存通知记录到服务 (异步)
+        Task {
+            let actionType = NotificationRecord.determineActionType(type: type.rawValue, userInfo: stringUserInfo)
+            let record = NotificationRecord(
+                type: type.rawValue,
+                title: title,
+                body: body,
+                userInfo: stringUserInfo,
+                actionType: actionType
+            )
+            try? await ServiceClient.shared.saveNotificationRecord(record)
         }
 
-        // 添加到队列并显示
-        queue.async { [weak self] in
-            self?.alertQueue.append((type, title, body, stringUserInfo))
-            self?.processQueue()
+        // 异步检查配置并显示弹窗
+        Task {
+            let config = await getNotificationConfig()
+            guard shouldShowAlert(type: type, config: config) else {
+                Logger.shared.debug("弹窗被配置禁用: \(type.rawValue)")
+                return
+            }
+
+            // 添加到队列并显示
+            queue.async { [weak self] in
+                self?.alertQueue.append((type, title, body, stringUserInfo))
+                self?.processQueue()
+            }
         }
     }
 
-    private func shouldShowAlert(type: AlertType) -> Bool {
-        let config = ConfigManager.shared.config.notifications
-
+    private func shouldShowAlert(type: AlertType, config: NotificationConfig) -> Bool {
         guard config.enabled else { return false }
 
         switch type {

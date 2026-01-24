@@ -12,11 +12,12 @@ struct DashboardView: View {
     @State private var isSyncing = false
     @State private var syncProgress: Double = 0
     @State private var syncStatusMessage: String = ""
+    @State private var isPaused = false
 
     // Timer for updating sync status
     @State private var statusTimer: Timer?
 
-    private let syncEngine = SyncEngine.shared
+    private let serviceClient = ServiceClient.shared
     private let diskManager = DiskManager.shared
 
     enum TimeRange: String, CaseIterable, Identifiable {
@@ -109,8 +110,8 @@ struct DashboardView: View {
                             pauseSync()
                         } label: {
                             HStack(spacing: 6) {
-                                Image(systemName: syncEngine.isPaused ? "play.fill" : "pause.fill")
-                                Text(syncEngine.isPaused ? "dashboard.resume".localized : "dashboard.pause".localized)
+                                Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                                Text(isPaused ? "dashboard.resume".localized : "dashboard.pause".localized)
                             }
                         }
                         .buttonStyle(.bordered)
@@ -293,14 +294,14 @@ struct DashboardView: View {
 
     private var syncStatusColor: Color {
         if isSyncing {
-            return syncEngine.isPaused ? .orange : .blue
+            return isPaused ? .orange : .blue
         }
         return diskManager.isAnyExternalConnected ? .green : .gray
     }
 
     private var syncStatusText: String {
         if isSyncing {
-            return syncEngine.isPaused ? "dashboard.status.paused".localized : "dashboard.status.syncing".localized
+            return isPaused ? "dashboard.status.paused".localized : "dashboard.status.syncing".localized
         }
         if !diskManager.isAnyExternalConnected {
             return "dashboard.status.noDisk".localized
@@ -336,18 +337,19 @@ struct DashboardView: View {
     // MARK: - Actions
 
     private func startSync() {
-        guard let disk = diskManager.connectedDisks.values.first else {
+        guard diskManager.isAnyExternalConnected else {
             Logger.shared.warn("没有已连接的硬盘")
             return
         }
 
         isSyncing = true
+        isPaused = false
         syncProgress = 0
         syncStatusMessage = "dashboard.status.starting".localized
 
         Task {
             do {
-                try await syncEngine.syncAllPairs(for: disk)
+                try await serviceClient.syncAll()
                 await MainActor.run {
                     isSyncing = false
                     loadData()
@@ -362,36 +364,37 @@ struct DashboardView: View {
     }
 
     private func pauseSync() {
-        if syncEngine.isPaused {
-            Task {
-                try? await syncEngine.resume()
+        Task {
+            if isPaused {
+                try? await serviceClient.resumeSync()
+                await MainActor.run { isPaused = false }
+            } else {
+                try? await serviceClient.pauseSync()
+                await MainActor.run { isPaused = true }
             }
-        } else {
-            syncEngine.pause()
         }
     }
 
     private func stopSync() {
-        syncEngine.cancel()
-        isSyncing = false
+        Task {
+            try? await serviceClient.cancelSync()
+            await MainActor.run {
+                isSyncing = false
+                isPaused = false
+            }
+        }
     }
 
     private func loadData() {
         isLoading = true
 
         Task {
-            let db = DatabaseManager.shared
-
-            // Get statistics for all disks
-            var allStats: [SyncStatistics] = []
-            for disk in config.disks {
-                allStats.append(contentsOf: db.getStatistics(forDiskId: disk.id, days: selectedTimeRange.days))
-            }
-
-            let history = db.getSyncHistory(limit: 10)
+            // 从 Service 获取同步历史
+            let history = (try? await serviceClient.getSyncHistory(limit: 10)) ?? []
 
             await MainActor.run {
-                statistics = allStats.sorted { $0.date < $1.date }
+                // 清空统计（统计数据由 Service 管理）
+                statistics = []
                 recentHistory = history
                 isLoading = false
             }
@@ -414,12 +417,15 @@ struct DashboardView: View {
     }
 
     private func updateSyncStatus() {
-        isSyncing = syncEngine.isRunning
-
-        if isSyncing {
-            let progress = syncEngine.progress
-            syncProgress = progress.overallProgress
-            syncStatusMessage = progress.currentFile.isEmpty ? "" : progress.currentFile
+        Task {
+            if let progress = try? await serviceClient.getSyncProgress(syncPairId: "default_downloads") {
+                await MainActor.run {
+                    isSyncing = progress.isRunning
+                    syncProgress = progress.overallProgress
+                    syncStatusMessage = progress.currentFile ?? ""
+                    isPaused = progress.isPaused
+                }
+            }
         }
     }
 }

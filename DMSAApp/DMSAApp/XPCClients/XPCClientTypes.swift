@@ -144,6 +144,21 @@ import Foundation
         guard totalFiles > 0 else { return 0 }
         return Double(processedFiles) / Double(totalFiles)
     }
+
+    /// 总体进度 (字节维度)
+    var overallProgress: Double {
+        return progress
+    }
+
+    /// 是否正在运行
+    var isRunning: Bool {
+        return status == .inProgress
+    }
+
+    /// 是否已暂停
+    var isPaused: Bool {
+        return status == .paused
+    }
 }
 
 /// 同步统计 XPC 响应

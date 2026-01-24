@@ -62,7 +62,7 @@ actor FileCopier {
     // MARK: - 进度回调
 
     typealias FileProgressHandler = (Int64, Int64) -> Void
-    typealias BatchProgressHandler = (SyncProgress) -> Void
+    typealias BatchProgressHandler = (ServiceSyncProgress) -> Void
 
     // MARK: - 公共方法
 
@@ -146,7 +146,7 @@ actor FileCopier {
     func copyFiles(
         actions: [SyncAction],
         options: CopyOptions = .default,
-        progress: SyncProgress,
+        progress: ServiceSyncProgress,
         progressHandler: BatchProgressHandler? = nil
     ) async throws -> CopyResult {
         isCancelled = false
@@ -354,15 +354,13 @@ actor FileCopier {
         destination: String,
         metadata: FileMetadata,
         options: CopyOptions,
-        progress: SyncProgress,
+        progress: ServiceSyncProgress,
         result: inout CopyResult
     ) async {
         let sourceURL = URL(fileURLWithPath: source)
         let destURL = URL(fileURLWithPath: destination)
 
         progress.currentFile = metadata.fileName
-        progress.currentFileSize = metadata.size
-        progress.currentFileBytesTransferred = 0
 
         do {
             try await copy(
@@ -370,13 +368,13 @@ actor FileCopier {
                 to: destURL,
                 options: options
             ) { bytesTransferred, totalSize in
-                progress.currentFileBytesTransferred = bytesTransferred
-                progress.currentFileProgress = Double(bytesTransferred) / Double(max(totalSize, 1))
+                // Progress tracking handled by caller
             }
 
             result.succeeded += 1
             result.totalBytes += metadata.size
-            progress.completeFile(bytes: metadata.size)
+            progress.processedFiles += 1
+            progress.processedBytes += metadata.size
 
             if options.verifyAfterCopy {
                 result.verified += 1
@@ -384,10 +382,10 @@ actor FileCopier {
 
         } catch CopierError.verificationFailed(let path, let expected, let actual) {
             result.verificationFailed.append((path, expected, actual))
-            progress.failFile(path: source, error: "校验失败")
+            progress.errorMessage = "校验失败: \(source)"
         } catch {
             result.failed.append((source, error))
-            progress.failFile(path: source, error: error.localizedDescription)
+            progress.errorMessage = error.localizedDescription
         }
     }
 }

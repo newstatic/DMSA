@@ -1,5 +1,7 @@
 import Foundation
 
+// Note: SyncLockDirection is defined in DMSAShared/Models/FileEntry.swift
+
 /// 同步锁管理器
 /// 管理文件的同步锁定状态，确保同步期间的数据一致性
 /// 策略: 悲观锁 + 读取不阻塞
@@ -34,8 +36,12 @@ final class LockManager {
     // 线程安全队列
     private let lockQueue = DispatchQueue(label: "com.dmsa.lockManager", attributes: .concurrent)
 
-    // 数据库管理器
-    private let databaseManager = DatabaseManager.shared
+    // Logger
+    private let logger = Logger.forService("LockManager")
+
+    // 锁超时时间
+    private let lockTimeout: TimeInterval = 300  // 5 minutes
+    private let writeWaitTimeout: TimeInterval = 30  // 30 seconds
 
     private init() {
         // 启动锁超时检查定时器
@@ -45,16 +51,11 @@ final class LockManager {
     // MARK: - Public Methods
 
     /// 获取同步锁
-    /// - Parameters:
-    ///   - virtualPath: 虚拟路径
-    ///   - direction: 同步方向
-    ///   - sourcePath: 源路径（用于读取）
-    /// - Returns: 是否成功获取锁
     func acquireLock(_ virtualPath: String, direction: SyncLockDirection, sourcePath: String) -> Bool {
         return lockQueue.sync(flags: .barrier) {
             // 检查是否已被锁定
             guard locks[virtualPath] == nil else {
-                Logger.shared.warn("文件已被锁定: \(virtualPath)")
+                logger.warn("文件已被锁定: \(virtualPath)")
                 return false
             }
 
@@ -66,19 +67,12 @@ final class LockManager {
                 sourcePath: sourcePath
             )
 
-            // 更新数据库中的文件状态
-            if let entry = databaseManager.getFileEntry(virtualPath: virtualPath) {
-                entry.lock(direction: direction)
-                databaseManager.saveFileEntry(entry)
-            }
-
-            Logger.shared.debug("获取同步锁: \(virtualPath), 方向: \(direction)")
+            logger.debug("获取同步锁: \(virtualPath), 方向: \(direction)")
             return true
         }
     }
 
     /// 释放同步锁
-    /// - Parameter virtualPath: 虚拟路径
     func releaseLock(_ virtualPath: String) {
         lockQueue.sync(flags: .barrier) {
             guard locks[virtualPath] != nil else {
@@ -86,12 +80,6 @@ final class LockManager {
             }
 
             locks[virtualPath] = nil
-
-            // 更新数据库中的文件状态
-            if let entry = databaseManager.getFileEntry(virtualPath: virtualPath) {
-                entry.unlock()
-                databaseManager.saveFileEntry(entry)
-            }
 
             // 唤醒所有等待的操作
             if let continuations = waitingOperations[virtualPath] {
@@ -101,16 +89,11 @@ final class LockManager {
                 waitingOperations[virtualPath] = nil
             }
 
-            Logger.shared.debug("释放同步锁: \(virtualPath)")
+            logger.debug("释放同步锁: \(virtualPath)")
         }
     }
 
     /// 批量获取锁
-    /// - Parameters:
-    ///   - paths: 虚拟路径列表
-    ///   - direction: 同步方向
-    ///   - sourcePathResolver: 获取源路径的闭包
-    /// - Returns: 成功锁定的路径列表
     func acquireLocks(_ paths: [String], direction: SyncLockDirection, sourcePathResolver: (String) -> String?) -> [String] {
         return lockQueue.sync(flags: .barrier) {
             var lockedPaths: [String] = []
@@ -130,13 +113,12 @@ final class LockManager {
                 lockedPaths.append(path)
             }
 
-            Logger.shared.debug("批量获取锁: \(lockedPaths.count)/\(paths.count) 个")
+            logger.debug("批量获取锁: \(lockedPaths.count)/\(paths.count) 个")
             return lockedPaths
         }
     }
 
     /// 批量释放锁
-    /// - Parameter paths: 虚拟路径列表
     func releaseLocks(_ paths: [String]) {
         lockQueue.sync(flags: .barrier) {
             for path in paths {
@@ -151,13 +133,11 @@ final class LockManager {
                     waitingOperations[path] = nil
                 }
             }
-            Logger.shared.debug("批量释放锁: \(paths.count) 个")
+            logger.debug("批量释放锁: \(paths.count) 个")
         }
     }
 
     /// 检查文件是否被锁定
-    /// - Parameter virtualPath: 虚拟路径
-    /// - Returns: 是否被锁定
     func isLocked(_ virtualPath: String) -> Bool {
         return lockQueue.sync {
             return locks[virtualPath] != nil
@@ -165,8 +145,6 @@ final class LockManager {
     }
 
     /// 获取锁定文件的源路径（用于读取）
-    /// - Parameter virtualPath: 虚拟路径
-    /// - Returns: 源路径，如果未锁定则返回 nil
     func getSourcePath(_ virtualPath: String) -> String? {
         return lockQueue.sync {
             return locks[virtualPath]?.sourcePath
@@ -174,8 +152,6 @@ final class LockManager {
     }
 
     /// 获取锁信息
-    /// - Parameter virtualPath: 虚拟路径
-    /// - Returns: 锁信息
     func getLockInfo(_ virtualPath: String) -> LockInfo? {
         return lockQueue.sync {
             return locks[virtualPath]
@@ -183,11 +159,9 @@ final class LockManager {
     }
 
     /// 等待锁释放
-    /// - Parameters:
-    ///   - virtualPath: 虚拟路径
-    ///   - timeout: 超时时间
-    /// - Returns: 等待结果
-    func waitForUnlock(_ virtualPath: String, timeout: TimeInterval = FileEntry.writeWaitTimeout) async -> WaitResult {
+    func waitForUnlock(_ virtualPath: String, timeout: TimeInterval? = nil) async -> WaitResult {
+        let timeoutValue = timeout ?? writeWaitTimeout
+
         // 先检查是否已经解锁
         let isCurrentlyLocked = lockQueue.sync { locks[virtualPath] != nil }
         if !isCurrentlyLocked {
@@ -217,7 +191,7 @@ final class LockManager {
 
             // 超时任务
             group.addTask {
-                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                try? await Task.sleep(nanoseconds: UInt64(timeoutValue * 1_000_000_000))
                 return .timeout
             }
 
@@ -237,7 +211,6 @@ final class LockManager {
     }
 
     /// 获取所有锁定的文件路径
-    /// - Returns: 锁定的文件路径列表
     func getLockedPaths() -> [String] {
         return lockQueue.sync {
             return Array(locks.keys)
@@ -265,13 +238,13 @@ final class LockManager {
             var expiredPaths: [String] = []
 
             for (path, info) in locks {
-                if now.timeIntervalSince(info.lockTime) > FileEntry.lockTimeout {
+                if now.timeIntervalSince(info.lockTime) > lockTimeout {
                     expiredPaths.append(path)
                 }
             }
 
             for path in expiredPaths {
-                Logger.shared.warn("锁超时自动释放: \(path)")
+                logger.warn("锁超时自动释放: \(path)")
                 locks[path] = nil
 
                 // 唤醒等待的操作
@@ -297,7 +270,7 @@ final class LockManager {
             }
             locks.removeAll()
             waitingOperations.removeAll()
-            Logger.shared.info("已释放所有同步锁")
+            logger.info("已释放所有同步锁")
         }
     }
 }

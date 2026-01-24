@@ -252,53 +252,7 @@ struct UIConfig: Codable, Equatable {
     }
 }
 
-// MARK: - Sync Status
-
-enum SyncStatus: Int, Codable {
-    case pending = 0
-    case inProgress = 1
-    case completed = 2
-    case failed = 3
-    case cancelled = 4
-
-    var displayName: String {
-        switch self {
-        case .pending: return "等待中"
-        case .inProgress: return "同步中"
-        case .completed: return "已完成"
-        case .failed: return "失败"
-        case .cancelled: return "已取消"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .pending: return "clock"
-        case .inProgress: return "arrow.triangle.2.circlepath"
-        case .completed: return "checkmark.circle"
-        case .failed: return "exclamationmark.triangle"
-        case .cancelled: return "xmark.circle"
-        }
-    }
-}
-
-// MARK: - File Location
-
-enum FileLocation: Int, Codable {
-    case notExists = 0
-    case localOnly = 1
-    case externalOnly = 2
-    case both = 3
-
-    var displayName: String {
-        switch self {
-        case .notExists: return "不存在"
-        case .localOnly: return "仅本地"
-        case .externalOnly: return "仅外置"
-        case .both: return "两端都有"
-        }
-    }
-}
+// Note: SyncStatus and FileLocation are defined in DMSAShared/Models/Config.swift
 
 // MARK: - Sync Engine Config
 
@@ -379,6 +333,93 @@ struct SyncEngineConfig: Codable, Equatable {
             case .askUser: return "每次询问"
             case .keepBoth: return "保留两者"
             }
+        }
+    }
+}
+
+// MARK: - 共享枚举类型
+
+/// 同步方向
+enum SyncDirection: String, Codable, CaseIterable {
+    case localToExternal = "local_to_external"
+    case externalToLocal = "external_to_local"
+    case bidirectional = "bidirectional"
+
+    var displayName: String {
+        switch self {
+        case .localToExternal: return "本地 → 外置"
+        case .externalToLocal: return "外置 → 本地"
+        case .bidirectional: return "双向同步"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .localToExternal: return "arrow.right"
+        case .externalToLocal: return "arrow.left"
+        case .bidirectional: return "arrow.left.arrow.right"
+        }
+    }
+}
+
+/// 同步状态
+enum SyncStatus: Int, Codable {
+    case pending = 0
+    case inProgress = 1
+    case completed = 2
+    case failed = 3
+    case cancelled = 4
+    case paused = 5
+
+    var displayName: String {
+        switch self {
+        case .pending: return "等待中"
+        case .inProgress: return "同步中"
+        case .completed: return "已完成"
+        case .failed: return "失败"
+        case .cancelled: return "已取消"
+        case .paused: return "已暂停"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .pending: return "clock"
+        case .inProgress: return "arrow.triangle.2.circlepath"
+        case .completed: return "checkmark.circle"
+        case .failed: return "exclamationmark.triangle"
+        case .cancelled: return "xmark.circle"
+        case .paused: return "pause.circle"
+        }
+    }
+
+    var rawValue: String {
+        switch self {
+        case .pending: return "pending"
+        case .inProgress: return "in_progress"
+        case .completed: return "completed"
+        case .failed: return "failed"
+        case .cancelled: return "cancelled"
+        case .paused: return "paused"
+        }
+    }
+}
+
+/// 文件位置
+enum FileLocation: Int, Codable {
+    case notExists = 0
+    case localOnly = 1
+    case externalOnly = 2
+    case both = 3
+    case deleted = 4
+
+    var displayName: String {
+        switch self {
+        case .notExists: return "不存在"
+        case .localOnly: return "仅本地"
+        case .externalOnly: return "仅外置"
+        case .both: return "两端都有"
+        case .deleted: return "已删除"
         }
     }
 }

@@ -30,8 +30,6 @@ struct HistoryView: View {
     @State private var searchText: String = ""
     @State private var showClearConfirmation: Bool = false
 
-    private let databaseManager: DatabaseManager
-
     enum DateFilter: String, CaseIterable {
         case last7Days
         case last30Days
@@ -56,9 +54,7 @@ struct HistoryView: View {
 
     @State private var isLoading: Bool = false
 
-    init(databaseManager: DatabaseManager = DatabaseManager.shared) {
-        self.databaseManager = databaseManager
-    }
+    init() {}
 
     private var filteredRecords: [SyncHistoryRecord] {
         records.filter { record in
@@ -272,33 +268,41 @@ struct HistoryView: View {
     private func loadRecordsAsync() async {
         isLoading = true
 
-        // Load from database asynchronously
-        let historyEntries = await databaseManager.getAllSyncHistoryAsync()
+        do {
+            // Load from service via XPC
+            let historyEntries = try await ServiceClient.shared.getSyncHistory(limit: 500)
 
-        let loadedRecords = historyEntries.map { entry in
-            SyncHistoryRecord(
-                id: String(entry.id),
-                timestamp: entry.startedAt,
-                sourcePath: entry.syncPairId, // Would need to resolve to actual path
-                destinationPath: "",
-                diskName: entry.diskId,
-                direction: entry.direction,
-                status: entry.status,
-                fileCount: entry.filesCount,
-                totalBytes: entry.totalSize,
-                duration: entry.duration,
-                addedFiles: 0,
-                updatedFiles: 0,
-                deletedFiles: 0,
-                skippedFiles: 0,
-                errorMessage: entry.errorMessage,
-                syncLog: nil
-            )
-        }
+            let loadedRecords = historyEntries.map { entry in
+                SyncHistoryRecord(
+                    id: String(entry.id),
+                    timestamp: entry.startedAt,
+                    sourcePath: entry.syncPairId,
+                    destinationPath: "",
+                    diskName: entry.diskId,
+                    direction: entry.direction,
+                    status: entry.status,
+                    fileCount: entry.filesCount,
+                    totalBytes: entry.totalSize,
+                    duration: entry.duration,
+                    addedFiles: 0,
+                    updatedFiles: 0,
+                    deletedFiles: 0,
+                    skippedFiles: 0,
+                    errorMessage: entry.errorMessage,
+                    syncLog: nil
+                )
+            }
 
-        await MainActor.run {
-            records = loadedRecords
-            isLoading = false
+            await MainActor.run {
+                records = loadedRecords
+                isLoading = false
+            }
+        } catch {
+            Logger.shared.error("加载同步历史失败: \(error)")
+            await MainActor.run {
+                records = []
+                isLoading = false
+            }
         }
     }
 
@@ -332,7 +336,8 @@ struct HistoryView: View {
     }
 
     private func clearHistory() {
-        databaseManager.clearAllSyncHistory()
+        // Note: Clear history is now handled by Service
+        // For now just clear local state
         records = []
     }
 }

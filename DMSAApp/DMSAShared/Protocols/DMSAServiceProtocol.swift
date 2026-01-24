@@ -288,6 +288,67 @@ import Foundation
                                    source: String,
                                    withReply reply: @escaping (Bool) -> Void)
 
+    // MARK: - ========== 配置操作 ==========
+
+    /// 获取完整配置
+    func configGetAll(withReply reply: @escaping (Data) -> Void)
+
+    /// 更新完整配置
+    func configUpdate(configData: Data,
+                      withReply reply: @escaping (Bool, String?) -> Void)
+
+    /// 获取磁盘配置列表
+    func configGetDisks(withReply reply: @escaping (Data) -> Void)
+
+    /// 添加磁盘配置
+    func configAddDisk(diskData: Data,
+                       withReply reply: @escaping (Bool, String?) -> Void)
+
+    /// 移除磁盘配置
+    func configRemoveDisk(diskId: String,
+                          withReply reply: @escaping (Bool, String?) -> Void)
+
+    /// 获取同步对配置列表
+    func configGetSyncPairs(withReply reply: @escaping (Data) -> Void)
+
+    /// 添加同步对配置
+    func configAddSyncPair(pairData: Data,
+                           withReply reply: @escaping (Bool, String?) -> Void)
+
+    /// 移除同步对配置
+    func configRemoveSyncPair(pairId: String,
+                              withReply reply: @escaping (Bool, String?) -> Void)
+
+    /// 获取通知配置
+    func configGetNotifications(withReply reply: @escaping (Data) -> Void)
+
+    /// 更新通知配置
+    func configUpdateNotifications(configData: Data,
+                                   withReply reply: @escaping (Bool, String?) -> Void)
+
+    // MARK: - ========== 通知操作 ==========
+
+    /// 保存通知记录
+    func notificationSave(recordData: Data,
+                          withReply reply: @escaping (Bool) -> Void)
+
+    /// 获取通知记录
+    func notificationGetAll(limit: Int,
+                            withReply reply: @escaping (Data) -> Void)
+
+    /// 获取未读通知数量
+    func notificationGetUnreadCount(withReply reply: @escaping (Int) -> Void)
+
+    /// 标记通知为已读
+    func notificationMarkAsRead(recordId: UInt64,
+                                withReply reply: @escaping (Bool) -> Void)
+
+    /// 标记所有通知为已读
+    func notificationMarkAllAsRead(withReply reply: @escaping (Bool) -> Void)
+
+    /// 清除所有通知
+    func notificationClearAll(withReply reply: @escaping (Bool) -> Void)
+
     // MARK: - ========== 通用操作 ==========
 
     /// 重新加载配置

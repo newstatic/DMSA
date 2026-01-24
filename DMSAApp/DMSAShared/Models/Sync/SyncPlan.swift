@@ -1,33 +1,6 @@
 import Foundation
 
-// MARK: - 同步方向
-
-/// 同步方向
-public enum SyncDirection: String, Codable, CaseIterable, Sendable {
-    case localToExternal = "local_to_external"
-    case externalToLocal = "external_to_local"
-    case bidirectional = "bidirectional"
-
-    public var description: String {
-        switch self {
-        case .localToExternal: return "本地 → 外置"
-        case .externalToLocal: return "外置 → 本地"
-        case .bidirectional: return "双向同步"
-        }
-    }
-
-    public var displayName: String {
-        return description
-    }
-
-    public var icon: String {
-        switch self {
-        case .localToExternal: return "arrow.right"
-        case .externalToLocal: return "arrow.left"
-        case .bidirectional: return "arrow.left.arrow.right"
-        }
-    }
-}
+// Note: SyncDirection is defined in DMSAShared/Models/Config.swift
 
 // MARK: - 同步动作
 

@@ -1,14 +1,14 @@
 import SwiftUI
 
 /// Notification history view embedded in main window
+/// v4.6: Uses ServiceClient XPC for all data operations
 struct NotificationHistoryView: View {
     @State private var records: [NotificationRecord] = []
     @State private var typeFilter: String = ""
     @State private var searchText: String = ""
     @State private var showClearConfirmation: Bool = false
     @State private var selectedRecord: NotificationRecord?
-
-    private let databaseManager = DatabaseManager.shared
+    @State private var isLoading: Bool = false
 
     private var filteredRecords: [NotificationRecord] {
         records.filter { record in
@@ -62,7 +62,10 @@ struct NotificationHistoryView: View {
                 Divider()
 
                 // Content
-                if filteredRecords.isEmpty {
+                if isLoading {
+                    ProgressView()
+                        .frame(minHeight: 200)
+                } else if filteredRecords.isEmpty {
                     emptyStateView
                         .frame(minHeight: 200)
                 } else {
@@ -76,14 +79,16 @@ struct NotificationHistoryView: View {
                     .padding(.top, 12)
             }
         }
-        .onAppear {
-            loadRecords()
+        .task {
+            await loadRecords()
         }
         .sheet(item: $selectedRecord) { record in
             NotificationDetailView(record: record) {
                 // Mark as read when detail view is dismissed
-                databaseManager.markNotificationAsRead(record.id)
-                loadRecords()
+                Task {
+                    try? await ServiceClient.shared.markNotificationAsRead(record.id)
+                    await loadRecords()
+                }
             }
         }
         .alert(isPresented: $showClearConfirmation) {
@@ -91,8 +96,10 @@ struct NotificationHistoryView: View {
                 title: Text("notifications.clearHistory".localized),
                 message: Text("notifications.clearHistoryConfirm".localized),
                 primaryButton: .destructive(Text(L10n.Common.delete)) {
-                    databaseManager.clearAllNotificationRecords()
-                    records = []
+                    Task {
+                        try? await ServiceClient.shared.clearAllNotifications()
+                        records = []
+                    }
                 },
                 secondaryButton: .cancel(Text(L10n.Common.cancel))
             )
@@ -146,8 +153,10 @@ struct NotificationHistoryView: View {
 
             // Mark all read button
             Button {
-                databaseManager.markAllNotificationsAsRead()
-                loadRecords()
+                Task {
+                    try? await ServiceClient.shared.markAllNotificationsAsRead()
+                    await loadRecords()
+                }
             } label: {
                 Label("notifications.markAllRead".localized, systemImage: "checkmark.circle")
             }
@@ -210,8 +219,15 @@ struct NotificationHistoryView: View {
         }
     }
 
-    private func loadRecords() {
-        records = databaseManager.getAllNotificationRecords()
+    private func loadRecords() async {
+        isLoading = true
+        do {
+            records = try await ServiceClient.shared.getNotificationRecords(limit: 500)
+        } catch {
+            Logger.shared.error("加载通知记录失败: \(error)")
+            records = []
+        }
+        isLoading = false
     }
 
     private func notificationTypeDisplayName(_ type: String) -> String {

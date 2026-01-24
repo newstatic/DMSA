@@ -219,7 +219,8 @@ actor ServiceDatabaseManager {
     }
 
     func getAllFileEntries(syncPairId: String) -> [ServiceFileEntry] {
-        return Array(fileEntries[syncPairId]?.values ?? [])
+        guard let entries = fileEntries[syncPairId]?.values else { return [] }
+        return Array(entries)
     }
 
     func saveFileEntry(_ entry: ServiceFileEntry) {
@@ -426,7 +427,7 @@ actor ServiceDatabaseManager {
     // MARK: - 索引统计
 
     func getIndexStats(syncPairId: String) -> IndexStats {
-        let entries = fileEntries[syncPairId]?.values ?? []
+        let entries = fileEntries[syncPairId]?.values.map { $0 } ?? []
 
         var stats = IndexStats(
             totalFiles: 0,

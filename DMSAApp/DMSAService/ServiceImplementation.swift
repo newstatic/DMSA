@@ -638,6 +638,125 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         }
     }
 
+    // MARK: - ========== 配置操作 ==========
+
+    func configGetAll(withReply reply: @escaping (Data) -> Void) {
+        let data = (try? JSONEncoder().encode(config)) ?? Data()
+        reply(data)
+    }
+
+    func configUpdate(configData: Data, withReply reply: @escaping (Bool, String?) -> Void) {
+        guard let newConfig = try? JSONDecoder().decode(AppConfig.self, from: configData) else {
+            reply(false, "配置解析失败")
+            return
+        }
+        config = newConfig
+        do {
+            try configData.write(to: Constants.Paths.config)
+            Task { await syncManager.updateConfig(config) }
+            reply(true, nil)
+        } catch {
+            reply(false, error.localizedDescription)
+        }
+    }
+
+    func configGetDisks(withReply reply: @escaping (Data) -> Void) {
+        let data = (try? JSONEncoder().encode(config.disks)) ?? Data()
+        reply(data)
+    }
+
+    func configAddDisk(diskData: Data, withReply reply: @escaping (Bool, String?) -> Void) {
+        guard let disk = try? JSONDecoder().decode(DiskConfig.self, from: diskData) else {
+            reply(false, "磁盘配置解析失败")
+            return
+        }
+        config.disks.append(disk)
+        saveConfig()
+        reply(true, nil)
+    }
+
+    func configRemoveDisk(diskId: String, withReply reply: @escaping (Bool, String?) -> Void) {
+        config.disks.removeAll { $0.id == diskId }
+        saveConfig()
+        reply(true, nil)
+    }
+
+    func configGetSyncPairs(withReply reply: @escaping (Data) -> Void) {
+        let data = (try? JSONEncoder().encode(config.syncPairs)) ?? Data()
+        reply(data)
+    }
+
+    func configAddSyncPair(pairData: Data, withReply reply: @escaping (Bool, String?) -> Void) {
+        guard let pair = try? JSONDecoder().decode(SyncPairConfig.self, from: pairData) else {
+            reply(false, "同步对配置解析失败")
+            return
+        }
+        config.syncPairs.append(pair)
+        saveConfig()
+        reply(true, nil)
+    }
+
+    func configRemoveSyncPair(pairId: String, withReply reply: @escaping (Bool, String?) -> Void) {
+        config.syncPairs.removeAll { $0.id == pairId }
+        saveConfig()
+        reply(true, nil)
+    }
+
+    func configGetNotifications(withReply reply: @escaping (Data) -> Void) {
+        let data = (try? JSONEncoder().encode(config.notifications)) ?? Data()
+        reply(data)
+    }
+
+    func configUpdateNotifications(configData: Data, withReply reply: @escaping (Bool, String?) -> Void) {
+        guard let notifConfig = try? JSONDecoder().decode(NotificationConfig.self, from: configData) else {
+            reply(false, "通知配置解析失败")
+            return
+        }
+        config.notifications = notifConfig
+        saveConfig()
+        reply(true, nil)
+    }
+
+    private func saveConfig() {
+        if let data = try? JSONEncoder().encode(config) {
+            try? data.write(to: Constants.Paths.config)
+        }
+    }
+
+    // MARK: - ========== 通知操作 ==========
+
+    func notificationSave(recordData: Data, withReply reply: @escaping (Bool) -> Void) {
+        // TODO: 实现通知记录保存
+        reply(true)
+    }
+
+    func notificationGetAll(limit: Int, withReply reply: @escaping (Data) -> Void) {
+        // TODO: 实现从数据库获取通知记录
+        let emptyArray: [NotificationRecord] = []
+        let data = (try? JSONEncoder().encode(emptyArray)) ?? Data()
+        reply(data)
+    }
+
+    func notificationGetUnreadCount(withReply reply: @escaping (Int) -> Void) {
+        // TODO: 实现未读计数
+        reply(0)
+    }
+
+    func notificationMarkAsRead(recordId: UInt64, withReply reply: @escaping (Bool) -> Void) {
+        // TODO: 实现标记已读
+        reply(true)
+    }
+
+    func notificationMarkAllAsRead(withReply reply: @escaping (Bool) -> Void) {
+        // TODO: 实现全部标记已读
+        reply(true)
+    }
+
+    func notificationClearAll(withReply reply: @escaping (Bool) -> Void) {
+        // TODO: 实现清除所有通知
+        reply(true)
+    }
+
     // MARK: - 内部方法
 
     func autoMount() async {

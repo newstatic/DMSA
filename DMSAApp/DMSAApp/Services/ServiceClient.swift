@@ -1,5 +1,16 @@
 import Foundation
 
+/// 版本检查结果
+struct VersionCheckResult: Sendable {
+    var externalConnected: Bool = false
+    var needRebuildLocal: Bool = false
+    var needRebuildExternal: Bool = false
+
+    var needsAnyRebuild: Bool {
+        return needRebuildLocal || needRebuildExternal
+    }
+}
+
 /// DMSAService XPC 客户端
 /// 统一管理与 DMSAService 的通信
 @MainActor
@@ -252,7 +263,7 @@ final class ServiceClient {
         }
     }
 
-    /// 暂停同步
+    /// 暂停同步 (指定 syncPairId)
     func pauseSync(syncPairId: String) async throws {
         let proxy = try await getProxy()
 
@@ -263,7 +274,12 @@ final class ServiceClient {
         }
     }
 
-    /// 恢复同步
+    /// 暂停同步 (所有)
+    func pauseSync() async throws {
+        try await pauseSync(syncPairId: "")
+    }
+
+    /// 恢复同步 (指定 syncPairId)
     func resumeSync(syncPairId: String) async throws {
         let proxy = try await getProxy()
 
@@ -274,7 +290,12 @@ final class ServiceClient {
         }
     }
 
-    /// 取消同步
+    /// 恢复同步 (所有)
+    func resumeSync() async throws {
+        try await resumeSync(syncPairId: "")
+    }
+
+    /// 取消同步 (指定 syncPairId)
     func cancelSync(syncPairId: String) async throws {
         let proxy = try await getProxy()
 
@@ -283,6 +304,11 @@ final class ServiceClient {
                 continuation.resume()
             }
         }
+    }
+
+    /// 取消同步 (所有)
+    func cancelSync() async throws {
+        try await cancelSync(syncPairId: "")
     }
 
     /// 获取同步状态
@@ -322,7 +348,7 @@ final class ServiceClient {
         }
     }
 
-    /// 获取同步历史
+    /// 获取同步历史 (指定 syncPairId)
     func getSyncHistory(syncPairId: String, limit: Int = 50) async throws -> [SyncHistory] {
         let proxy = try await getProxy()
 
@@ -331,6 +357,11 @@ final class ServiceClient {
                 continuation.resume(returning: SyncHistory.arrayFrom(data: data))
             }
         }
+    }
+
+    /// 获取同步历史 (所有)
+    func getSyncHistory(limit: Int = 50) async throws -> [SyncHistory] {
+        return try await getAllSyncHistory(limit: limit)
     }
 
     // MARK: - Privileged Operations
@@ -550,12 +581,12 @@ final class ServiceClient {
     }
 
     /// 检查树版本
-    func checkTreeVersions(localDir: String, externalDir: String?, syncPairId: String) async throws -> TreeVersionManager.VersionCheckResult {
+    func checkTreeVersions(localDir: String, externalDir: String?, syncPairId: String) async throws -> VersionCheckResult {
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
             proxy.dataCheckTreeVersions(localDir: localDir, externalDir: externalDir, syncPairId: syncPairId) { data in
-                var result = TreeVersionManager.VersionCheckResult()
+                var result = VersionCheckResult()
                 if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                     result.externalConnected = dict["externalConnected"] as? Bool ?? false
                     result.needRebuildLocal = dict["needRebuildLocal"] as? Bool ?? true
@@ -591,6 +622,227 @@ final class ServiceClient {
             }
         }
     }
+
+    // MARK: - Config Operations
+
+    /// 获取完整配置
+    func getConfig() async throws -> AppConfig {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.configGetAll { data in
+                if let config = try? JSONDecoder().decode(AppConfig.self, from: data) {
+                    continuation.resume(returning: config)
+                } else {
+                    continuation.resume(returning: AppConfig())
+                }
+            }
+        }
+    }
+
+    /// 更新完整配置
+    func updateConfig(_ config: AppConfig) async throws {
+        let proxy = try await getProxy()
+        let data = try JSONEncoder().encode(config)
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.configUpdate(configData: data) { success, error in
+                if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: ServiceError.operationFailed(error ?? "配置更新失败"))
+                }
+            }
+        }
+    }
+
+    /// 获取磁盘配置列表
+    func getDisks() async throws -> [DiskConfig] {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.configGetDisks { data in
+                let disks = (try? JSONDecoder().decode([DiskConfig].self, from: data)) ?? []
+                continuation.resume(returning: disks)
+            }
+        }
+    }
+
+    /// 添加磁盘配置
+    func addDisk(_ disk: DiskConfig) async throws {
+        let proxy = try await getProxy()
+        let data = try JSONEncoder().encode(disk)
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.configAddDisk(diskData: data) { success, error in
+                if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: ServiceError.operationFailed(error ?? "添加磁盘失败"))
+                }
+            }
+        }
+    }
+
+    /// 移除磁盘配置
+    func removeDisk(id: String) async throws {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.configRemoveDisk(diskId: id) { success, error in
+                if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: ServiceError.operationFailed(error ?? "移除磁盘失败"))
+                }
+            }
+        }
+    }
+
+    /// 获取同步对配置列表
+    func getSyncPairs() async throws -> [SyncPairConfig] {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.configGetSyncPairs { data in
+                let pairs = (try? JSONDecoder().decode([SyncPairConfig].self, from: data)) ?? []
+                continuation.resume(returning: pairs)
+            }
+        }
+    }
+
+    /// 添加同步对配置
+    func addSyncPair(_ pair: SyncPairConfig) async throws {
+        let proxy = try await getProxy()
+        let data = try JSONEncoder().encode(pair)
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.configAddSyncPair(pairData: data) { success, error in
+                if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: ServiceError.operationFailed(error ?? "添加同步对失败"))
+                }
+            }
+        }
+    }
+
+    /// 移除同步对配置
+    func removeSyncPair(id: String) async throws {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.configRemoveSyncPair(pairId: id) { success, error in
+                if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: ServiceError.operationFailed(error ?? "移除同步对失败"))
+                }
+            }
+        }
+    }
+
+    /// 获取通知配置
+    func getNotificationConfig() async throws -> NotificationConfig {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.configGetNotifications { data in
+                if let config = try? JSONDecoder().decode(NotificationConfig.self, from: data) {
+                    continuation.resume(returning: config)
+                } else {
+                    continuation.resume(returning: NotificationConfig())
+                }
+            }
+        }
+    }
+
+    /// 更新通知配置
+    func updateNotificationConfig(_ config: NotificationConfig) async throws {
+        let proxy = try await getProxy()
+        let data = try JSONEncoder().encode(config)
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.configUpdateNotifications(configData: data) { success, error in
+                if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: ServiceError.operationFailed(error ?? "更新通知配置失败"))
+                }
+            }
+        }
+    }
+
+    // MARK: - Notification Operations
+
+    /// 保存通知记录
+    func saveNotificationRecord(_ record: NotificationRecord) async throws {
+        let proxy = try await getProxy()
+        let data = try JSONEncoder().encode(record)
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.notificationSave(recordData: data) { _ in
+                continuation.resume()
+            }
+        }
+    }
+
+    /// 获取通知记录
+    func getNotificationRecords(limit: Int = 100) async throws -> [NotificationRecord] {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.notificationGetAll(limit: limit) { data in
+                let records = (try? JSONDecoder().decode([NotificationRecord].self, from: data)) ?? []
+                continuation.resume(returning: records)
+            }
+        }
+    }
+
+    /// 获取未读通知数量
+    func getUnreadNotificationCount() async throws -> Int {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.notificationGetUnreadCount { count in
+                continuation.resume(returning: count)
+            }
+        }
+    }
+
+    /// 标记通知为已读
+    func markNotificationAsRead(_ id: UInt64) async throws {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.notificationMarkAsRead(recordId: id) { _ in
+                continuation.resume()
+            }
+        }
+    }
+
+    /// 标记所有通知为已读
+    func markAllNotificationsAsRead() async throws {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.notificationMarkAllAsRead { _ in
+                continuation.resume()
+            }
+        }
+    }
+
+    /// 清除所有通知
+    func clearAllNotifications() async throws {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.notificationClearAll { _ in
+                continuation.resume()
+            }
+        }
+    }
+
 }
 
 // MARK: - ServiceError

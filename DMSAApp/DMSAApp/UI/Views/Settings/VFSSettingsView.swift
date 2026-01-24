@@ -334,10 +334,22 @@ class VFSSettingsViewModel: ObservableObject {
     // MARK: - VFS Mounts
 
     private func checkMountedVFS() {
-        // 从 VFSCore 获取挂载信息
-        // 这里暂时使用空数组，实际应该从 VFSCore.shared 获取
-        DispatchQueue.main.async { [weak self] in
-            self?.mountedVFS = []
+        // 通过 XPC 从 DMSAService 获取挂载信息
+        Task {
+            do {
+                let mounts = try await ServiceClient.shared.getVFSMounts()
+                await MainActor.run {
+                    self.mountedVFS = mounts.map { mount in
+                        VFSMountInfo(
+                            targetDir: mount.targetDir,
+                            localDir: mount.localDir,
+                            externalDir: mount.externalDir ?? ""
+                        )
+                    }
+                }
+            } catch {
+                Logger.shared.error("获取挂载信息失败: \(error)")
+            }
         }
     }
 }

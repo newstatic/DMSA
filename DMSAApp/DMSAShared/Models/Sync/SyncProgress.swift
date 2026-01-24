@@ -1,54 +1,6 @@
 import Foundation
 
-/// 同步状态
-public enum SyncStatus: String, Codable, Sendable {
-    case pending = "pending"
-    case scanning = "scanning"
-    case comparing = "comparing"
-    case syncing = "syncing"
-    case verifying = "verifying"
-    case completed = "completed"
-    case failed = "failed"
-    case cancelled = "cancelled"
-    case paused = "paused"
-
-    public var description: String {
-        switch self {
-        case .pending: return "等待中"
-        case .scanning: return "扫描中"
-        case .comparing: return "比较中"
-        case .syncing: return "同步中"
-        case .verifying: return "验证中"
-        case .completed: return "已完成"
-        case .failed: return "失败"
-        case .cancelled: return "已取消"
-        case .paused: return "已暂停"
-        }
-    }
-
-    public var isActive: Bool {
-        switch self {
-        case .scanning, .comparing, .syncing, .verifying:
-            return true
-        default:
-            return false
-        }
-    }
-
-    public var icon: String {
-        switch self {
-        case .pending: return "clock"
-        case .scanning: return "magnifyingglass"
-        case .comparing: return "arrow.left.arrow.right"
-        case .syncing: return "arrow.triangle.2.circlepath"
-        case .verifying: return "checkmark.shield"
-        case .completed: return "checkmark.circle.fill"
-        case .failed: return "exclamationmark.triangle.fill"
-        case .cancelled: return "xmark.circle"
-        case .paused: return "pause.circle"
-        }
-    }
-}
+// Note: SyncStatus is defined in DMSAShared/Models/Config.swift
 
 /// 同步进度
 public struct SyncProgress: Codable, Sendable {
@@ -137,7 +89,9 @@ public struct SyncProgress: Codable, Sendable {
 public enum SyncPhase: String, Codable, Sendable {
     case idle = "idle"
     case scanning = "scanning"
+    case calculating = "calculating"
     case checksumming = "checksumming"
+    case resolving = "resolving"
     case diffing = "diffing"
     case syncing = "syncing"
     case verifying = "verifying"
@@ -150,7 +104,9 @@ public enum SyncPhase: String, Codable, Sendable {
         switch self {
         case .idle: return "空闲"
         case .scanning: return "扫描文件"
+        case .calculating: return "计算差异"
         case .checksumming: return "计算校验和"
+        case .resolving: return "解决冲突"
         case .diffing: return "比较差异"
         case .syncing: return "同步文件"
         case .verifying: return "验证完整性"
@@ -162,12 +118,4 @@ public enum SyncPhase: String, Codable, Sendable {
     }
 }
 
-// MARK: - 工具函数
-
-/// 格式化字节数
-public func formatBytes(_ bytes: Int64) -> String {
-    let formatter = ByteCountFormatter()
-    formatter.allowedUnits = [.useAll]
-    formatter.countStyle = .file
-    return formatter.string(fromByteCount: bytes)
-}
+// Note: formatBytes is defined in DMSAShared/Utils/Errors.swift

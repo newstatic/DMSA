@@ -3,13 +3,12 @@ import SwiftUI
 import ServiceManagement
 
 /// 应用代理
-/// v4.3: 仅负责生命周期管理和 UI 交互，业务逻辑由 DMSAService 处理
+/// v4.6: 纯 UI 客户端，配置和业务逻辑完全由 DMSAService 处理
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - UI 管理器
 
     private var menuBarManager: MenuBarManager!
-    private let configManager = ConfigManager.shared
     private let diskManager = DiskManager.shared
     private let alertManager = AlertManager.shared
     private let serviceClient = ServiceClient.shared
@@ -18,14 +17,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var mainWindowController: MainWindowController?
 
+    // MARK: - 配置缓存
+
+    private var cachedConfig: AppConfig?
+    private var lastConfigFetch: Date?
+    private let configCacheTimeout: TimeInterval = 30 // 30秒缓存
+
     // MARK: - 同步控制属性
 
     var isAutoSyncEnabled: Bool {
-        get { configManager.config.general.autoSyncEnabled }
+        get { cachedConfig?.general.autoSyncEnabled ?? true }
         set {
-            configManager.config.general.autoSyncEnabled = newValue
-            configManager.saveConfig()
-            Logger.shared.info("自动同步开关: \(newValue ? "开启" : "关闭")")
+            Task {
+                do {
+                    var config = try await serviceClient.getConfig()
+                    config.general.autoSyncEnabled = newValue
+                    try await serviceClient.updateConfig(config)
+                    cachedConfig = config
+                    Logger.shared.info("自动同步开关: \(newValue ? "开启" : "关闭")")
+                } catch {
+                    Logger.shared.error("更新自动同步配置失败: \(error)")
+                }
+            }
         }
     }
 
@@ -33,12 +46,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Logger.shared.info("============================================")
-        Logger.shared.info("DMSA v4.3 启动")
+        Logger.shared.info("DMSA v4.6 启动")
         Logger.shared.info("============================================")
 
         setupUI()
         setupDiskCallbacks()
-        checkInitialState()
 
         // 检查并安装 Service
         checkAndInstallService()
@@ -71,7 +83,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupUI() {
         menuBarManager = MenuBarManager()
         menuBarManager.delegate = self
-        mainWindowController = MainWindowController(configManager: configManager)
+        mainWindowController = MainWindowController(configManager: ConfigManager.shared)
         Logger.shared.info("UI 管理器初始化完成")
     }
 
@@ -88,18 +100,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func checkInitialState() {
-        let configuredDisks = configManager.config.disks
-
-        if configuredDisks.isEmpty {
-            Logger.shared.info("未配置任何硬盘，等待用户配置")
-            setupDefaultConfig()
-        } else {
-            Logger.shared.info("已配置 \(configuredDisks.count) 个硬盘")
-            diskManager.checkInitialState()
+        Task {
+            do {
+                let disks = try await serviceClient.getDisks()
+                if disks.isEmpty {
+                    Logger.shared.info("未配置任何硬盘，等待用户配置")
+                    await setupDefaultConfig()
+                } else {
+                    Logger.shared.info("已配置 \(disks.count) 个硬盘")
+                    diskManager.checkInitialState()
+                }
+            } catch {
+                Logger.shared.error("获取配置失败: \(error)")
+            }
         }
     }
 
-    private func setupDefaultConfig() {
+    private func setupDefaultConfig() async {
         let defaultDisk = DiskConfig(
             id: "default_backup",
             name: "BACKUP",
@@ -118,9 +135,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             enabled: true
         )
 
-        configManager.addDisk(defaultDisk)
-        configManager.addSyncPair(defaultPair)
-        Logger.shared.info("已创建默认配置")
+        do {
+            try await serviceClient.addDisk(defaultDisk)
+            try await serviceClient.addSyncPair(defaultPair)
+            Logger.shared.info("已创建默认配置")
+        } catch {
+            Logger.shared.error("创建默认配置失败: \(error)")
+        }
+    }
+
+    // MARK: - Config Cache
+
+    private func getConfig() async -> AppConfig {
+        // 检查缓存是否有效
+        if let cached = cachedConfig,
+           let lastFetch = lastConfigFetch,
+           Date().timeIntervalSince(lastFetch) < configCacheTimeout {
+            return cached
+        }
+
+        // 从服务获取配置
+        do {
+            let config = try await serviceClient.getConfig()
+            cachedConfig = config
+            lastConfigFetch = Date()
+            return config
+        } catch {
+            Logger.shared.error("获取配置失败: \(error)")
+            return cachedConfig ?? AppConfig()
+        }
     }
 
     // MARK: - Service 管理
@@ -193,6 +236,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 _ = try await serviceClient.connect()
                 let version = try await serviceClient.getVersion()
                 Logger.shared.info("已连接到 DMSAService v\(version)")
+
+                // 连接成功后检查初始状态
+                checkInitialState()
             } catch {
                 Logger.shared.error("连接 DMSAService 失败: \(error)")
             }
@@ -276,13 +322,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleDiskConnected(_ disk: DiskConfig) {
         Logger.shared.info("硬盘已连接: \(disk.name)")
-        menuBarManager.updateDiskState(disk.name, state: .connected(diskName: disk.name, usedSpace: nil, totalSpace: nil))
-        alertManager.alertDiskConnected(diskName: disk.name)
 
-        // 自动同步由 Service 处理，这里只触发
-        guard isAutoSyncEnabled else { return }
+        Task { @MainActor in
+            menuBarManager.updateDiskState(disk.name, state: .connected(diskName: disk.name, usedSpace: nil, totalSpace: nil))
+            alertManager.alertDiskConnected(diskName: disk.name)
 
-        Task {
+            // 自动同步由 Service 处理，这里只触发
+            let config = await getConfig()
+            guard config.general.autoSyncEnabled else { return }
             try? await serviceClient.syncNow(syncPairId: "default_downloads")
         }
     }
@@ -290,18 +337,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleDiskDisconnected(_ disk: DiskConfig) {
         Logger.shared.info("硬盘已断开: \(disk.name)")
 
-        if diskManager.connectedDisks.isEmpty {
-            menuBarManager.updateDiskState(disk.name, state: .disconnected)
-        }
+        Task { @MainActor in
+            if diskManager.connectedDisks.isEmpty {
+                menuBarManager.updateDiskState(disk.name, state: .disconnected)
+            }
 
-        alertManager.alertDiskDisconnected(diskName: disk.name)
+            alertManager.alertDiskDisconnected(diskName: disk.name)
+        }
     }
 
     // MARK: - 公共方法
 
     func toggleAutoSync() {
-        isAutoSyncEnabled = !isAutoSyncEnabled
-        menuBarManager.updateAutoSyncState(isEnabled: isAutoSyncEnabled)
+        Task {
+            let config = await getConfig()
+            isAutoSyncEnabled = !config.general.autoSyncEnabled
+            menuBarManager.updateAutoSyncState(isEnabled: !config.general.autoSyncEnabled)
+        }
     }
 }
 

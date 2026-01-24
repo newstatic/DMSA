@@ -265,20 +265,46 @@ struct StatisticsView: View {
     // MARK: - Data Loading
 
     private func loadData() {
-        let db = DatabaseManager.shared
+        // Load data via XPC - statistics will be computed from history
+        Task {
+            do {
+                let history = try await ServiceClient.shared.getSyncHistory(limit: 500)
+                await MainActor.run {
+                    recentHistory = history
 
-        if let diskId = selectedDiskId {
-            statistics = db.getStatistics(forDiskId: diskId, days: selectedTimeRange.days)
-        } else {
-            // Get statistics for all disks
-            var allStats: [SyncStatistics] = []
-            for disk in config.disks {
-                allStats.append(contentsOf: db.getStatistics(forDiskId: disk.id, days: selectedTimeRange.days))
+                    // Compute statistics from history
+                    let filtered: [SyncHistory]
+                    if let diskId = selectedDiskId {
+                        filtered = history.filter { $0.diskId == diskId }
+                    } else {
+                        filtered = history
+                    }
+
+                    // Group by date and compute statistics
+                    let cutoffDate = Calendar.current.date(byAdding: .day, value: -selectedTimeRange.days, to: Date()) ?? Date()
+                    let recentFiltered = filtered.filter { $0.startedAt >= cutoffDate }
+
+                    // Group by date
+                    let grouped = Dictionary(grouping: recentFiltered) { entry -> Date in
+                        Calendar.current.startOfDay(for: entry.startedAt)
+                    }
+
+                    let computedStats: [SyncStatistics] = grouped.map { date, entries in
+                        let stat = SyncStatistics(date: date, diskId: selectedDiskId ?? "all")
+                        stat.totalSyncs = entries.count
+                        stat.successfulSyncs = entries.filter { $0.status == .completed }.count
+                        stat.failedSyncs = entries.filter { $0.status == .failed }.count
+                        stat.totalFilesTransferred = entries.reduce(0) { $0 + $1.filesCount }
+                        stat.totalBytesTransferred = entries.reduce(Int64(0)) { $0 + $1.totalSize }
+                        stat.averageDuration = entries.reduce(0.0) { $0 + $1.duration } / Double(max(entries.count, 1))
+                        return stat
+                    }
+                    statistics = computedStats.sorted { $0.date < $1.date }
+                }
+            } catch {
+                Logger.shared.error("加载统计数据失败: \(error)")
             }
-            statistics = allStats.sorted { $0.date < $1.date }
         }
-
-        recentHistory = db.getSyncHistory(limit: 100)
     }
 
     // MARK: - Export

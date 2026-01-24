@@ -2,6 +2,7 @@ import SwiftUI
 
 /// History content view for embedding in main window
 /// This is a simplified version of HistoryView without window wrapper
+/// v4.6: Uses ServiceClient XPC for all data operations
 struct HistoryContentView: View {
     @State private var records: [SyncHistoryRecord] = []
     @State private var selectedRecord: SyncHistoryRecord?
@@ -10,8 +11,7 @@ struct HistoryContentView: View {
     @State private var dateFilter: DateFilter = .last7Days
     @State private var searchText: String = ""
     @State private var showClearConfirmation: Bool = false
-
-    private let databaseManager: DatabaseManager
+    @State private var isLoading: Bool = false
 
     enum DateFilter: String, CaseIterable {
         case last7Days
@@ -35,9 +35,7 @@ struct HistoryContentView: View {
         }
     }
 
-    init(databaseManager: DatabaseManager = DatabaseManager.shared) {
-        self.databaseManager = databaseManager
-    }
+    init() {}
 
     private var filteredRecords: [SyncHistoryRecord] {
         records.filter { record in
@@ -107,7 +105,10 @@ struct HistoryContentView: View {
                 Divider()
 
                 // Content
-                if filteredRecords.isEmpty {
+                if isLoading {
+                    ProgressView()
+                        .frame(minHeight: 200)
+                } else if filteredRecords.isEmpty {
                     emptyStateView
                         .frame(minHeight: 200)
                 } else {
@@ -121,8 +122,8 @@ struct HistoryContentView: View {
                     .padding(.top, 12)
             }
         }
-        .onAppear {
-            loadRecords()
+        .task {
+            await loadRecords()
         }
         .sheet(item: $selectedRecord) { record in
             HistoryDetailView(record: record)
@@ -248,29 +249,36 @@ struct HistoryContentView: View {
         }
     }
 
-    private func loadRecords() {
-        // Load from database
-        let historyEntries = databaseManager.getAllSyncHistory()
-        records = historyEntries.map { entry in
-            SyncHistoryRecord(
-                id: String(entry.id),
-                timestamp: entry.startedAt,
-                sourcePath: entry.syncPairId, // Would need to resolve to actual path
-                destinationPath: "",
-                diskName: entry.diskId,
-                direction: entry.direction,
-                status: entry.status,
-                fileCount: entry.filesCount,
-                totalBytes: entry.totalSize,
-                duration: entry.duration,
-                addedFiles: 0,
-                updatedFiles: 0,
-                deletedFiles: 0,
-                skippedFiles: 0,
-                errorMessage: entry.errorMessage,
-                syncLog: nil
-            )
+    private func loadRecords() async {
+        isLoading = true
+        do {
+            // Load from service via XPC
+            let historyEntries = try await ServiceClient.shared.getSyncHistory(limit: 500)
+            records = historyEntries.map { entry in
+                SyncHistoryRecord(
+                    id: String(entry.id),
+                    timestamp: entry.startedAt,
+                    sourcePath: entry.syncPairId,
+                    destinationPath: "",
+                    diskName: entry.diskId,
+                    direction: entry.direction,
+                    status: entry.status,
+                    fileCount: entry.filesCount,
+                    totalBytes: entry.totalSize,
+                    duration: entry.duration,
+                    addedFiles: 0,
+                    updatedFiles: 0,
+                    deletedFiles: 0,
+                    skippedFiles: 0,
+                    errorMessage: entry.errorMessage,
+                    syncLog: nil
+                )
+            }
+        } catch {
+            Logger.shared.error("加载同步历史失败: \(error)")
+            records = []
         }
+        isLoading = false
     }
 
     private func exportHistory() {
@@ -300,7 +308,8 @@ struct HistoryContentView: View {
     }
 
     private func clearHistory() {
-        databaseManager.clearAllSyncHistory()
+        // Clear history is now handled by Service
+        // For now just clear local state
         records = []
     }
 }

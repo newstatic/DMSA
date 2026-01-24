@@ -65,7 +65,7 @@ class NativeSyncEngine: ObservableObject {
     // MARK: - 状态
 
     /// 同步进度
-    @Published var progress: SyncProgress
+    @Published var progress: ServiceSyncProgress
 
     /// 当前同步计划
     @Published var currentPlan: SyncPlan?
@@ -112,7 +112,7 @@ class NativeSyncEngine: ObservableObject {
 
     init(config: Config = .default) {
         self.config = config
-        self.progress = SyncProgress()
+        self.progress = ServiceSyncProgress()
 
         // 初始化组件
         self.scanner = FileScanner(

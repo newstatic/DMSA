@@ -313,18 +313,18 @@ actor SyncManager {
         logger.info("  LOCAL_DIR: \(syncPair.localDir)")
         logger.info("  EXTERNAL_DIR: \(externalDir)")
 
+        // 确定要同步的文件 (在 do 块外部定义以便 catch 块访问)
+        let filesToSync: [String]
+        if files.isEmpty {
+            // 全量同步：获取所有脏文件
+            filesToSync = Array(dirtyFiles[syncPairId] ?? [])
+        } else {
+            filesToSync = files
+        }
+
         do {
             let fm = FileManager.default
             let localDir = syncPair.localDir
-
-            // 确定要同步的文件
-            let filesToSync: [String]
-            if files.isEmpty {
-                // 全量同步：获取所有脏文件
-                filesToSync = Array(dirtyFiles[syncPairId] ?? [])
-            } else {
-                filesToSync = files
-            }
 
             progress.totalFiles = filesToSync.count
             syncProgress[syncPairId] = progress

@@ -17,7 +17,7 @@ class SyncStateManager {
         var lastUpdatedAt: Date
 
         /// 当前阶段
-        var phase: SyncProgress.SyncPhase
+        var phase: SyncPhase
 
         /// 已完成的动作索引
         var completedActionIndices: Set<Int>
@@ -249,7 +249,7 @@ class SyncStateManager {
     }
 
     /// 更新阶段
-    func updatePhase(state: inout SyncState, phase: SyncProgress.SyncPhase) {
+    func updatePhase(state: inout SyncState, phase: SyncPhase) {
         state.phase = phase
         state.lastUpdatedAt = Date()
         try? saveState(state)
@@ -284,8 +284,8 @@ class SyncStateManager {
 extension SyncStateManager {
 
     /// 从状态恢复同步进度对象
-    func restoreProgress(from state: SyncState) -> SyncProgress {
-        let progress = SyncProgress()
+    func restoreProgress(from state: SyncState) -> ServiceSyncProgress {
+        let progress = ServiceSyncProgress()
 
         progress.phase = state.phase
         progress.processedFiles = state.processedFiles
@@ -297,13 +297,6 @@ extension SyncStateManager {
         }.count
         progress.processedBytes = state.processedBytes
         progress.totalBytes = state.plan.totalBytes
-        progress.startTime = state.startedAt
-
-        // 计算总体进度
-        let total = state.completedActionIndices.count + state.pendingActionIndices.count
-        if total > 0 {
-            progress.overallProgress = Double(state.completedActionIndices.count) / Double(total)
-        }
 
         return progress
     }

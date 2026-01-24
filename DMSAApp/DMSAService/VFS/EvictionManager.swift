@@ -213,9 +213,9 @@ actor EvictionManager {
             guard let externalPath = entry.externalPath,
                   fm.fileExists(atPath: externalPath) else {
                 // 需要先同步到 EXTERNAL
-                if let syncManager = syncManager, let syncPairId = entry.syncPairId {
+                if let syncManager = syncManager {
                     do {
-                        try await syncManager.syncFile(virtualPath: entry.virtualPath, syncPairId: syncPairId)
+                        try await syncManager.syncFile(virtualPath: entry.virtualPath, syncPairId: entry.syncPairId)
                         // 同步成功后跳过淘汰，等下次检查时再处理
                         continue
                     } catch {
@@ -224,7 +224,7 @@ actor EvictionManager {
                         continue
                     }
                 } else {
-                    errors.append("SyncManager 未设置或缺少 syncPairId: \(entry.virtualPath)")
+                    errors.append("SyncManager 未设置: \(entry.virtualPath)")
                     continue
                 }
             }
@@ -260,7 +260,7 @@ actor EvictionManager {
     }
 
     /// 获取淘汰候选文件 (按 LRU 排序)
-    private func getEvictionCandidates(syncPairId: String) async -> [FileEntry] {
+    private func getEvictionCandidates(syncPairId: String) async -> [ServiceFileEntry] {
         guard let vfsManager = vfsManager else { return [] }
 
         // 获取所有索引条目
@@ -268,7 +268,7 @@ actor EvictionManager {
         guard allStats != nil else { return [] }
 
         // 获取状态为 BOTH 的文件 (两端都有的可以安全淘汰)
-        var candidates: [FileEntry] = []
+        var candidates: [ServiceFileEntry] = []
 
         let mounts = await vfsManager.getAllMounts()
         guard let mount = mounts.first(where: { $0.syncPairId == syncPairId }) else {
@@ -303,12 +303,13 @@ actor EvictionManager {
             // 只有当 EXTERNAL 存在时才是候选
             guard externalPath != nil else { continue }
 
-            let entry = FileEntry(virtualPath: virtualPath, localPath: localPath, externalPath: externalPath)
-            entry.syncPairId = syncPairId
+            let entry = ServiceFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
+            entry.localPath = localPath
+            entry.externalPath = externalPath
             entry.size = attrs[.size] as? Int64 ?? 0
             entry.modifiedAt = attrs[.modificationDate] as? Date ?? Date()
             entry.accessedAt = attrs[.creationDate] as? Date ?? Date()  // 使用创建时间作为近似访问时间
-            entry.location = .both
+            entry.fileLocation = .both
 
             candidates.append(entry)
         }
@@ -320,11 +321,9 @@ actor EvictionManager {
     }
 
     /// 更新文件条目位置
-    private func updateEntryLocation(entry: FileEntry, vfsManager: VFSManager) async {
+    private func updateEntryLocation(entry: ServiceFileEntry, vfsManager: VFSManager) async {
         // 通知 VFSManager 文件已从本地删除
-        if let syncPairId = entry.syncPairId {
-            await vfsManager.onFileDeleted(virtualPath: entry.virtualPath, syncPairId: syncPairId)
-        }
+        await vfsManager.onFileDeleted(virtualPath: entry.virtualPath, syncPairId: entry.syncPairId)
     }
 
     // MARK: - 手动淘汰
@@ -348,7 +347,7 @@ actor EvictionManager {
             throw EvictionError.fileIsLocked(virtualPath)
         }
 
-        guard entry.location == .both else {
+        guard entry.fileLocation == .both else {
             throw EvictionError.notSynced(virtualPath)
         }
 
@@ -378,7 +377,7 @@ actor EvictionManager {
             throw EvictionError.fileNotFound(virtualPath)
         }
 
-        guard entry.location == .externalOnly else {
+        guard entry.fileLocation == .externalOnly else {
             logger.debug("文件已在本地: \(virtualPath)")
             return
         }

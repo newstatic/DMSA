@@ -7,10 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1159429B449083B51BA12634 /* LockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BBE26C8C5A5FE1FFA745BB7 /* LockManager.swift */; };
-		28ECCBC929DF5882339887E1 /* VFSError.swift in Sources */ = {isa = PBXBuildFile; fileRef = E006AF39A42B642830425F62 /* VFSError.swift */; };
-		4B9B1D6CA16C349F9F9BC851 /* ReadRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3137B0F3CB4569B894C2B64D /* ReadRouter.swift */; };
-		58B04E45A5079CFD9BF0C60B /* WriteRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91E97D8B58348987F01F3A70 /* WriteRouter.swift */; };
 		COPY001003 /* com.ttttt.dmsa.service in Copy Service */ = {isa = PBXBuildFile; fileRef = SVC000001 /* com.ttttt.dmsa.service */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F0001001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101001 /* main.swift */; };
 		F0001002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101002 /* AppDelegate.swift */; };
@@ -20,14 +16,9 @@
 		F0001006 /* SyncHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101006 /* SyncHistory.swift */; };
 		F0001007 /* SyncPairEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101007 /* SyncPairEntity.swift */; };
 		F0001008 /* SyncStatistics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101008 /* SyncStatistics.swift */; };
-		F0001009 /* ConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101009 /* ConfigManager.swift */; };
-		F0001010 /* DatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101010 /* DatabaseManager.swift */; };
 		F0001011 /* DiskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101011 /* DiskManager.swift */; };
-		F0001012 /* FileFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101012 /* FileFilter.swift */; };
-		F0001013 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101013 /* NotificationManager.swift */; };
+		F0001012 /* ConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101012 /* ConfigManager.swift */; };
 		F0001014 /* AlertManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101014 /* AlertManager.swift */; };
-		F0001015 /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101015 /* SyncEngine.swift */; };
-		F0001016 /* SyncScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101016 /* SyncScheduler.swift */; };
 		F0001017 /* MenuBarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101017 /* MenuBarManager.swift */; };
 		F0001018 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101018 /* Constants.swift */; };
 		F0001019 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101019 /* Errors.swift */; };
@@ -70,25 +61,13 @@
 		F0001061 /* SyncPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101061 /* SyncPlan.swift */; };
 		F0001062 /* ConflictInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101062 /* ConflictInfo.swift */; };
 		F0001063 /* SyncProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101063 /* SyncProgress.swift */; };
-		F0001064 /* FileScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101064 /* FileScanner.swift */; };
-		F0001065 /* FileHasher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101065 /* FileHasher.swift */; };
-		F0001066 /* DiffEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101066 /* DiffEngine.swift */; };
-		F0001067 /* FileCopier.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101067 /* FileCopier.swift */; };
-		F0001068 /* SyncStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101068 /* SyncStateManager.swift */; };
-		F0001069 /* ConflictResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101069 /* ConflictResolver.swift */; };
-		F0001070 /* NativeSyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101070 /* NativeSyncEngine.swift */; };
 		F0001071 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101071 /* PermissionManager.swift */; };
 		F0001072 /* PermissionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101072 /* PermissionRow.swift */; };
 		F0001073 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101073 /* DashboardView.swift */; };
 		F0001074 /* FUSEManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101074 /* FUSEManager.swift */; };
-		F0001076 /* VFSCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101076 /* VFSCore.swift */; };
-		F0001077 /* MergeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101077 /* MergeEngine.swift */; };
-		F0001078 /* FUSEBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101078 /* FUSEBridge.swift */; };
 		F0001083 /* PathValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101083 /* PathValidator.swift */; };
 		F0001084 /* ServiceClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101084 /* ServiceClient.swift */; };
 		F0001090 /* VFSSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101090 /* VFSSettingsView.swift */; };
-		F0001091 /* TreeVersionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101091 /* TreeVersionManager.swift */; };
-		F0001092 /* FSEventsMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101092 /* FSEventsMonitor.swift */; };
 		F0002001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F0201001 /* Localizable.strings */; };
 		F0002002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F0201004 /* Assets.xcassets */; };
 		F0003001 /* PermissionsKit in Frameworks */ = {isa = PBXBuildFile; productRef = F0900001 /* PermissionsKit */; };
@@ -101,6 +80,18 @@
 		SVC001006 /* SyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101006 /* SyncManager.swift */; };
 		SVC001007 /* PrivilegedOperations.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101007 /* PrivilegedOperations.swift */; };
 		SVC001008 /* EvictionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101008 /* EvictionManager.swift */; };
+		SVC001012 /* ServiceDatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101012 /* ServiceDatabaseManager.swift */; };
+		SVC001013 /* ServiceConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101013 /* ServiceConfigManager.swift */; };
+		SVC001014 /* ServiceTreeVersionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101014 /* ServiceTreeVersionManager.swift */; };
+		SVC001015 /* ServiceFSEventsMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101015 /* ServiceFSEventsMonitor.swift */; };
+		SVC001016 /* ServiceDiskMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101016 /* ServiceDiskMonitor.swift */; };
+		SVC001017 /* NativeSyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101017 /* NativeSyncEngine.swift */; };
+		SVC001018 /* FileScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101018 /* FileScanner.swift */; };
+		SVC001019 /* FileHasher.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101019 /* FileHasher.swift */; };
+		SVC001020 /* DiffEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101020 /* DiffEngine.swift */; };
+		SVC001021 /* FileCopier.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101021 /* FileCopier.swift */; };
+		SVC001022 /* ConflictResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101022 /* ConflictResolver.swift */; };
+		SVC001023 /* SyncStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101023 /* SyncStateManager.swift */; };
 		SVC001101 /* DMSAServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101013 /* DMSAServiceProtocol.swift */; };
 		SVC001102 /* SharedConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101004 /* SharedConstants.swift */; };
 		SVC001103 /* SharedErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101005 /* SharedErrors.swift */; };
@@ -111,6 +102,13 @@
 		SVC001108 /* SharedState.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101011 /* SharedState.swift */; };
 		SVC001109 /* SharedSyncProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101012 /* SharedSyncProgress.swift */; };
 		SVC001110 /* SharedSyncHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101010 /* SharedSyncHistory.swift */; };
+		SVC001111 /* SharedFileMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101014 /* SharedFileMetadata.swift */; };
+		SVC001112 /* SharedSyncPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101015 /* SharedSyncPlan.swift */; };
+		SVC001113 /* SharedConflictInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101016 /* SharedConflictInfo.swift */; };
+		SVC001114 /* SharedSyncTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101017 /* SharedSyncTask.swift */; };
+		SVC001024 /* LockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101024 /* LockManager.swift */; };
+		SVC001025 /* ServiceSyncProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101025 /* ServiceSyncProgress.swift */; };
+		SVC001115 /* SharedNotificationRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101018 /* SharedNotificationRecord.swift */; };
 		SYNC001102 /* SharedConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101004 /* SharedConstants.swift */; };
 		SYNC001103 /* SharedErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101005 /* SharedErrors.swift */; };
 		SYNC001104 /* SharedLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101006 /* SharedLogger.swift */; };
@@ -157,10 +155,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		3137B0F3CB4569B894C2B64D /* ReadRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReadRouter.swift; sourceTree = "<group>"; };
-		8BBE26C8C5A5FE1FFA745BB7 /* LockManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LockManager.swift; sourceTree = "<group>"; };
-		91E97D8B58348987F01F3A70 /* WriteRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WriteRouter.swift; sourceTree = "<group>"; };
-		E006AF39A42B642830425F62 /* VFSError.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VFSError.swift; sourceTree = "<group>"; };
 		F0000001 /* DMSA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DMSA.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0101001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		F0101002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -170,14 +164,9 @@
 		F0101006 /* SyncHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncHistory.swift; sourceTree = "<group>"; };
 		F0101007 /* SyncPairEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPairEntity.swift; sourceTree = "<group>"; };
 		F0101008 /* SyncStatistics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatistics.swift; sourceTree = "<group>"; };
-		F0101009 /* ConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigManager.swift; sourceTree = "<group>"; };
-		F0101010 /* DatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager.swift; sourceTree = "<group>"; };
 		F0101011 /* DiskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskManager.swift; sourceTree = "<group>"; };
-		F0101012 /* FileFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileFilter.swift; sourceTree = "<group>"; };
-		F0101013 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		F0101012 /* ConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigManager.swift; sourceTree = "<group>"; };
 		F0101014 /* AlertManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertManager.swift; sourceTree = "<group>"; };
-		F0101015 /* SyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
-		F0101016 /* SyncScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncScheduler.swift; sourceTree = "<group>"; };
 		F0101017 /* MenuBarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarManager.swift; sourceTree = "<group>"; };
 		F0101018 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		F0101019 /* Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
@@ -220,25 +209,13 @@
 		F0101061 /* SyncPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPlan.swift; sourceTree = "<group>"; };
 		F0101062 /* ConflictInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictInfo.swift; sourceTree = "<group>"; };
 		F0101063 /* SyncProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncProgress.swift; sourceTree = "<group>"; };
-		F0101064 /* FileScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileScanner.swift; sourceTree = "<group>"; };
-		F0101065 /* FileHasher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileHasher.swift; sourceTree = "<group>"; };
-		F0101066 /* DiffEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffEngine.swift; sourceTree = "<group>"; };
-		F0101067 /* FileCopier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileCopier.swift; sourceTree = "<group>"; };
-		F0101068 /* SyncStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStateManager.swift; sourceTree = "<group>"; };
-		F0101069 /* ConflictResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolver.swift; sourceTree = "<group>"; };
-		F0101070 /* NativeSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSyncEngine.swift; sourceTree = "<group>"; };
 		F0101071 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
 		F0101072 /* PermissionRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionRow.swift; sourceTree = "<group>"; };
 		F0101073 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		F0101074 /* FUSEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FUSEManager.swift; sourceTree = "<group>"; };
-		F0101076 /* VFSCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VFSCore.swift; sourceTree = "<group>"; };
-		F0101077 /* MergeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeEngine.swift; sourceTree = "<group>"; };
-		F0101078 /* FUSEBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FUSEBridge.swift; sourceTree = "<group>"; };
 		F0101083 /* PathValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathValidator.swift; sourceTree = "<group>"; };
 		F0101084 /* ServiceClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceClient.swift; sourceTree = "<group>"; };
 		F0101090 /* VFSSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VFSSettingsView.swift; sourceTree = "<group>"; };
-		F0101091 /* TreeVersionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreeVersionManager.swift; sourceTree = "<group>"; };
-		F0101092 /* FSEventsMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FSEventsMonitor.swift; sourceTree = "<group>"; };
 		F0201002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		F0201003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		F0201004 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -255,6 +232,11 @@
 		SHARED101011 /* SharedState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedState.swift; sourceTree = "<group>"; };
 		SHARED101012 /* SharedSyncProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedSyncProgress.swift; path = SyncProgress.swift; sourceTree = "<group>"; };
 		SHARED101013 /* DMSAServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMSAServiceProtocol.swift; sourceTree = "<group>"; };
+		SHARED101014 /* SharedFileMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedFileMetadata.swift; path = FileMetadata.swift; sourceTree = "<group>"; };
+		SHARED101015 /* SharedSyncPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedSyncPlan.swift; path = SyncPlan.swift; sourceTree = "<group>"; };
+		SHARED101016 /* SharedConflictInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedConflictInfo.swift; path = ConflictInfo.swift; sourceTree = "<group>"; };
+		SHARED101017 /* SharedSyncTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedSyncTask.swift; path = SyncTask.swift; sourceTree = "<group>"; };
+		SHARED101018 /* SharedNotificationRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedNotificationRecord.swift; path = NotificationRecord.swift; sourceTree = "<group>"; };
 		SVC000001 /* com.ttttt.dmsa.service */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.ttttt.dmsa.service; sourceTree = BUILT_PRODUCTS_DIR; };
 		SVC101001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		SVC101002 /* ServiceDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDelegate.swift; sourceTree = "<group>"; };
@@ -267,6 +249,20 @@
 		SVC101009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		SVC101010 /* DMSAService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DMSAService.entitlements; sourceTree = "<group>"; };
 		SVC101011 /* com.ttttt.dmsa.service.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.ttttt.dmsa.service.plist; sourceTree = "<group>"; };
+		SVC101012 /* ServiceDatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDatabaseManager.swift; sourceTree = "<group>"; };
+		SVC101013 /* ServiceConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceConfigManager.swift; sourceTree = "<group>"; };
+		SVC101014 /* ServiceTreeVersionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceTreeVersionManager.swift; sourceTree = "<group>"; };
+		SVC101015 /* ServiceFSEventsMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceFSEventsMonitor.swift; sourceTree = "<group>"; };
+		SVC101016 /* ServiceDiskMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDiskMonitor.swift; sourceTree = "<group>"; };
+		SVC101017 /* NativeSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSyncEngine.swift; sourceTree = "<group>"; };
+		SVC101018 /* FileScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileScanner.swift; sourceTree = "<group>"; };
+		SVC101019 /* FileHasher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileHasher.swift; sourceTree = "<group>"; };
+		SVC101020 /* DiffEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffEngine.swift; sourceTree = "<group>"; };
+		SVC101021 /* FileCopier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileCopier.swift; sourceTree = "<group>"; };
+		SVC101022 /* ConflictResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolver.swift; sourceTree = "<group>"; };
+		SVC101023 /* SyncStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStateManager.swift; sourceTree = "<group>"; };
+		SVC101024 /* LockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockManager.swift; sourceTree = "<group>"; };
+		SVC101025 /* ServiceSyncProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceSyncProgress.swift; sourceTree = "<group>"; };
 		SYNC000001 /* com.ttttt.dmsa.sync */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.ttttt.dmsa.sync; sourceTree = BUILT_PRODUCTS_DIR; };
 		VFS000001 /* com.ttttt.dmsa.vfs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.ttttt.dmsa.vfs; sourceTree = BUILT_PRODUCTS_DIR; };
 		XPC101005 /* XPCClientTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCClientTypes.swift; sourceTree = "<group>"; };
@@ -372,20 +368,12 @@
 			isa = PBXGroup;
 			children = (
 				F0101055 /* AppearanceManager.swift */,
-				F0101009 /* ConfigManager.swift */,
-				F0101010 /* DatabaseManager.swift */,
+				F0101012 /* ConfigManager.swift */,
 				F0101011 /* DiskManager.swift */,
-				F0101012 /* FileFilter.swift */,
 				F0101054 /* LaunchAtLoginManager.swift */,
-				F0101013 /* NotificationManager.swift */,
 				F0101014 /* AlertManager.swift */,
 				F0101071 /* PermissionManager.swift */,
 				F0101084 /* ServiceClient.swift */,
-				F0101091 /* TreeVersionManager.swift */,
-				F0101092 /* FSEventsMonitor.swift */,
-				F0101015 /* SyncEngine.swift */,
-				F0101016 /* SyncScheduler.swift */,
-				F0400022 /* Sync */,
 				F93176731F1554B49F0EA2C2 /* VFS */,
 			);
 			path = Services;
@@ -567,21 +555,7 @@
 			path = Sync;
 			sourceTree = "<group>";
 		};
-		F0400022 /* Sync */ = {
-			isa = PBXGroup;
-			children = (
-				F0101064 /* FileScanner.swift */,
-				F0101065 /* FileHasher.swift */,
-				F0101066 /* DiffEngine.swift */,
-				F0101067 /* FileCopier.swift */,
-				F0101068 /* SyncStateManager.swift */,
-				F0101069 /* ConflictResolver.swift */,
-				F0101070 /* NativeSyncEngine.swift */,
-			);
-			path = Sync;
-			sourceTree = "<group>";
-		};
-		F0400023 /* Shared */ = {
+			F0400023 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -591,14 +565,7 @@
 		F93176731F1554B49F0EA2C2 /* VFS */ = {
 			isa = PBXGroup;
 			children = (
-				8BBE26C8C5A5FE1FFA745BB7 /* LockManager.swift */,
-				3137B0F3CB4569B894C2B64D /* ReadRouter.swift */,
-				91E97D8B58348987F01F3A70 /* WriteRouter.swift */,
-				E006AF39A42B642830425F62 /* VFSError.swift */,
 				F0101074 /* FUSEManager.swift */,
-				F0101076 /* VFSCore.swift */,
-				F0101077 /* MergeEngine.swift */,
-				F0101078 /* FUSEBridge.swift */,
 			);
 			path = VFS;
 			sourceTree = "<group>";
@@ -639,6 +606,7 @@
 				SHARED101009 /* SharedFileEntry.swift */,
 				SHARED101010 /* SharedSyncHistory.swift */,
 				SHARED101011 /* SharedState.swift */,
+				SHARED101018 /* SharedNotificationRecord.swift */,
 				SHARED400004 /* Sync */,
 			);
 			path = Models;
@@ -648,6 +616,10 @@
 			isa = PBXGroup;
 			children = (
 				SHARED101012 /* SharedSyncProgress.swift */,
+				SHARED101014 /* SharedFileMetadata.swift */,
+				SHARED101015 /* SharedSyncPlan.swift */,
+				SHARED101016 /* SharedConflictInfo.swift */,
+				SHARED101017 /* SharedSyncTask.swift */,
 			);
 			path = Sync;
 			sourceTree = "<group>";
@@ -661,6 +633,8 @@
 				SVC400001 /* VFS */,
 				SVC400002 /* Sync */,
 				SVC400003 /* Privileged */,
+				SVC400007 /* Data */,
+				SVC400008 /* Monitor */,
 				SVC400004 /* Resources */,
 			);
 			path = DMSAService;
@@ -672,6 +646,7 @@
 				SVC101004 /* VFSManager.swift */,
 				SVC101005 /* FUSEFileSystem.swift */,
 				SVC101008 /* EvictionManager.swift */,
+				SVC101024 /* LockManager.swift */,
 			);
 			path = VFS;
 			sourceTree = "<group>";
@@ -680,8 +655,35 @@
 			isa = PBXGroup;
 			children = (
 				SVC101006 /* SyncManager.swift */,
+				SVC101017 /* NativeSyncEngine.swift */,
+				SVC101018 /* FileScanner.swift */,
+				SVC101019 /* FileHasher.swift */,
+				SVC101020 /* DiffEngine.swift */,
+				SVC101021 /* FileCopier.swift */,
+				SVC101022 /* ConflictResolver.swift */,
+				SVC101023 /* SyncStateManager.swift */,
+				SVC101025 /* ServiceSyncProgress.swift */,
 			);
 			path = Sync;
+			sourceTree = "<group>";
+		};
+		SVC400007 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				SVC101012 /* ServiceDatabaseManager.swift */,
+				SVC101013 /* ServiceConfigManager.swift */,
+				SVC101014 /* ServiceTreeVersionManager.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		SVC400008 /* Monitor */ = {
+			isa = PBXGroup;
+			children = (
+				SVC101015 /* ServiceFSEventsMonitor.swift */,
+				SVC101016 /* ServiceDiskMonitor.swift */,
+			);
+			path = Monitor;
 			sourceTree = "<group>";
 		};
 		SVC400003 /* Privileged */ = {
@@ -877,14 +879,9 @@
 				F0001006 /* SyncHistory.swift in Sources */,
 				F0001007 /* SyncPairEntity.swift in Sources */,
 				F0001008 /* SyncStatistics.swift in Sources */,
-				F0001009 /* ConfigManager.swift in Sources */,
-				F0001010 /* DatabaseManager.swift in Sources */,
 				F0001011 /* DiskManager.swift in Sources */,
-				F0001012 /* FileFilter.swift in Sources */,
-				F0001013 /* NotificationManager.swift in Sources */,
+				F0001012 /* ConfigManager.swift in Sources */,
 				F0001014 /* AlertManager.swift in Sources */,
-				F0001015 /* SyncEngine.swift in Sources */,
-				F0001016 /* SyncScheduler.swift in Sources */,
 				F0001054 /* LaunchAtLoginManager.swift in Sources */,
 				F0001055 /* AppearanceManager.swift in Sources */,
 				F0001017 /* MenuBarManager.swift in Sources */,
@@ -927,28 +924,12 @@
 				F0001061 /* SyncPlan.swift in Sources */,
 				F0001062 /* ConflictInfo.swift in Sources */,
 				F0001063 /* SyncProgress.swift in Sources */,
-				F0001064 /* FileScanner.swift in Sources */,
-				F0001065 /* FileHasher.swift in Sources */,
-				F0001066 /* DiffEngine.swift in Sources */,
-				F0001067 /* FileCopier.swift in Sources */,
-				F0001068 /* SyncStateManager.swift in Sources */,
-				F0001069 /* ConflictResolver.swift in Sources */,
-				F0001070 /* NativeSyncEngine.swift in Sources */,
 				F0001071 /* PermissionManager.swift in Sources */,
 				F0001072 /* PermissionRow.swift in Sources */,
 				F0001073 /* DashboardView.swift in Sources */,
 				F0001090 /* VFSSettingsView.swift in Sources */,
-				1159429B449083B51BA12634 /* LockManager.swift in Sources */,
-				4B9B1D6CA16C349F9F9BC851 /* ReadRouter.swift in Sources */,
-				58B04E45A5079CFD9BF0C60B /* WriteRouter.swift in Sources */,
-				28ECCBC929DF5882339887E1 /* VFSError.swift in Sources */,
 				F0001074 /* FUSEManager.swift in Sources */,
-				F0001076 /* VFSCore.swift in Sources */,
-				F0001077 /* MergeEngine.swift in Sources */,
-				F0001078 /* FUSEBridge.swift in Sources */,
 				F0001084 /* ServiceClient.swift in Sources */,
-				F0001091 /* TreeVersionManager.swift in Sources */,
-				F0001092 /* FSEventsMonitor.swift in Sources */,
 				SHARED001013 /* DMSAServiceProtocol.swift in Sources */,
 				F0001083 /* PathValidator.swift in Sources */,
 				XPC001005 /* XPCClientTypes.swift in Sources */,
@@ -974,6 +955,18 @@
 				SVC001006 /* SyncManager.swift in Sources */,
 				SVC001007 /* PrivilegedOperations.swift in Sources */,
 				SVC001008 /* EvictionManager.swift in Sources */,
+				SVC001012 /* ServiceDatabaseManager.swift in Sources */,
+				SVC001013 /* ServiceConfigManager.swift in Sources */,
+				SVC001014 /* ServiceTreeVersionManager.swift in Sources */,
+				SVC001015 /* ServiceFSEventsMonitor.swift in Sources */,
+				SVC001016 /* ServiceDiskMonitor.swift in Sources */,
+				SVC001017 /* NativeSyncEngine.swift in Sources */,
+				SVC001018 /* FileScanner.swift in Sources */,
+				SVC001019 /* FileHasher.swift in Sources */,
+				SVC001020 /* DiffEngine.swift in Sources */,
+				SVC001021 /* FileCopier.swift in Sources */,
+				SVC001022 /* ConflictResolver.swift in Sources */,
+				SVC001023 /* SyncStateManager.swift in Sources */,
 				SVC001101 /* DMSAServiceProtocol.swift in Sources */,
 				SVC001102 /* SharedConstants.swift in Sources */,
 				SVC001103 /* SharedErrors.swift in Sources */,
@@ -984,6 +977,13 @@
 				SVC001108 /* SharedState.swift in Sources */,
 				SVC001109 /* SharedSyncProgress.swift in Sources */,
 				SVC001110 /* SharedSyncHistory.swift in Sources */,
+				SVC001111 /* SharedFileMetadata.swift in Sources */,
+				SVC001112 /* SharedSyncPlan.swift in Sources */,
+				SVC001113 /* SharedConflictInfo.swift in Sources */,
+				SVC001114 /* SharedSyncTask.swift in Sources */,
+				SVC001024 /* LockManager.swift in Sources */,
+				SVC001025 /* ServiceSyncProgress.swift in Sources */,
+				SVC001115 /* SharedNotificationRecord.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
