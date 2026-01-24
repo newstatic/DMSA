@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- SMJobBless Configuration -->
+    <key>SMPrivilegedExecutables</key>
+    <dict>
+        <key>com.ttttt.dmsa.helper</key>
+        <string>identifier "com.ttttt.dmsa.helper" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: *" or certificate leaf[subject.CN] = "Developer ID Application: *"</string>
+    </dict>
+</dict>
+</plist>

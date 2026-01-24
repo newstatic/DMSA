@@ -1,7 +1,7 @@
 # Delt MACOS Sync App (DMSA) 项目记忆文档
 
 > 此文档供 Claude Code 跨会话持续参考，保持项目上下文记忆。
-> 版本: 3.1 | 更新日期: 2026-01-24
+> 版本: 3.2 | 更新日期: 2026-01-24
 > 项目简称: DMSA
 
 ---
@@ -168,16 +168,27 @@ TARGET_DIR = LOCAL_DIR ∪ EXTERNAL_DIR
 ```
 DMSA/
 ├── DMSAApp/
-│   ├── DMSAApp.xcodeproj/         # Xcode 项目
+│   ├── DMSAApp.xcodeproj/         # Xcode 项目 (含 DMSAHelper Target)
 │   └── DMSAApp/
 │       ├── App/AppDelegate.swift   # 主逻辑
 │       ├── Models/                 # 数据模型
 │       ├── Services/               # 服务层
 │       │   ├── Sync/               # 同步引擎
 │       │   └── VFS/                # VFS 相关
+│       ├── Shared/                 # 共享代码 (主应用 & Helper)
+│       │   └── DMSAHelperProtocol.swift
 │       ├── UI/                     # SwiftUI 界面
 │       ├── Utils/                  # 工具类
 │       └── Resources/              # 资源文件
+│
+├── DMSAHelper/                     # 特权助手 (SMJobBless)
+│   ├── DMSAHelper/
+│   │   ├── main.swift              # 入口点
+│   │   ├── HelperTool.swift        # XPC 服务实现
+│   │   ├── Info.plist              # Helper 配置
+│   │   └── DMSAHelper.entitlements # 权限
+│   └── Resources/
+│       └── com.ttttt.dmsa.helper.plist  # LaunchDaemon 配置
 │
 ├── CLAUDE.md                       # 本文档
 ├── VFS_DESIGN.md                   # VFS 设计文档
@@ -204,6 +215,10 @@ DMSA/
 | `FileEntry.swift` | 文件索引实体 |
 | `config.json` | 用户配置文件 |
 | `DMSAApp-Bridging-Header.h` | Objective-C 桥接头 (macFUSE) |
+| `PrivilegedClient.swift` | XPC 客户端，与特权助手通信 |
+| `DMSAHelperProtocol.swift` | 共享 XPC 协议定义 |
+| `HelperTool.swift` | 特权助手 XPC 服务实现 |
+| `PathValidator.swift` | 路径安全验证工具 |
 
 ---
 
@@ -304,6 +319,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | (性能修复) | 2026-01-21 | UI卡死修复 | 进度回调节流 |
 | (架构纠正) | 2026-01-21 | v2.1 架构纠正 | 移除 LocalCache，使用 Downloads_Local |
 | (macFUSE集成) | 2026-01-24 | macFUSE 集成 | VFS 核心组件实现 |
+| (Helper集成) | 2026-01-24 | DMSAHelper 集成 | SMJobBless 特权助手 Target |
 
 ---
 
@@ -420,6 +436,75 @@ DMSAApp/DMSAApp/
 - 属性: `attributesOfItem`, `attributesOfFileSystem`
 - 文件: `openFile`, `readFile`, `writeFile`, `truncateFile`, `createFile`, `removeItem`, `moveItem`
 - 扩展属性: `extendedAttributeNames`, `value/set/removeExtendedAttribute`
+
+---
+
+### DMSAHelper 特权助手集成 (2026-01-24)
+
+**用途:**
+- 保护 `~/Downloads_Local` 目录 (设置 uchg + ACL + hidden)
+- 以 root 权限执行目录保护/解保护操作
+- 通过 XPC 与主应用通信
+
+**架构:**
+```
+┌─────────────────────────────────────────────────┐
+│                  DMSAApp (主应用)                │
+│           PrivilegedClient.swift                │
+└───────────────────┬─────────────────────────────┘
+                    │ XPC (NSXPCConnection)
+                    ▼
+┌─────────────────────────────────────────────────┐
+│              DMSAHelper (LaunchDaemon)          │
+│           HelperTool.swift (root 权限)          │
+│  安装路径: /Library/PrivilegedHelperTools/      │
+└─────────────────────────────────────────────────┘
+```
+
+**Xcode 项目配置:**
+- Target: `com.ttttt.dmsa.helper` (Command Line Tool)
+- 依赖: DMSAApp 依赖 Helper Target
+- Build Phase: Copy Files → `Contents/Library/LaunchServices`
+- Info.plist: 配置 `SMPrivilegedExecutables`
+
+**XPC 协议 (DMSAHelperProtocol):**
+```swift
+// 目录锁定
+func lockDirectory(_ path: String, withReply: (Bool, String?) -> Void)
+func unlockDirectory(_ path: String, withReply: (Bool, String?) -> Void)
+
+// ACL 管理
+func setACL(_ path: String, deny: Bool, permissions: [String], user: String, withReply: ...)
+func removeACL(_ path: String, withReply: ...)
+
+// 目录可见性
+func hideDirectory(_ path: String, withReply: ...)
+func unhideDirectory(_ path: String, withReply: ...)
+
+// 复合操作
+func protectDirectory(_ path: String, withReply: ...)    // uchg + ACL + hidden
+func unprotectDirectory(_ path: String, withReply: ...)
+```
+
+**安全措施:**
+- 路径白名单: 只允许操作 `/Volumes/`, `~/Downloads*`, `~/Documents*`
+- 危险路径黑名单: `/System`, `/usr`, `/bin`, `/etc`, `/Library` 等
+- XPC 连接代码签名验证
+- 防止路径遍历攻击
+
+**安装流程:**
+```
+主应用启动 → PrivilegedClient.ensureHelperInstalled()
+                ↓
+        检查 Helper 是否已安装 (SMAppService.daemon.status)
+                ↓ 未安装
+        调用 SMAppService.register() (macOS 13+) 或 SMJobBless (旧版)
+                ↓
+        系统提示授权 → 用户输入管理员密码
+                ↓
+        Helper 安装到 /Library/PrivilegedHelperTools/
+        LaunchDaemon plist 安装到 /Library/LaunchDaemons/
+```
 
 ---
 

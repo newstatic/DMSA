@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- 服务标识符 -->
+    <key>Label</key>
+    <string>com.ttttt.dmsa.helper</string>
+
+    <!-- Mach 服务名称 (用于 XPC 通信) -->
+    <key>MachServices</key>
+    <dict>
+        <key>com.ttttt.dmsa.helper</key>
+        <true/>
+    </dict>
+
+    <!-- 可执行文件路径 -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/PrivilegedHelperTools/com.ttttt.dmsa.helper</string>
+    </array>
+
+    <!-- 按需启动 (XPC 连接时启动) -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- 运行级别: 以 root 身份运行 -->
+    <key>UserName</key>
+    <string>root</string>
+
+    <!-- 日志输出 -->
+    <key>StandardOutPath</key>
+    <string>/var/log/dmsa-helper.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/dmsa-helper.log</string>
+
+    <!-- 允许用户加载 -->
+    <key>EnablePressuredExit</key>
+    <false/>
+
+    <!-- 崩溃后自动重启 -->
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>

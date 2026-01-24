@@ -11,6 +11,16 @@
 		28ECCBC929DF5882339887E1 /* VFSError.swift in Sources */ = {isa = PBXBuildFile; fileRef = E006AF39A42B642830425F62 /* VFSError.swift */; };
 		4B9B1D6CA16C349F9F9BC851 /* ReadRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3137B0F3CB4569B894C2B64D /* ReadRouter.swift */; };
 		58B04E45A5079CFD9BF0C60B /* WriteRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91E97D8B58348987F01F3A70 /* WriteRouter.swift */; };
+		/* DMSAHelper Build Files */
+		HELPER001001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = HELPER101001 /* main.swift */; };
+		HELPER001002 /* HelperTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = HELPER101002 /* HelperTool.swift */; };
+		HELPER001003 /* DMSAHelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101081 /* DMSAHelperProtocol.swift */; };
+		/* Shared Protocol in Main App */
+		F0001080 /* DMSAHelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101081 /* DMSAHelperProtocol.swift */; };
+		F0001082 /* PrivilegedClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101082 /* PrivilegedClient.swift */; };
+		F0001083 /* PathValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101083 /* PathValidator.swift */; };
+		/* Copy Helper to LaunchServices */
+		HELPER002001 /* com.ttttt.dmsa.helper in CopyFiles */ = {isa = PBXBuildFile; fileRef = HELPER000001 /* com.ttttt.dmsa.helper */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F0001001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101001 /* main.swift */; };
 		F0001002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101002 /* AppDelegate.swift */; };
 		F0001003 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101003 /* Config.swift */; };
@@ -90,12 +100,47 @@
 		F0003001 /* PermissionsKit in Frameworks */ = {isa = PBXBuildFile; productRef = F0900001 /* PermissionsKit */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		HELPER300001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F0700001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = HELPER500001;
+			remoteInfo = "com.ttttt.dmsa.helper";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		HELPER400001 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Library/LaunchServices;
+			dstSubfolderSpec = 1;
+			files = (
+				HELPER002001 /* com.ttttt.dmsa.helper in CopyFiles */,
+			);
+			name = "Copy Helper to LaunchServices";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		3137B0F3CB4569B894C2B64D /* ReadRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReadRouter.swift; sourceTree = "<group>"; };
 		8BBE26C8C5A5FE1FFA745BB7 /* LockManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LockManager.swift; sourceTree = "<group>"; };
 		91E97D8B58348987F01F3A70 /* WriteRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WriteRouter.swift; sourceTree = "<group>"; };
 		E006AF39A42B642830425F62 /* VFSError.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VFSError.swift; sourceTree = "<group>"; };
 		F0000001 /* DMSA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DMSA.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		/* DMSAHelper Files */
+		HELPER000001 /* com.ttttt.dmsa.helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.ttttt.dmsa.helper; sourceTree = BUILT_PRODUCTS_DIR; };
+		HELPER101001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		HELPER101002 /* HelperTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperTool.swift; sourceTree = "<group>"; };
+		HELPER101003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		HELPER101004 /* DMSAHelper.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DMSAHelper.entitlements; sourceTree = "<group>"; };
+		HELPER101005 /* com.ttttt.dmsa.helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.ttttt.dmsa.helper.plist; sourceTree = "<group>"; };
+		/* Shared Files */
+		F0101081 /* DMSAHelperProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMSAHelperProtocol.swift; sourceTree = "<group>"; };
+		F0101082 /* PrivilegedClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedClient.swift; sourceTree = "<group>"; };
+		F0101083 /* PathValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathValidator.swift; sourceTree = "<group>"; };
 		F0101001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		F0101002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		F0101003 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
@@ -174,6 +219,8 @@
 		F0201002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		F0201003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		F0201004 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F0201005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F0201006 /* DMSA.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DMSA.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -185,6 +232,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		HELPER300002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -192,8 +246,39 @@
 			isa = PBXGroup;
 			children = (
 				F0400001 /* DMSAApp */,
+				HELPER400002 /* DMSAHelper */,
 				F0400002 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		/* DMSAHelper Groups */
+		HELPER400002 /* DMSAHelper */ = {
+			isa = PBXGroup;
+			children = (
+				HELPER400003 /* DMSAHelper */,
+				HELPER400004 /* Resources */,
+			);
+			name = DMSAHelper;
+			path = ../DMSAHelper;
+			sourceTree = "<group>";
+		};
+		HELPER400003 /* DMSAHelper */ = {
+			isa = PBXGroup;
+			children = (
+				HELPER101001 /* main.swift */,
+				HELPER101002 /* HelperTool.swift */,
+				HELPER101003 /* Info.plist */,
+				HELPER101004 /* DMSAHelper.entitlements */,
+			);
+			path = DMSAHelper;
+			sourceTree = "<group>";
+		};
+		HELPER400004 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				HELPER101005 /* com.ttttt.dmsa.helper.plist */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		F0400001 /* DMSAApp */ = {
@@ -203,6 +288,7 @@
 				F0400003 /* App */,
 				F0400004 /* Models */,
 				F0400005 /* Services */,
+				F0400023 /* Shared */,
 				F0400006 /* UI */,
 				F0400007 /* Utils */,
 				F0400008 /* Resources */,
@@ -210,10 +296,19 @@
 			path = DMSAApp;
 			sourceTree = "<group>";
 		};
+		F0400023 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				F0101081 /* DMSAHelperProtocol.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
 		F0400002 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				F0000001 /* DMSA.app */,
+				HELPER000001 /* com.ttttt.dmsa.helper */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -248,6 +343,7 @@
 				F0101013 /* NotificationManager.swift */,
 				F0101014 /* AlertManager.swift */,
 				F0101071 /* PermissionManager.swift */,
+				F0101082 /* PrivilegedClient.swift */,
 				F0101015 /* SyncEngine.swift */,
 				F0101016 /* SyncScheduler.swift */,
 				F0400022 /* Sync */,
@@ -274,6 +370,7 @@
 				F0101018 /* Constants.swift */,
 				F0101019 /* Errors.swift */,
 				F0101020 /* Logger.swift */,
+				F0101083 /* PathValidator.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -283,6 +380,8 @@
 			children = (
 				F0201004 /* Assets.xcassets */,
 				F0201001 /* Localizable.strings */,
+				F0201005 /* Info.plist */,
+				F0201006 /* DMSA.entitlements */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -470,10 +569,12 @@
 				F0500002 /* Sources */,
 				F0300001 /* Frameworks */,
 				F0500003 /* Resources */,
+				HELPER400001 /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				HELPER300003 /* PBXTargetDependency */,
 			);
 			name = DMSAApp;
 			packageProductDependencies = (
@@ -482,6 +583,22 @@
 			productName = DMSAApp;
 			productReference = F0000001 /* DMSA.app */;
 			productType = "com.apple.product-type.application";
+		};
+		HELPER500001 /* com.ttttt.dmsa.helper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = HELPER600001 /* Build configuration list for PBXNativeTarget "com.ttttt.dmsa.helper" */;
+			buildPhases = (
+				HELPER500002 /* Sources */,
+				HELPER300002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "com.ttttt.dmsa.helper";
+			productName = "com.ttttt.dmsa.helper";
+			productReference = HELPER000001 /* com.ttttt.dmsa.helper */;
+			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
 
@@ -494,6 +611,9 @@
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					F0500001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					HELPER500001 = {
 						CreatedOnToolsVersion = 15.0;
 					};
 				};
@@ -516,6 +636,7 @@
 			projectRoot = "";
 			targets = (
 				F0500001 /* DMSAApp */,
+				HELPER500001 /* com.ttttt.dmsa.helper */,
 			);
 		};
 /* End PBXProject section */
@@ -533,6 +654,16 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		HELPER500002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				HELPER001001 /* main.swift in Sources */,
+				HELPER001002 /* HelperTool.swift in Sources */,
+				HELPER001003 /* DMSAHelperProtocol.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F0500002 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -615,10 +746,21 @@
 				F0001077 /* MergeEngine.swift in Sources */,
 				F0001078 /* FUSEBridge.swift in Sources */,
 				F0001079 /* VFSFileSystem.swift in Sources */,
+				F0001080 /* DMSAHelperProtocol.swift in Sources */,
+				F0001082 /* PrivilegedClient.swift in Sources */,
+				F0001083 /* PathValidator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		HELPER300003 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = HELPER500001 /* com.ttttt.dmsa.helper */;
+			targetProxy = HELPER300001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		F0201001 /* Localizable.strings */ = {
@@ -766,6 +908,7 @@
 					"/Library/Frameworks",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DMSAApp/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Delt MACOS Sync App";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -799,6 +942,7 @@
 					"/Library/Frameworks",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DMSAApp/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Delt MACOS Sync App";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -817,6 +961,38 @@
 			};
 			name = Release;
 		};
+		HELPER800001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "../DMSAHelper/DMSAHelper/DMSAHelper.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9QGKH6ZBPG;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = "../DMSAHelper/DMSAHelper/Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ttttt.dmsa.helper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		HELPER800002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "../DMSAHelper/DMSAHelper/DMSAHelper.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9QGKH6ZBPG;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = "../DMSAHelper/DMSAHelper/Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ttttt.dmsa.helper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -825,6 +1001,15 @@
 			buildConfigurations = (
 				F0800003 /* Debug */,
 				F0800004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		HELPER600001 /* Build configuration list for PBXNativeTarget "com.ttttt.dmsa.helper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				HELPER800001 /* Debug */,
+				HELPER800002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
