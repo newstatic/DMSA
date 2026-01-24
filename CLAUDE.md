@@ -1,7 +1,7 @@
 # Delt MACOS Sync App (DMSA) 项目记忆文档
 
 > 此文档供 Claude Code 跨会话持续参考，保持项目上下文记忆。
-> 版本: 4.0 | 更新日期: 2026-01-24
+> 版本: 4.1 | 更新日期: 2026-01-24
 > 项目简称: DMSA
 
 ---
@@ -48,7 +48,7 @@
 | **项目路径** | `/Users/ttttt/Documents/xcodeProjects/DMSA` |
 | **Bundle ID** | `com.ttttt.dmsa` |
 | **最低系统版本** | macOS 11.0 |
-| **当前版本** | 4.0 |
+| **当前版本** | 4.1 |
 | **最后更新** | 2026-01-24 |
 
 ---
@@ -68,7 +68,7 @@ VFS: macFUSE 5.1.3+ (使用 GMUserFileSystem)
 
 ---
 
-## 核心架构 (v4.0 - 四进程服务架构)
+## 核心架构 (v4.1 - 双进程统一服务架构)
 
 ### 系统分层
 
@@ -80,8 +80,8 @@ VFS: macFUSE 5.1.3+ (使用 GMUserFileSystem)
 │  │                    DMSA.app (菜单栏应用)                        │  │
 │  │                       普通用户权限                              │  │
 │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐   │  │
-│  │  │   GUI   │  │Settings │  │ Status  │  │  XPC Clients    │   │  │
-│  │  │ Manager │  │  View   │  │ Display │  │ (VFS/Sync/Help) │   │  │
+│  │  │   GUI   │  │Settings │  │ Status  │  │  ServiceClient  │   │  │
+│  │  │ Manager │  │  View   │  │ Display │  │  (统一 XPC)     │   │  │
 │  │  └─────────┘  └─────────┘  └─────────┘  └─────────────────┘   │  │
 │  └───────────────────────────────────────────────────────────────┘  │
 │                                    │                                 │
@@ -91,34 +91,38 @@ VFS: macFUSE 5.1.3+ (使用 GMUserFileSystem)
 
 ┌─────────────────────────────────────────────────────────────────────┐
 │                       系统态 (System Space)                          │
-│                        LaunchDaemons (root)                         │
+│                        LaunchDaemon (root)                          │
 │                                                                      │
-│  ┌───────────────────┐  ┌───────────────────┐  ┌─────────────────┐  │
-│  │ com.ttttt.dmsa.   │  │ com.ttttt.dmsa.   │  │ com.ttttt.dmsa. │  │
-│  │     vfs           │  │     sync          │  │     helper      │  │
-│  │                   │  │                   │  │                 │  │
-│  │  • FUSE 挂载管理   │  │  • 文件同步引擎   │  │  • 目录保护      │  │
-│  │  • 智能合并       │  │  • 定时调度       │  │  • ACL 管理      │  │
-│  │  • 读写路由       │  │  • 冲突解决       │  │  • 权限控制      │  │
-│  └───────────────────┘  └───────────────────┘  └─────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │               com.ttttt.dmsa.service (统一服务)                 │  │
+│  │                                                                │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │  │
+│  │  │ VFSManager  │  │ SyncManager │  │ PrivilegedOperations│    │  │
+│  │  │  (Actor)    │  │   (Actor)   │  │     (Static)        │    │  │
+│  │  │             │  │             │  │                     │    │  │
+│  │  │• FUSE 挂载   │  │• 文件同步   │  │• 目录保护           │    │  │
+│  │  │• 智能合并   │  │• 定时调度    │  │• ACL 管理           │    │  │
+│  │  │• 读写路由   │  │• 冲突解决    │  │• 权限控制           │    │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │  │
+│  └───────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 四进程架构组件
+### 双进程架构组件
 
 | 组件 | 进程标识 | 权限 | 职责 |
 |------|----------|------|------|
 | **DMSA.app** | 主应用 | 用户 | GUI、状态显示、配置管理、用户交互 |
-| **VFS Service** | `com.ttttt.dmsa.vfs` | root | FUSE 挂载、读写路由、智能合并、访问控制 |
-| **Sync Service** | `com.ttttt.dmsa.sync` | root | 文件同步、定时调度、冲突解决、断点续传 |
-| **Helper Service** | `com.ttttt.dmsa.helper` | root | 目录保护、ACL 管理、权限修改 |
+| **DMSAService** | `com.ttttt.dmsa.service` | root | VFS + Sync + Privileged 统一服务 |
 
-### 架构优势 (v4.0)
+### 架构优势 (v4.1)
 
-1. **GUI 退出不影响核心服务**: VFS/Sync 继续运行，文件始终可访问
-2. **故障隔离**: 任意组件崩溃不影响其他组件
-3. **root 权限运行**: VFS 和 Sync 作为 LaunchDaemon 运行，解决权限受限问题
+1. **GUI 退出不影响核心服务**: 统一服务继续运行，文件始终可访问
+2. **简化 XPC 通信**: 只需一个 XPC 连接，减少复杂度
+3. **root 权限运行**: 单一 LaunchDaemon 解决所有权限问题
 4. **自动恢复**: launchd 自动重启崩溃的服务
+5. **资源共享**: VFS/Sync/Privileged 共享内存和上下文，性能更好
+6. **统一配置**: 一处配置，避免多服务配置不同步问题
 
 ### 目录术语定义
 
@@ -194,30 +198,43 @@ TARGET_DIR = LOCAL_DIR ∪ EXTERNAL_DIR
 ```
 DMSA/
 ├── DMSAApp/
-│   ├── DMSAApp.xcodeproj/         # Xcode 项目 (含 DMSAHelper Target)
-│   └── DMSAApp/
-│       ├── App/AppDelegate.swift   # 主逻辑
-│       ├── Models/                 # 数据模型
-│       ├── Services/               # 服务层
-│       │   ├── Sync/               # 同步引擎
-│       │   └── VFS/                # VFS 相关
-│       ├── Shared/                 # 共享代码 (主应用 & Helper)
-│       │   └── DMSAHelperProtocol.swift
-│       ├── UI/                     # SwiftUI 界面
-│       ├── Utils/                  # 工具类
-│       └── Resources/              # 资源文件
-│
-├── DMSAHelper/                     # 特权助手 (SMJobBless)
-│   ├── DMSAHelper/
+│   ├── DMSAApp.xcodeproj/         # Xcode 项目 (含 DMSAService Target)
+│   ├── DMSAApp/                    # 主应用
+│   │   ├── App/AppDelegate.swift   # 主逻辑
+│   │   ├── Models/                 # 数据模型
+│   │   ├── Services/               # 服务层
+│   │   │   ├── ServiceClient.swift # 统一 XPC 客户端 (新)
+│   │   │   ├── Sync/               # 同步引擎
+│   │   │   └── VFS/                # VFS 相关
+│   │   ├── UI/                     # SwiftUI 界面
+│   │   ├── Utils/                  # 工具类
+│   │   └── Resources/              # 资源文件
+│   │
+│   ├── DMSAService/                # 统一服务 (新 - 替代三个旧服务)
 │   │   ├── main.swift              # 入口点
-│   │   ├── HelperTool.swift        # XPC 服务实现
-│   │   ├── Info.plist              # Helper 配置
-│   │   └── DMSAHelper.entitlements # 权限
-│   └── Resources/
-│       └── com.ttttt.dmsa.helper.plist  # LaunchDaemon 配置
+│   │   ├── ServiceDelegate.swift   # NSXPCListener 委托
+│   │   ├── ServiceImplementation.swift # XPC 协议实现
+│   │   ├── VFS/                    # VFS 模块
+│   │   │   ├── VFSManager.swift    # VFS Actor
+│   │   │   └── VFSFileSystem.swift # FUSE 文件系统
+│   │   ├── Sync/                   # 同步模块
+│   │   │   └── SyncManager.swift   # Sync Actor
+│   │   ├── Privileged/             # 特权操作模块
+│   │   │   └── PrivilegedOperations.swift # 静态方法
+│   │   └── Resources/
+│   │       ├── Info.plist
+│   │       ├── DMSAService.entitlements
+│   │       └── com.ttttt.dmsa.service.plist
+│   │
+│   └── DMSAShared/                 # 共享代码
+│       ├── Protocols/
+│       │   └── DMSAServiceProtocol.swift # 统一 XPC 协议
+│       ├── Models/
+│       └── Utils/
 │
 ├── CLAUDE.md                       # 本文档
 ├── VFS_DESIGN.md                   # VFS 设计文档
+├── XCODE_PROJECT_UPDATE_GUIDE.md   # Xcode 配置指南 (新)
 ├── README.md                       # 使用说明
 └── *.md                            # 其他文档
 ```
@@ -226,9 +243,12 @@ DMSA/
 
 ## 关键文件速查
 
+### 主应用 (DMSAApp)
+
 | 文件 | 用途 |
 |------|------|
 | `AppDelegate.swift` | 主逻辑: 状态栏、磁盘监听、初始化 |
+| `ServiceClient.swift` | **统一 XPC 客户端** (v4.1 新增) |
 | `FUSEManager.swift` | macFUSE 检测、版本验证、安装引导 |
 | `DMSAFileSystem.swift` | GMUserFileSystem 委托实现 |
 | `VFSCore.swift` | FUSE 操作入口，挂载/卸载管理 |
@@ -241,10 +261,28 @@ DMSA/
 | `FileEntry.swift` | 文件索引实体 |
 | `config.json` | 用户配置文件 |
 | `DMSAApp-Bridging-Header.h` | Objective-C 桥接头 (macFUSE) |
-| `PrivilegedClient.swift` | XPC 客户端，与特权助手通信 |
-| `DMSAHelperProtocol.swift` | 共享 XPC 协议定义 |
-| `HelperTool.swift` | 特权助手 XPC 服务实现 |
 | `PathValidator.swift` | 路径安全验证工具 |
+
+### 统一服务 (DMSAService) - v4.1 新增
+
+| 文件 | 用途 |
+|------|------|
+| `main.swift` | 服务入口点，启动 XPC 监听 |
+| `ServiceDelegate.swift` | NSXPCListenerDelegate 实现 |
+| `ServiceImplementation.swift` | DMSAServiceProtocol 实现 |
+| `VFS/VFSManager.swift` | VFS Actor，管理挂载点 |
+| `VFS/VFSFileSystem.swift` | FUSE 文件系统实现 |
+| `Sync/SyncManager.swift` | Sync Actor，文件同步调度 |
+| `Privileged/PrivilegedOperations.swift` | 特权操作静态方法 |
+
+### 共享代码 (DMSAShared)
+
+| 文件 | 用途 |
+|------|------|
+| `DMSAServiceProtocol.swift` | **统一 XPC 协议** (v4.1 新增) |
+| `Constants.swift` | 全局常量，包含 `serviceId` |
+| `Errors.swift` | 错误类型定义 |
+| `Logger.swift` | 日志工具 |
 
 ---
 
@@ -346,6 +384,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | (架构纠正) | 2026-01-21 | v2.1 架构纠正 | 移除 LocalCache，使用 Downloads_Local |
 | (macFUSE集成) | 2026-01-24 | macFUSE 集成 | VFS 核心组件实现 |
 | (Helper集成) | 2026-01-24 | DMSAHelper 集成 | SMJobBless 特权助手 Target |
+| **(服务合并)** | **2026-01-24** | **v4.1 服务统一** | **VFS+Sync+Helper 合并为 DMSAService** |
 
 ---
 
@@ -465,71 +504,111 @@ DMSAApp/DMSAApp/
 
 ---
 
-### DMSAHelper 特权助手集成 (2026-01-24)
+### DMSAHelper 特权助手集成 (2026-01-24) - 已废弃
 
-**用途:**
+> ⚠️ **注意:** DMSAHelper 已被 DMSAService 统一服务取代 (v4.1)
+
+**用途:** (历史记录)
 - 保护 `~/Downloads_Local` 目录 (设置 uchg + ACL + hidden)
 - 以 root 权限执行目录保护/解保护操作
 - 通过 XPC 与主应用通信
 
-**架构:**
-```
-┌─────────────────────────────────────────────────┐
-│                  DMSAApp (主应用)                │
-│           PrivilegedClient.swift                │
-└───────────────────┬─────────────────────────────┘
-                    │ XPC (NSXPCConnection)
-                    ▼
-┌─────────────────────────────────────────────────┐
-│              DMSAHelper (LaunchDaemon)          │
-│           HelperTool.swift (root 权限)          │
-│  安装路径: /Library/PrivilegedHelperTools/      │
-└─────────────────────────────────────────────────┘
-```
+---
 
-**Xcode 项目配置:**
-- Target: `com.ttttt.dmsa.helper` (Command Line Tool)
-- 依赖: DMSAApp 依赖 Helper Target
-- Build Phase: Copy Files → `Contents/Library/LaunchServices`
-- Info.plist: 配置 `SMPrivilegedExecutables`
+### v4.1 统一服务架构 (2026-01-24)
 
-**XPC 协议 (DMSAHelperProtocol):**
+**变更概要:**
+将三个独立服务 (VFS, Sync, Helper) 合并为单一 DMSAService。
+
+| 变更项 | v4.0 (旧) | v4.1 (新) |
+|--------|-----------|-----------|
+| 服务数量 | 3 个独立 LaunchDaemon | 1 个统一 LaunchDaemon |
+| XPC 连接 | 3 个独立连接 | 1 个统一连接 |
+| 服务标识 | `vfs`, `sync`, `helper` | `com.ttttt.dmsa.service` |
+| 配置文件 | 3 个 plist | 1 个 plist |
+
+**新建文件:**
+
+| 文件 | 说明 |
+|------|------|
+| `DMSAService/main.swift` | 服务入口，启动 XPC 监听 |
+| `DMSAService/ServiceDelegate.swift` | NSXPCListenerDelegate |
+| `DMSAService/ServiceImplementation.swift` | 协议实现，调度 VFS/Sync/Privileged |
+| `DMSAService/VFS/VFSManager.swift` | VFS Actor |
+| `DMSAService/VFS/VFSFileSystem.swift` | FUSE 文件系统 |
+| `DMSAService/Sync/SyncManager.swift` | Sync Actor |
+| `DMSAService/Privileged/PrivilegedOperations.swift` | 特权静态方法 |
+| `DMSAService/Resources/Info.plist` | Bundle 配置 |
+| `DMSAService/Resources/DMSAService.entitlements` | 权限配置 |
+| `DMSAService/Resources/com.ttttt.dmsa.service.plist` | LaunchDaemon 配置 |
+| `DMSAShared/Protocols/DMSAServiceProtocol.swift` | 统一 XPC 协议 |
+| `DMSAApp/Services/ServiceClient.swift` | 统一 XPC 客户端 |
+
+**旧服务备份:**
+
+| 目录 | 备份位置 |
+|------|----------|
+| `DMSAVFSService/` | `DMSAVFSService.backup/` |
+| `DMSASyncService/` | `DMSASyncService.backup/` |
+| `DMSAHelper/` | `DMSAHelper.backup/` |
+
+**XPC 协议 (DMSAServiceProtocol):**
+
+协议统一了所有 VFS、Sync、Privileged 操作:
+
 ```swift
-// 目录锁定
-func lockDirectory(_ path: String, withReply: (Bool, String?) -> Void)
-func unlockDirectory(_ path: String, withReply: (Bool, String?) -> Void)
+@objc public protocol DMSAServiceProtocol {
+    // VFS 操作
+    func vfsMount(syncPairId: String, localDir: String, externalDir: String?, targetDir: String, withReply: ...)
+    func vfsUnmount(syncPairId: String, withReply: ...)
+    func vfsGetFileStatus(virtualPath: String, syncPairId: String, withReply: ...)
+    // ... 更多 VFS 方法
 
-// ACL 管理
-func setACL(_ path: String, deny: Bool, permissions: [String], user: String, withReply: ...)
-func removeACL(_ path: String, withReply: ...)
+    // 同步操作
+    func syncNow(syncPairId: String, withReply: ...)
+    func syncAll(withReply: ...)
+    func syncGetProgress(syncPairId: String, withReply: ...)
+    // ... 更多 Sync 方法
 
-// 目录可见性
-func hideDirectory(_ path: String, withReply: ...)
-func unhideDirectory(_ path: String, withReply: ...)
+    // 特权操作
+    func privilegedLockDirectory(_ path: String, withReply: ...)
+    func privilegedProtectDirectory(_ path: String, withReply: ...)
+    // ... 更多 Privileged 方法
 
-// 复合操作
-func protectDirectory(_ path: String, withReply: ...)    // uchg + ACL + hidden
-func unprotectDirectory(_ path: String, withReply: ...)
+    // 通用操作
+    func getVersion(withReply: ...)
+    func healthCheck(withReply: ...)
+}
 ```
 
-**安全措施:**
-- 路径白名单: 只允许操作 `/Volumes/`, `~/Downloads*`, `~/Documents*`
-- 危险路径黑名单: `/System`, `/usr`, `/bin`, `/etc`, `/Library` 等
-- XPC 连接代码签名验证
-- 防止路径遍历攻击
+**Xcode 项目配置指南:**
 
-**安装流程:**
-```
-主应用启动 → PrivilegedClient.ensureHelperInstalled()
-                ↓
-        检查 Helper 是否已安装 (SMAppService.daemon.status)
-                ↓ 未安装
-        调用 SMAppService.register() (macOS 13+) 或 SMJobBless (旧版)
-                ↓
-        系统提示授权 → 用户输入管理员密码
-                ↓
-        Helper 安装到 /Library/PrivilegedHelperTools/
-        LaunchDaemon plist 安装到 /Library/LaunchDaemons/
+详见 `XCODE_PROJECT_UPDATE_GUIDE.md`，主要步骤:
+1. 添加 `com.ttttt.dmsa.service` Command Line Tool target
+2. 配置 Build Settings (macFUSE Framework 路径等)
+3. 添加 DMSAService 源文件到 target
+4. 添加 DMSAShared 共享文件到 target
+5. 配置 DMSAApp 依赖新 target
+6. 配置 Copy Files Build Phase
+7. 更新主应用 Info.plist (SMPrivilegedExecutables)
+
+**Constants 更新:**
+
+```swift
+// 新增
+public static let serviceId = "com.ttttt.dmsa.service"
+
+public enum XPCService {
+    public static let service = "com.ttttt.dmsa.service"
+
+    // 已废弃
+    @available(*, deprecated, message: "Use service instead")
+    public static let vfs = "com.ttttt.dmsa.vfs"
+    @available(*, deprecated, message: "Use service instead")
+    public static let sync = "com.ttttt.dmsa.sync"
+    @available(*, deprecated, message: "Use service instead")
+    public static let helper = "com.ttttt.dmsa.helper"
+}
 ```
 
 ---
