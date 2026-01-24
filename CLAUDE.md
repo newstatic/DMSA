@@ -340,6 +340,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | (v4.4) | 2026-01-24 | 业务逻辑迁移 | 全部业务逻辑迁移到Service |
 | (v4.5) | 2026-01-24 | App端清理 | 移除冗余代码和兼容逻辑 |
 | (v4.6) | 2026-01-24 | 纯UI架构 | 删除VFSCore/FileFilter等，Services仅剩10文件 |
+| 505f841a | 2026-01-24 | v4.5编译修复 | 修复类型错误、恢复ConfigManager、添加共享模型 |
 
 ---
 

@@ -394,4 +394,71 @@ DMSAService/
 
 ---
 
+### v4.5 编译修复
+
+**相关会话:** 505f841a
+**日期:** 2026-01-24
+**状态:** ✅ 完成
+
+**功能描述:**
+修复 v4.5 代码清理后的编译错误，确保 DMSAApp 和 DMSAService 都能成功编译。
+
+**问题与解决方案:**
+
+| 问题 | 文件 | 解决方案 |
+|------|------|----------|
+| getSyncHistory 重复定义 | ServiceClient.swift | 删除 History Operations 区域的重复函数 |
+| ConfigManager 类型找不到 | MenuBarManager.swift | 从 git 恢复 ConfigManager.swift 并添加到项目 |
+| MainActor 隔离错误 | AppDelegate.swift | 用 `Task { @MainActor in }` 包装 alertManager 调用 |
+| MainWindowController 缺少参数 | AppDelegate.swift | 传入 `configManager: ConfigManager.shared` |
+| 可选 String 类型不匹配 | DashboardView.swift | `progress.currentFile ?? ""` |
+| 表达式复杂度超时 | StatisticsView.swift | 拆分 SyncStatistics 初始化为多个语句 |
+| SyncStatistics 初始化参数错误 | StatisticsView.swift | 改用实例属性赋值方式 |
+| SyncProgress/ServiceSyncProgress 类型混用 | FileCopier.swift | 统一使用 ServiceSyncProgress (class) |
+| FileEntry/ServiceFileEntry 类型混用 | EvictionManager.swift | 统一使用 ServiceFileEntry |
+| SyncStatus/FileLocation 枚举缺失 | Config.swift | 在 DMSAApp 端添加枚举定义 |
+
+**新增文件:**
+- `DMSAShared/Models/NotificationRecord.swift` - 通知记录模型
+- `DMSAShared/Models/Sync/SyncTask.swift` - 同步任务模型
+- `DMSAService/Sync/ServiceSyncProgress.swift` - Service 端进度类
+- `DMSAService/VFS/LockManager.swift` - 从 App 迁移的锁管理器
+
+**修改文件:**
+- `ServiceClient.swift` - 删除重复函数
+- `AppDelegate.swift` - MainActor 隔离修复
+- `Config.swift` - 添加 SyncDirection/SyncStatus/FileLocation 枚举
+- `DashboardView.swift` - 可选类型处理
+- `StatisticsView.swift` - 表达式拆分
+- `FileCopier.swift` - 使用 ServiceSyncProgress
+- `SyncStateManager.swift` - 返回类型修改
+- `SyncManager.swift` - 变量作用域修复
+- `EvictionManager.swift` - 使用 ServiceFileEntry
+- `ServiceDatabaseManager.swift` - 数组类型推断修复
+- `project.pbxproj` - 添加 ConfigManager 和 NotificationRecord
+
+**关键代码变更:**
+
+```swift
+// FileCopier.swift - 改用 class 避免 inout
+typealias BatchProgressHandler = (ServiceSyncProgress) -> Void
+func copyFiles(..., progress: ServiceSyncProgress, ...)
+
+// EvictionManager.swift - 使用 ServiceFileEntry
+private func getEvictionCandidates(syncPairId: String) async -> [ServiceFileEntry]
+guard entry.fileLocation == .both else { ... }
+
+// Config.swift - 添加枚举
+enum SyncStatus: Int, Codable { ... }
+enum FileLocation: Int, Codable { ... }
+```
+
+**Git 提交:** `e04cf58` - v4.5: App端代码精简，修复编译错误
+
+**编译结果:**
+- ✅ DMSAApp - BUILD SUCCEEDED
+- ✅ com.ttttt.dmsa.service - BUILD SUCCEEDED
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*
