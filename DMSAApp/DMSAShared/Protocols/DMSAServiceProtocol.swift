@@ -221,6 +221,36 @@ import Foundation
     func privilegedRemoveItem(_ path: String,
                               withReply reply: @escaping (Bool, String?) -> Void)
 
+    // MARK: - ========== 淘汰操作 ==========
+
+    /// 触发 LRU 淘汰
+    /// - Parameters:
+    ///   - syncPairId: 同步对 ID
+    ///   - targetFreeSpace: 目标可用空间 (字节)
+    ///   - reply: 回调 (成功, 释放空间, 错误信息)
+    func evictionTrigger(syncPairId: String,
+                         targetFreeSpace: Int64,
+                         withReply reply: @escaping (Bool, Int64, String?) -> Void)
+
+    /// 淘汰单个文件
+    func evictionEvictFile(virtualPath: String,
+                           syncPairId: String,
+                           withReply reply: @escaping (Bool, String?) -> Void)
+
+    /// 预取文件 (从 EXTERNAL 复制到 LOCAL)
+    func evictionPrefetchFile(virtualPath: String,
+                              syncPairId: String,
+                              withReply reply: @escaping (Bool, String?) -> Void)
+
+    /// 获取淘汰统计
+    func evictionGetStats(withReply reply: @escaping (Data) -> Void)
+
+    /// 更新淘汰配置
+    func evictionUpdateConfig(triggerThreshold: Int64,
+                              targetFreeSpace: Int64,
+                              autoEnabled: Bool,
+                              withReply reply: @escaping (Bool) -> Void)
+
     // MARK: - ========== 通用操作 ==========
 
     /// 重新加载配置

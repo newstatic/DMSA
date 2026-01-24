@@ -11,7 +11,7 @@ final class ServiceClient {
 
     // MARK: - Properties
 
-    private let logger = Logger.forService("ServiceClient")
+    private let logger = Logger.shared
     private var connection: NSXPCConnection?
     private var proxy: DMSAServiceProtocol?
     private let connectionLock = NSLock()
@@ -93,7 +93,7 @@ final class ServiceClient {
         newConnection.resume()
 
         // 获取代理
-        guard let remoteProxy = newConnection.remoteObjectProxyWithErrorHandler({ [weak self] error in
+        guard let remoteProxy = newConnection.remoteObjectProxyWithErrorHandler({ [weak self] (error: Error) in
             self?.logger.error("XPC 代理错误: \(error)")
             self?.handleConnectionError(error)
         }) as? DMSAServiceProtocol else {
@@ -188,8 +188,8 @@ final class ServiceClient {
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.vfsGetMounts { mounts in
-                continuation.resume(returning: mounts)
+            proxy.vfsGetAllMounts { data in
+                continuation.resume(returning: MountInfo.arrayFrom(data: data))
             }
         }
     }
@@ -290,8 +290,8 @@ final class ServiceClient {
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncGetStatus(syncPairId: syncPairId) { statusInfo in
-                continuation.resume(returning: statusInfo)
+            proxy.syncGetStatus(syncPairId: syncPairId) { data in
+                continuation.resume(returning: SyncStatusInfo.from(data: data) ?? SyncStatusInfo(syncPairId: syncPairId))
             }
         }
     }
@@ -301,19 +301,23 @@ final class ServiceClient {
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncGetAllStatus { statusList in
-                continuation.resume(returning: statusList)
+            proxy.syncGetAllStatus { data in
+                continuation.resume(returning: SyncStatusInfo.arrayFrom(data: data))
             }
         }
     }
 
-    /// 获取同步进度
-    func getSyncProgress(syncPairId: String) async throws -> SyncProgress? {
+    /// 获取同步进度 (返回的是 SyncProgressResponse，可解码的进度信息)
+    func getSyncProgress(syncPairId: String) async throws -> SyncProgressResponse? {
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncGetProgress(syncPairId: syncPairId) { progress in
-                continuation.resume(returning: progress)
+            proxy.syncGetProgress(syncPairId: syncPairId) { data in
+                if let data = data {
+                    continuation.resume(returning: SyncProgressResponse.from(data: data))
+                } else {
+                    continuation.resume(returning: nil)
+                }
             }
         }
     }
@@ -323,8 +327,8 @@ final class ServiceClient {
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncGetHistory(syncPairId: syncPairId, limit: limit) { history in
-                continuation.resume(returning: history)
+            proxy.syncGetHistory(syncPairId: syncPairId, limit: limit) { data in
+                continuation.resume(returning: SyncHistory.arrayFrom(data: data))
             }
         }
     }
@@ -443,7 +447,7 @@ final class ServiceClient {
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.prepareForShutdown { success, _ in
+            proxy.prepareForShutdown { _ in
                 continuation.resume()
             }
         }
@@ -465,8 +469,30 @@ final class ServiceClient {
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.healthCheck { isHealthy in
+            proxy.healthCheck { isHealthy, _ in
                 continuation.resume(returning: isHealthy)
+            }
+        }
+    }
+
+    /// 通知硬盘已连接
+    func notifyDiskConnected(diskName: String, mountPoint: String) async throws {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.diskConnected(diskName: diskName, mountPoint: mountPoint) { _ in
+                continuation.resume()
+            }
+        }
+    }
+
+    /// 通知硬盘已断开
+    func notifyDiskDisconnected(diskName: String) async throws {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.diskDisconnected(diskName: diskName) { _ in
+                continuation.resume()
             }
         }
     }
@@ -493,3 +519,4 @@ enum ServiceError: LocalizedError {
         }
     }
 }
+

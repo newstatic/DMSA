@@ -134,6 +134,7 @@ public enum VFSError: Error, LocalizedError {
     case ioError(String)
     case indexError(String)
     case serviceNotRunning
+    case externalOffline
 
     public var errorDescription: String? {
         switch self {
@@ -161,6 +162,8 @@ public enum VFSError: Error, LocalizedError {
             return "索引错误: \(msg)"
         case .serviceNotRunning:
             return "VFS 服务未运行"
+        case .externalOffline:
+            return "外部存储离线"
         }
     }
 }

@@ -19,7 +19,8 @@ public enum Constants {
     public static let appFullName = "Delt MACOS Sync App"
 
     /// 版本
-    public static let version = "4.0"
+    public static let version = "4.1"
+    public static let appVersion = version  // 别名，兼容旧代码
 
     /// XPC 服务名称
     public enum XPCService {

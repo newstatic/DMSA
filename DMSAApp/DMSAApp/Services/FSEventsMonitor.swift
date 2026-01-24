@@ -227,7 +227,7 @@ final class FSEventsMonitor {
     // MARK: - Private Methods
 
     /// 处理 FSEvents 回调
-    private func handleEvents(numEvents: Int, eventPaths: [String], eventFlags: [FSEventStreamEventFlags], eventIds: [FSEventStreamEventId]) {
+    fileprivate func handleEvents(numEvents: Int, eventPaths: [String], eventFlags: [FSEventStreamEventFlags], eventIds: [FSEventStreamEventId]) {
         var events: [FileEvent] = []
         let now = Date()
 

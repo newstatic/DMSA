@@ -9,7 +9,7 @@ struct VFSMountPoint {
     var isExternalOnline: Bool
     var isReadOnly: Bool
     var mountedAt: Date
-    var fileSystem: VFSFileSystem?
+    var fuseFileSystem: FUSEFileSystem?  // 使用实际的 FUSE 文件系统
 }
 
 /// 索引统计
@@ -89,16 +89,17 @@ actor VFSManager {
             try fm.createDirectory(atPath: targetDir, withIntermediateDirectories: true)
         }
 
-        // 创建文件系统实例
-        let vfs = VFSFileSystem(
+        // 创建 FUSE 文件系统实例
+        let fuseFS = FUSEFileSystem(
             syncPairId: syncPairId,
             localDir: localDir,
             externalDir: externalDir,
+            volumeName: "DMSA-\(syncPairId.prefix(8))",
             delegate: self
         )
 
         // 执行挂载
-        try await vfs.mount(at: targetDir)
+        try await fuseFS.mount(at: targetDir)
 
         // 记录挂载点
         let mountPoint = VFSMountPoint(
@@ -109,7 +110,7 @@ actor VFSManager {
             isExternalOnline: externalDir != nil && fm.fileExists(atPath: externalDir!),
             isReadOnly: false,
             mountedAt: Date(),
-            fileSystem: vfs
+            fuseFileSystem: fuseFS
         )
 
         mountPoints[syncPairId] = mountPoint
@@ -126,8 +127,8 @@ actor VFSManager {
         }
 
         // 执行卸载
-        if let vfs = mountPoint.fileSystem {
-            try await vfs.unmount()
+        if let fuseFS = mountPoint.fuseFileSystem {
+            try await fuseFS.unmount()
         }
 
         // 移除记录
@@ -188,7 +189,7 @@ actor VFSManager {
         mountPoints[syncPairId] = mountPoint
 
         // 更新文件系统
-        await mountPoint.fileSystem?.updateExternalDir(newPath)
+        mountPoint.fuseFileSystem?.updateExternalDir(newPath)
 
         // 重建索引以包含外部文件
         if isOnline {
@@ -204,7 +205,7 @@ actor VFSManager {
         mountPoint.isExternalOnline = !offline
         mountPoints[syncPairId] = mountPoint
 
-        await mountPoint.fileSystem?.setExternalOffline(offline)
+        mountPoint.fuseFileSystem?.setExternalOffline(offline)
 
         logger.info("EXTERNAL 离线状态: \(offline)")
     }
@@ -215,7 +216,7 @@ actor VFSManager {
         mountPoint.isReadOnly = readOnly
         mountPoints[syncPairId] = mountPoint
 
-        await mountPoint.fileSystem?.setReadOnly(readOnly)
+        mountPoint.fuseFileSystem?.setReadOnly(readOnly)
     }
 
     // MARK: - 文件索引

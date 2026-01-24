@@ -22,18 +22,13 @@
     <string>root</string>
 
     <!-- Keep alive settings -->
+    <!-- 服务始终保持运行，GUI 退出不影响 -->
     <key>KeepAlive</key>
-    <dict>
-        <!-- Restart if crashed -->
-        <key>SuccessfulExit</key>
-        <false/>
-        <!-- Only run when main app is running -->
-        <key>OtherJobEnabled</key>
-        <dict>
-            <key>com.ttttt.dmsa</key>
-            <true/>
-        </dict>
-    </dict>
+    <true/>
+
+    <!-- 崩溃后自动重启 -->
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
 
     <!-- Resource limits -->
     <key>ProcessType</key>

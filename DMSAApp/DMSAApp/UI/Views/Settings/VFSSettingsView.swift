@@ -1,4 +1,5 @@
 import SwiftUI
+import ServiceManagement
 
 /// VFS (虚拟文件系统) 设置视图
 /// 管理 macFUSE 和特权助手
@@ -219,11 +220,11 @@ class VFSSettingsViewModel: ObservableObject {
 
     @Published var mountedVFS: [VFSMountInfo] = []
 
-    private let privilegedClient = PrivilegedClient.shared
+    private let serviceClient = ServiceClient.shared
 
     func refresh() {
         checkMacFUSE()
-        checkHelper()
+        checkService()
         checkMountedVFS()
     }
 
@@ -265,62 +266,43 @@ class VFSSettingsViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Helper
+    // MARK: - Service (DMSAService)
 
-    private func checkHelper() {
-        let status = privilegedClient.getHelperStatus()
-
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            switch status {
-            case .installed:
-                self.isHelperInstalled = true
-                self.helperStatusText = "已安装"
-                self.helperStatusColor = .green
-                self.fetchHelperVersion()
-            case .notInstalled:
-                self.isHelperInstalled = false
-                self.helperVersion = nil
-                self.helperStatusText = "未安装"
-                self.helperStatusColor = .red
-            case .requiresApproval:
-                self.isHelperInstalled = false
-                self.helperVersion = nil
-                self.helperStatusText = "需要批准"
-                self.helperStatusColor = .orange
-            case .notFound:
-                self.isHelperInstalled = false
-                self.helperVersion = nil
-                self.helperStatusText = "未找到"
-                self.helperStatusColor = .red
-            case .unknown:
-                self.isHelperInstalled = false
-                self.helperVersion = nil
-                self.helperStatusText = "未知"
-                self.helperStatusColor = .secondary
-            }
-        }
-    }
-
-    private func fetchHelperVersion() {
+    private func checkService() {
         Task {
             do {
-                let version = try await privilegedClient.getHelperVersion()
+                let isHealthy = try await serviceClient.healthCheck()
+                let version = try? await serviceClient.getVersion()
+
                 await MainActor.run {
+                    self.isHelperInstalled = isHealthy
                     self.helperVersion = version
+                    self.helperStatusText = isHealthy ? "运行中" : "未响应"
+                    self.helperStatusColor = isHealthy ? .green : .red
                 }
             } catch {
-                Logger.shared.warn("获取 Helper 版本失败: \(error.localizedDescription)")
+                await MainActor.run {
+                    self.isHelperInstalled = false
+                    self.helperVersion = nil
+                    self.helperStatusText = "未连接"
+                    self.helperStatusColor = .red
+                }
             }
         }
     }
 
     func installHelper() {
-        do {
-            try privilegedClient.installHelper()
-            checkHelper()
-        } catch {
-            Logger.shared.error("安装 Helper 失败: \(error.localizedDescription)")
+        // 使用 SMAppService 安装服务
+        if #available(macOS 13.0, *) {
+            do {
+                let service = SMAppService.daemon(plistName: "com.ttttt.dmsa.service.plist")
+                try service.register()
+                checkService()
+            } catch {
+                Logger.shared.error("安装服务失败: \(error.localizedDescription)")
+            }
+        } else {
+            Logger.shared.warn("macOS 13.0 以下版本需要手动安装服务")
         }
     }
 
@@ -328,9 +310,10 @@ class VFSSettingsViewModel: ObservableObject {
         // 先卸载再安装
         if #available(macOS 13.0, *) {
             do {
-                try privilegedClient.uninstallHelper()
+                let service = SMAppService.daemon(plistName: "com.ttttt.dmsa.service.plist")
+                try service.unregister()
             } catch {
-                Logger.shared.warn("卸载 Helper 失败: \(error.localizedDescription)")
+                Logger.shared.warn("卸载服务失败: \(error.localizedDescription)")
             }
         }
 
@@ -340,10 +323,11 @@ class VFSSettingsViewModel: ObservableObject {
     @available(macOS 13.0, *)
     func uninstallHelper() {
         do {
-            try privilegedClient.uninstallHelper()
-            checkHelper()
+            let service = SMAppService.daemon(plistName: "com.ttttt.dmsa.service.plist")
+            try service.unregister()
+            checkService()
         } catch {
-            Logger.shared.error("卸载 Helper 失败: \(error.localizedDescription)")
+            Logger.shared.error("卸载服务失败: \(error.localizedDescription)")
         }
     }
 

@@ -7,11 +7,19 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
     private let logger = Logger.forService("DMSAService")
     private let vfsManager = VFSManager()
     private let syncManager = SyncManager()
+    private let evictionManager = EvictionManager()
     private var config: AppConfig
 
     override init() {
         self.config = Self.loadConfig()
         super.init()
+
+        // 设置 EvictionManager 的依赖
+        Task {
+            await evictionManager.setManagers(vfs: vfsManager, sync: syncManager)
+            await evictionManager.startAutoEviction()
+        }
+
         logger.info("ServiceImplementation 初始化完成")
     }
 
@@ -106,7 +114,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
                             withReply reply: @escaping (String) -> Void) {
         Task {
             let location = await vfsManager.getFileLocation(virtualPath: virtualPath, syncPairId: syncPairId)
-            reply(location.rawValue)
+            reply(String(location.rawValue))
         }
     }
 
@@ -428,6 +436,76 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         reply(result.success, result.error)
     }
 
+    // MARK: - ========== 淘汰操作 ==========
+
+    func evictionTrigger(syncPairId: String,
+                         targetFreeSpace: Int64,
+                         withReply reply: @escaping (Bool, Int64, String?) -> Void) {
+        Task {
+            let result = await evictionManager.evict(syncPairId: syncPairId, targetFreeSpace: targetFreeSpace)
+            if result.errors.isEmpty {
+                reply(true, result.freedSpace, nil)
+            } else {
+                reply(true, result.freedSpace, result.errors.joined(separator: "; "))
+            }
+        }
+    }
+
+    func evictionEvictFile(virtualPath: String,
+                           syncPairId: String,
+                           withReply reply: @escaping (Bool, String?) -> Void) {
+        Task {
+            do {
+                try await evictionManager.evictFile(virtualPath: virtualPath, syncPairId: syncPairId)
+                reply(true, nil)
+            } catch {
+                reply(false, error.localizedDescription)
+            }
+        }
+    }
+
+    func evictionPrefetchFile(virtualPath: String,
+                              syncPairId: String,
+                              withReply reply: @escaping (Bool, String?) -> Void) {
+        Task {
+            do {
+                try await evictionManager.prefetchFile(virtualPath: virtualPath, syncPairId: syncPairId)
+                reply(true, nil)
+            } catch {
+                reply(false, error.localizedDescription)
+            }
+        }
+    }
+
+    func evictionGetStats(withReply reply: @escaping (Data) -> Void) {
+        Task {
+            let stats = await evictionManager.getStats()
+            let data = (try? JSONEncoder().encode(stats)) ?? Data()
+            reply(data)
+        }
+    }
+
+    func evictionUpdateConfig(triggerThreshold: Int64,
+                              targetFreeSpace: Int64,
+                              autoEnabled: Bool,
+                              withReply reply: @escaping (Bool) -> Void) {
+        Task {
+            var config = await evictionManager.getConfig()
+            config.triggerThreshold = triggerThreshold
+            config.targetFreeSpace = targetFreeSpace
+            config.autoEvictionEnabled = autoEnabled
+            await evictionManager.updateConfig(config)
+
+            if autoEnabled {
+                await evictionManager.startAutoEviction()
+            } else {
+                await evictionManager.stopAutoEviction()
+            }
+
+            reply(true)
+        }
+    }
+
     // MARK: - ========== 通用操作 ==========
 
     func reloadConfig(withReply reply: @escaping (Bool, String?) -> Void) {
@@ -471,8 +549,14 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
 
     func autoMount() async {
         for syncPair in config.syncPairs where syncPair.enabled {
+            // 查找对应的磁盘配置
+            guard let disk = config.disks.first(where: { $0.id == syncPair.diskId }) else {
+                logger.warning("找不到同步对 \(syncPair.name) 的磁盘配置")
+                continue
+            }
+
             do {
-                let externalPath = syncPair.fullExternalDir() ?? ""
+                let externalPath = disk.isConnected ? syncPair.fullExternalDir(diskMountPath: disk.mountPath) : ""
                 try await vfsManager.mount(
                     syncPairId: syncPair.id,
                     localDir: syncPair.localDir,

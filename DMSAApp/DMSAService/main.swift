@@ -15,7 +15,7 @@ logger.info("========================================")
 
 func setupDirectories() {
     let fm = FileManager.default
-    let directories = [
+    let directories: [URL] = [
         Constants.Paths.appSupport,
         Constants.Paths.sharedData,
         Constants.Paths.database,
@@ -23,12 +23,13 @@ func setupDirectories() {
     ]
 
     for dir in directories {
-        if !fm.fileExists(atPath: dir) {
+        let path = dir.path
+        if !fm.fileExists(atPath: path) {
             do {
-                try fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
-                logger.info("创建目录: \(dir)")
+                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+                logger.info("创建目录: \(path)")
             } catch {
-                logger.error("创建目录失败: \(dir) - \(error)")
+                logger.error("创建目录失败: \(path) - \(error)")
             }
         }
     }

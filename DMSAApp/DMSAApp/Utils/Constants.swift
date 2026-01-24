@@ -10,7 +10,7 @@ enum Constants {
     static let appFullName = "Delt MACOS Sync App"
 
     /// 版本
-    static let version = "2.0"
+    static let version = "4.1"
 
     /// 路径
     enum Paths {
@@ -55,11 +55,10 @@ enum Constants {
         "*.part", "*.crdownload", "*.download", "*.partial"
     ]
 
-    /// XPC Service Identifiers
+    /// XPC Service Identifier (统一服务)
     enum XPCService {
-        static let vfs = "com.ttttt.dmsa.vfs"
-        static let sync = "com.ttttt.dmsa.sync"
-        static let helper = "com.ttttt.dmsa.helper"
+        /// 统一服务 (v4.1 - VFS + Sync + Privileged)
+        static let service = "com.ttttt.dmsa.service"
     }
 
     /// 分布式通知名称

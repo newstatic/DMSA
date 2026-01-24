@@ -1,7 +1,7 @@
 # Delt MACOS Sync App (DMSA) 项目记忆文档
 
 > 此文档供 Claude Code 跨会话持续参考，保持项目上下文记忆。
-> 版本: 4.1 | 更新日期: 2026-01-24
+> 版本: 4.3 | 更新日期: 2026-01-24
 > 项目简称: DMSA
 
 ---
@@ -48,7 +48,7 @@
 | **项目路径** | `/Users/ttttt/Documents/xcodeProjects/DMSA` |
 | **Bundle ID** | `com.ttttt.dmsa` |
 | **最低系统版本** | macOS 11.0 |
-| **当前版本** | 4.1 |
+| **当前版本** | 4.2 |
 | **最后更新** | 2026-01-24 |
 
 ---
@@ -385,6 +385,8 @@ tail -f ~/Library/Logs/DMSA/app.log
 | (macFUSE集成) | 2026-01-24 | macFUSE 集成 | VFS 核心组件实现 |
 | (Helper集成) | 2026-01-24 | DMSAHelper 集成 | SMJobBless 特权助手 Target |
 | **(服务合并)** | **2026-01-24** | **v4.1 服务统一** | **VFS+Sync+Helper 合并为 DMSAService** |
+| **(FUSE迁移)** | **2026-01-24** | **v4.2 FUSE服务迁移** | **FUSE挂载从DMSAApp移至DMSAService** |
+| **(LRU淘汰)** | **2026-01-24** | **v4.3 EvictionManager** | **DMSAService中实现LRU淘汰机制** |
 
 ---
 
@@ -610,6 +612,120 @@ public enum XPCService {
     public static let helper = "com.ttttt.dmsa.helper"
 }
 ```
+
+---
+
+### v4.2 FUSE 服务迁移 (2026-01-24)
+
+**变更概要:**
+将 macFUSE 挂载从 DMSAApp 移至 DMSAService，实现完全的服务端 FUSE 管理。
+
+| 变更项 | v4.1 (旧) | v4.2 (新) |
+|--------|-----------|-----------|
+| FUSE 挂载位置 | DMSAApp 直接挂载 | DMSAService 通过 XPC 挂载 |
+| DMSAFileSystem | DMSAApp/Services/VFS/ | 已删除 |
+| FUSEFileSystem | DMSAService/VFS/VFSFileSystem.swift (模拟) | DMSAService/VFS/FUSEFileSystem.swift (实际) |
+| VFSCore 调用方式 | 直接创建 DMSAFileSystem 实例 | 通过 ServiceClient.mountVFS() XPC 调用 |
+
+**新建文件:**
+
+| 文件 | 说明 |
+|------|------|
+| `DMSAService/VFS/FUSEFileSystem.swift` | macFUSE GMUserFileSystem 委托实现 |
+
+**删除文件:**
+
+| 文件 | 说明 |
+|------|------|
+| `DMSAApp/Services/VFS/DMSAFileSystem.swift` | 原 App 端 FUSE 实现 |
+| `DMSAService/VFS/VFSFileSystem.swift` | 原模拟实现 |
+
+**修改文件:**
+
+| 文件 | 变更 |
+|------|------|
+| `DMSAService/VFS/VFSManager.swift` | 使用 FUSEFileSystem 替代 VFSFileSystem |
+| `DMSAApp/Services/VFS/VFSCore.swift` | 改用 XPC 调用 serviceClient.mountVFS() |
+| `DMSAShared/Utils/Errors.swift` | 添加 VFSError.externalOffline |
+
+**架构优势:**
+
+1. **GUI 退出不影响 FUSE**: 挂载由 DMSAService 管理，App 退出后文件系统继续可用
+2. **权限统一**: FUSE 挂载在 root 服务中进行，避免权限问题
+3. **简化 App 代码**: App 不再需要处理 FUSE 细节，只通过 XPC 交互
+
+---
+
+### v4.3 EvictionManager LRU 淘汰 (2026-01-24)
+
+**变更概要:**
+在 DMSAService 中实现 LRU (Least Recently Used) 淘汰机制，自动管理本地缓存空间。
+
+**新建文件:**
+
+| 文件 | 说明 |
+|------|------|
+| `DMSAService/VFS/EvictionManager.swift` | LRU 淘汰管理器 (actor) |
+
+**修改文件:**
+
+| 文件 | 变更 |
+|------|------|
+| `DMSAService/ServiceImplementation.swift` | 添加 EvictionManager 实例和 XPC 方法 |
+| `DMSAShared/Protocols/DMSAServiceProtocol.swift` | 添加淘汰相关 XPC 协议方法 |
+| `DMSAApp/Services/VFS/VFSCore.swift` | 集成 TreeVersionManager 版本检查 |
+
+**EvictionManager 功能:**
+
+| 功能 | 说明 |
+|------|------|
+| 自动淘汰 | 定时检查空间，低于阈值时自动触发淘汰 |
+| 手动淘汰 | 支持按需淘汰指定文件 |
+| LRU 排序 | 按访问时间排序，优先淘汰最久未访问的文件 |
+| 安全检查 | 仅淘汰已同步到 EXTERNAL 的非脏文件 |
+| 预取支持 | 支持从 EXTERNAL 预取文件到 LOCAL |
+
+**淘汰流程:**
+```
+空间不足 → 获取候选文件 (BOTH + 非脏 + 非锁定)
+              ↓
+    按 accessedAt 排序 (最旧优先)
+              ↓
+    检查 EXTERNAL 存在? → 不存在则跳过
+              ↓ 存在
+    删除 LOCAL 文件 → 更新索引 → 释放空间
+              ↓
+    达到目标空间或处理完毕
+```
+
+**XPC 接口 (新增):**
+
+```swift
+// 触发淘汰
+func evictionTrigger(syncPairId: String, targetFreeSpace: Int64, withReply: ...)
+// 淘汰单个文件
+func evictionEvictFile(virtualPath: String, syncPairId: String, withReply: ...)
+// 预取文件
+func evictionPrefetchFile(virtualPath: String, syncPairId: String, withReply: ...)
+// 获取统计
+func evictionGetStats(withReply: ...)
+// 更新配置
+func evictionUpdateConfig(triggerThreshold: Int64, targetFreeSpace: Int64, autoEnabled: Bool, withReply: ...)
+```
+
+**配置参数:**
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `triggerThreshold` | 5GB | 触发淘汰的可用空间阈值 |
+| `targetFreeSpace` | 10GB | 淘汰目标可用空间 |
+| `maxFilesPerRun` | 100 | 单次淘汰最大文件数 |
+| `minFileAge` | 1小时 | 最小文件年龄 (防止淘汰新文件) |
+| `checkInterval` | 5分钟 | 自动检查间隔 |
+
+**同步集成:**
+- TreeVersionManager 在 VFSCore.mount() 中启用
+- 启动时自动检查版本文件，按需重建文件树
 
 ---
 

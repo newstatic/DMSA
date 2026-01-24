@@ -1,5 +1,6 @@
 import Cocoa
 import SwiftUI
+import ServiceManagement
 
 /// 应用代理
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -12,7 +13,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let syncEngine = SyncEngine.shared
     private let alertManager = AlertManager.shared
     private let appearanceManager = AppearanceManager.shared
-    private let privilegedClient = PrivilegedClient.shared
+    private let serviceClient = ServiceClient.shared
 
     // MARK: - 窗口控制器
 
@@ -174,63 +175,105 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func checkAndInstallHelper() {
-        Logger.shared.info("检查特权助手状态...")
+        Logger.shared.info("检查 DMSAService 状态...")
 
-        let status = privilegedClient.getHelperStatus()
-        Logger.shared.info("Helper 状态: \(status)")
+        if #available(macOS 13.0, *) {
+            let service = SMAppService.daemon(plistName: "com.ttttt.dmsa.service.plist")
+            let status = service.status
 
-        switch status {
-        case .notInstalled, .notFound:
-            Logger.shared.info("Helper 未安装，尝试安装...")
-            installHelper()
-        case .requiresApproval:
-            Logger.shared.warn("Helper 需要用户批准")
-            showHelperApprovalAlert()
-        case .installed:
-            Logger.shared.info("Helper 已安装")
-            verifyHelperVersion()
-        case .unknown:
-            Logger.shared.warn("Helper 状态未知")
-        }
-    }
+            Logger.shared.info("DMSAService 状态: \(status)")
 
-    private func installHelper() {
-        do {
-            try privilegedClient.installHelper()
-            Logger.shared.info("Helper 安装成功")
-        } catch {
-            Logger.shared.error("Helper 安装失败: \(error.localizedDescription)")
-            showHelperInstallFailedAlert(error: error)
-        }
-    }
-
-    private func verifyHelperVersion() {
-        Task {
-            do {
-                let version = try await privilegedClient.getHelperVersion()
-                Logger.shared.info("Helper 版本: \(version)")
-
-                if version != kDMSAHelperProtocolVersion {
-                    Logger.shared.warn("Helper 版本不匹配，需要更新")
-                    // 可以选择重新安装
-                }
-            } catch {
-                Logger.shared.warn("无法获取 Helper 版本: \(error.localizedDescription)")
+            switch status {
+            case .notRegistered, .notFound:
+                Logger.shared.info("DMSAService 未安装，尝试安装...")
+                installService()
+            case .requiresApproval:
+                Logger.shared.warn("DMSAService 需要用户批准")
+                showServiceApprovalAlert()
+            case .enabled:
+                Logger.shared.info("DMSAService 已安装")
+                verifyServiceVersion()
+            @unknown default:
+                Logger.shared.warn("DMSAService 状态未知")
+            }
+        } else {
+            // macOS 12 及以下版本使用文件检测
+            let helperPath = "/Library/PrivilegedHelperTools/com.ttttt.dmsa.service"
+            if FileManager.default.fileExists(atPath: helperPath) {
+                Logger.shared.info("DMSAService 已安装 (legacy check)")
+                verifyServiceVersion()
+            } else {
+                Logger.shared.info("DMSAService 未安装")
+                installServiceLegacy()
             }
         }
     }
 
-    private func showHelperApprovalAlert() {
+    @available(macOS 13.0, *)
+    private func installService() {
+        do {
+            let service = SMAppService.daemon(plistName: "com.ttttt.dmsa.service.plist")
+            try service.register()
+            Logger.shared.info("DMSAService 安装成功")
+        } catch {
+            Logger.shared.error("DMSAService 安装失败: \(error.localizedDescription)")
+            showServiceInstallFailedAlert(error: error)
+        }
+    }
+
+    private func installServiceLegacy() {
+        // macOS 12 及以下版本使用 SMJobBless
+        var authRef: AuthorizationRef?
+        let status = AuthorizationCreate(nil, nil, [], &authRef)
+
+        guard status == errAuthorizationSuccess, let auth = authRef else {
+            Logger.shared.error("DMSAService 授权失败")
+            return
+        }
+
+        defer { AuthorizationFree(auth, []) }
+
+        var error: Unmanaged<CFError>?
+        let success = SMJobBless(
+            kSMDomainSystemLaunchd,
+            "com.ttttt.dmsa.service" as CFString,
+            auth,
+            &error
+        )
+
+        if success {
+            Logger.shared.info("DMSAService 安装成功 (legacy)")
+        } else {
+            let errorDesc = error?.takeRetainedValue().localizedDescription ?? "未知错误"
+            Logger.shared.error("DMSAService 安装失败: \(errorDesc)")
+        }
+    }
+
+    private func verifyServiceVersion() {
+        Task {
+            do {
+                let version = try await serviceClient.getVersion()
+                Logger.shared.info("DMSAService 版本: \(version)")
+
+                if version != Constants.version {
+                    Logger.shared.warn("DMSAService 版本不匹配 (期望 \(Constants.version), 实际 \(version))")
+                }
+            } catch {
+                Logger.shared.warn("无法获取 DMSAService 版本: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func showServiceApprovalAlert() {
         DispatchQueue.main.async {
             let alert = NSAlert()
-            alert.messageText = "需要批准特权助手"
-            alert.informativeText = "DMSA 需要安装特权助手来保护本地缓存目录。\n\n请前往 系统设置 > 隐私与安全性 > 登录项与扩展 中批准 DMSA Helper。"
+            alert.messageText = "需要批准 DMSA 服务"
+            alert.informativeText = "DMSA 需要安装后台服务来管理虚拟文件系统和同步功能。\n\n请前往 系统设置 > 隐私与安全性 > 登录项与扩展 中批准 DMSA Service。"
             alert.alertStyle = .warning
             alert.addButton(withTitle: "打开系统设置")
             alert.addButton(withTitle: "稍后")
 
             if alert.runModal() == .alertFirstButtonReturn {
-                // 打开系统设置
                 if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
                     NSWorkspace.shared.open(url)
                 }
@@ -238,11 +281,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func showHelperInstallFailedAlert(error: Error) {
+    private func showServiceInstallFailedAlert(error: Error) {
         DispatchQueue.main.async {
             let alert = NSAlert()
-            alert.messageText = "特权助手安装失败"
-            alert.informativeText = "无法安装特权助手: \(error.localizedDescription)\n\n部分功能（如目录保护）可能无法正常工作。"
+            alert.messageText = "DMSA 服务安装失败"
+            alert.informativeText = "无法安装后台服务: \(error.localizedDescription)\n\n虚拟文件系统和同步功能可能无法正常工作。"
             alert.alertStyle = .warning
             alert.addButton(withTitle: "确定")
             alert.runModal()

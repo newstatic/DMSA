@@ -19,7 +19,7 @@ class VFSCore {
     private let readRouter: ReadRouter
     private let writeRouter: WriteRouter
     private let lockManager: LockManager
-    private let privilegedClient: PrivilegedClient
+    private let serviceClient: ServiceClient
     private let configManager: ConfigManager
     // TreeVersionManager 是 actor，按需访问 TreeVersionManager.shared
     private let databaseManager: DatabaseManager
@@ -37,8 +37,7 @@ class VFSCore {
         let localDir: String
         let externalDir: String
         var isMounted: Bool
-        /// macFUSE 文件系统实例
-        var fileSystem: DMSAFileSystem?
+        // FUSE 挂载现在由 DMSAService 处理，不再在 App 中持有 fileSystem 引用
     }
 
     // MARK: - 初始化
@@ -48,7 +47,7 @@ class VFSCore {
         self.readRouter = ReadRouter.shared
         self.writeRouter = WriteRouter.shared
         self.lockManager = LockManager.shared
-        self.privilegedClient = PrivilegedClient.shared
+        self.serviceClient = ServiceClient.shared
         self.configManager = ConfigManager.shared
         self.databaseManager = DatabaseManager.shared
     }
@@ -65,8 +64,11 @@ class VFSCore {
             throw VFSCoreError.fuseNotAvailable
         }
 
-        // 2. 确保 Helper 已安装
-        try await privilegedClient.ensureHelperInstalled()
+        // 2. 检查服务是否健康
+        let isHealthy = try await serviceClient.healthCheck()
+        if !isHealthy {
+            Logger.shared.warning("VFSCore: DMSAService 健康检查失败")
+        }
 
         // 3. 获取所有启用的同步对
         let syncPairs = configManager.getEnabledSyncPairs()
@@ -108,21 +110,22 @@ class VFSCore {
         // 1. 准备目录
         try await prepareDirectories(syncPair: syncPair)
 
-        // 2. 检查并执行版本重建
-        // TODO: 需要将 TreeVersionManager.swift 添加到 Xcode 项目中
-        // let versionCheck = await TreeVersionManager.shared.checkVersionsOnStartup(for: syncPair)
-        // if versionCheck.needRebuildLocal {
-        //     try await TreeVersionManager.shared.rebuildTree(for: syncPair, source: TreeSource.local)
-        // }
-        // if versionCheck.needRebuildExternal && versionCheck.externalConnected {
-        //     try await TreeVersionManager.shared.rebuildTree(for: syncPair, source: TreeSource.external)
-        // }
+        // 2. 检查并执行版本重建 (启动时检测文件树变更)
+        let versionCheck = await TreeVersionManager.shared.checkVersionsOnStartup(for: syncPair)
+        if versionCheck.needRebuildLocal {
+            Logger.shared.info("VFSCore: LOCAL 需要重建文件树")
+            try await TreeVersionManager.shared.rebuildTree(for: syncPair, source: .local)
+        }
+        if versionCheck.needRebuildExternal && versionCheck.externalConnected {
+            Logger.shared.info("VFSCore: EXTERNAL 需要重建文件树")
+            try await TreeVersionManager.shared.rebuildTree(for: syncPair, source: .external)
+        }
 
         // 3. 保护 LOCAL_DIR (防止用户直接访问)
         do {
-            try await privilegedClient.protectDirectory(syncPair.localDir)
+            try await serviceClient.protectDirectory(syncPair.localDir)
         } catch {
-            Logger.shared.warning("VFSCore: 保护目录失败 (可能 Helper 未安装): \(error.localizedDescription)")
+            Logger.shared.warning("VFSCore: 保护目录失败 (可能服务未安装): \(error.localizedDescription)")
             // 不阻止挂载，但记录警告
         }
 
@@ -133,13 +136,18 @@ class VFSCore {
             try fm.createDirectory(atPath: targetDir, withIntermediateDirectories: true, attributes: nil)
         }
 
-        // 5. 启动 macFUSE 挂载
-        let fileSystem = DMSAFileSystem(syncPair: syncPair)
+        let localDir = (syncPair.localDir as NSString).expandingTildeInPath
 
+        // 5. 通过 XPC 调用 DMSAService 进行 FUSE 挂载
         do {
-            try fileSystem.mount(at: targetDir)
+            try await serviceClient.mountVFS(
+                syncPairId: syncPair.id,
+                localDir: localDir,
+                externalDir: syncPair.externalDir,
+                targetDir: targetDir
+            )
         } catch {
-            Logger.shared.error("VFSCore: macFUSE 挂载失败: \(error.localizedDescription)")
+            Logger.shared.error("VFSCore: DMSAService 挂载失败: \(error.localizedDescription)")
             throw VFSCoreError.mountFailed(targetDir)
         }
 
@@ -147,17 +155,16 @@ class VFSCore {
             syncPairId: syncPairId,
             syncPair: syncPair,
             targetDir: targetDir,
-            localDir: (syncPair.localDir as NSString).expandingTildeInPath,
+            localDir: localDir,
             externalDir: syncPair.externalDir,
-            isMounted: true,
-            fileSystem: fileSystem
+            isMounted: true
         )
 
         stateLock.lock()
         mountedPairs[syncPairId] = mountInfo
         stateLock.unlock()
 
-        Logger.shared.info("VFSCore: 已挂载 \(targetDir) (macFUSE)")
+        Logger.shared.info("VFSCore: 已挂载 \(targetDir) (via DMSAService)")
 
         // 6. 启动文件变更监控
         startFileMonitoring(for: syncPair)
@@ -178,13 +185,16 @@ class VFSCore {
         // 1. 停止文件监控
         stopFileMonitoring(for: info.syncPair)
 
-        // 2. 停止 macFUSE
-        info.fileSystem?.unmount()
-        info.isMounted = false
+        // 2. 通过 XPC 调用 DMSAService 卸载 FUSE
+        do {
+            try await serviceClient.unmountVFS(syncPairId: info.syncPair.id)
+        } catch {
+            Logger.shared.warning("VFSCore: DMSAService 卸载失败: \(error.localizedDescription)")
+        }
 
         // 3. 解除 LOCAL_DIR 保护
         do {
-            try await privilegedClient.unprotectDirectory(info.localDir)
+            try await serviceClient.unprotectDirectory(info.localDir)
         } catch {
             Logger.shared.warning("VFSCore: 解除保护失败: \(error.localizedDescription)")
         }
