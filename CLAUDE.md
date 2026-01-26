@@ -2,7 +2,7 @@
 
 > 此文档供 Claude Code 跨会话持续参考，保持项目上下文记忆。
 > 详细会话记录见 `CLAUDE_SESSIONS.md`。
-> 版本: 5.0 | 更新日期: 2026-01-24
+> 版本: 5.1 | 更新日期: 2026-01-26
 
 ---
 
@@ -61,7 +61,7 @@
 ```
 语言: Swift 5.5+
 框架: Cocoa, Foundation, SwiftUI
-VFS: macFUSE 5.1.3+ (使用 GMUserFileSystem)
+VFS: macFUSE 5.1.3+ (C libfuse wrapper)
 存储: ObjectBox (高性能嵌入式数据库)
 同步: 原生 Swift 同步引擎
 构建: Xcode / Swift Package Manager
@@ -341,6 +341,8 @@ tail -f ~/Library/Logs/DMSA/app.log
 | (v4.5) | 2026-01-24 | App端清理 | 移除冗余代码和兼容逻辑 |
 | (v4.6) | 2026-01-24 | 纯UI架构 | 删除VFSCore/FileFilter等，Services仅剩10文件 |
 | 505f841a | 2026-01-24 | v4.5编译修复 | 修复类型错误、恢复ConfigManager、添加共享模型 |
+| eae6e63e | 2026-01-26 | 代码签名修复 | 修复 Service Team ID、macFUSE Library Validation |
+| 2a099f6b | 2026-01-26 | C FUSE Wrapper | libfuse C 实现，修复权限和保护问题 |
 
 ---
 

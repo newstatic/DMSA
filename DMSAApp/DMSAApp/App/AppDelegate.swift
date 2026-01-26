@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let diskManager = DiskManager.shared
     private let alertManager = AlertManager.shared
     private let serviceClient = ServiceClient.shared
+    private let serviceInstaller = ServiceInstaller.shared
 
     // MARK: - 窗口控制器
 
@@ -52,8 +53,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupUI()
         setupDiskCallbacks()
 
-        // 检查并安装 Service
-        checkAndInstallService()
+        // 检查并安装/更新 Service
+        Task {
+            await checkAndInstallService()
+        }
 
         // 检查 macFUSE
         checkMacFUSE()
@@ -168,105 +171,97 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Service 管理
 
-    private func checkAndInstallService() {
+    private func checkAndInstallService() async {
         Logger.shared.info("检查 DMSAService 状态...")
 
-        if #available(macOS 13.0, *) {
-            let service = SMAppService.daemon(plistName: "com.ttttt.dmsa.service.plist")
+        let result = await serviceInstaller.checkAndInstallService()
 
-            switch service.status {
-            case .notRegistered, .notFound:
-                Logger.shared.info("DMSAService 未安装，尝试安装...")
-                installService()
-            case .requiresApproval:
-                Logger.shared.warn("DMSAService 需要用户批准")
-                showServiceApprovalAlert()
-            case .enabled:
-                Logger.shared.info("DMSAService 已安装")
-                connectToService()
-            @unknown default:
-                Logger.shared.warn("DMSAService 状态未知")
-            }
-        } else {
-            let helperPath = "/Library/PrivilegedHelperTools/com.ttttt.dmsa.service"
-            if FileManager.default.fileExists(atPath: helperPath) {
-                Logger.shared.info("DMSAService 已安装")
-                connectToService()
-            } else {
-                installServiceLegacy()
-            }
-        }
-    }
+        switch result {
+        case .installed(let version):
+            Logger.shared.info("DMSAService 已安装: v\(version)")
+            await connectToService()
 
-    @available(macOS 13.0, *)
-    private func installService() {
-        do {
-            let service = SMAppService.daemon(plistName: "com.ttttt.dmsa.service.plist")
-            try service.register()
-            Logger.shared.info("DMSAService 安装成功")
-            connectToService()
-        } catch {
+        case .updated(let from, let to):
+            Logger.shared.info("DMSAService 已更新: \(from) → \(to)")
+            await connectToService()
+
+        case .alreadyInstalled(let version):
+            Logger.shared.info("DMSAService 已就绪: v\(version)")
+            await connectToService()
+
+        case .requiresApproval:
+            Logger.shared.warn("DMSAService 需要用户批准")
+            showServiceApprovalAlert()
+
+        case .failed(let error):
             Logger.shared.error("DMSAService 安装失败: \(error)")
-            showServiceInstallFailedAlert(error: error)
+            showServiceInstallFailedAlert(errorMessage: error)
         }
     }
 
-    private func installServiceLegacy() {
-        var authRef: AuthorizationRef?
-        guard AuthorizationCreate(nil, nil, [], &authRef) == errAuthorizationSuccess,
-              let auth = authRef else {
-            Logger.shared.error("DMSAService 授权失败")
-            return
+    private func connectToService() async {
+        do {
+            _ = try await serviceClient.connect()
+            let versionInfo = try await serviceClient.getVersionInfo()
+            Logger.shared.info("已连接到 DMSAService \(versionInfo.fullVersion)")
+            Logger.shared.info("服务运行时间: \(formatUptime(versionInfo.uptime))")
+
+            // 连接成功后检查初始状态
+            checkInitialState()
+        } catch {
+            Logger.shared.error("连接 DMSAService 失败: \(error)")
         }
+    }
 
-        defer { AuthorizationFree(auth, []) }
+    private func formatUptime(_ seconds: TimeInterval) -> String {
+        let hours = Int(seconds) / 3600
+        let minutes = (Int(seconds) % 3600) / 60
+        let secs = Int(seconds) % 60
 
-        var error: Unmanaged<CFError>?
-        if SMJobBless(kSMDomainSystemLaunchd, "com.ttttt.dmsa.service" as CFString, auth, &error) {
-            Logger.shared.info("DMSAService 安装成功")
-            connectToService()
+        if hours > 0 {
+            return "\(hours)小时\(minutes)分钟"
+        } else if minutes > 0 {
+            return "\(minutes)分钟\(secs)秒"
         } else {
-            Logger.shared.error("DMSAService 安装失败: \(error?.takeRetainedValue().localizedDescription ?? "未知错误")")
-        }
-    }
-
-    private func connectToService() {
-        Task {
-            do {
-                _ = try await serviceClient.connect()
-                let version = try await serviceClient.getVersion()
-                Logger.shared.info("已连接到 DMSAService v\(version)")
-
-                // 连接成功后检查初始状态
-                checkInitialState()
-            } catch {
-                Logger.shared.error("连接 DMSAService 失败: \(error)")
-            }
+            return "\(secs)秒"
         }
     }
 
     private func showServiceApprovalAlert() {
-        let alert = NSAlert()
-        alert.messageText = "需要批准 DMSA 服务"
-        alert.informativeText = "请前往 系统设置 > 隐私与安全性 > 登录项与扩展 中批准 DMSA Service。"
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "打开系统设置")
-        alert.addButton(withTitle: "稍后")
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "需要批准 DMSA 服务"
+            alert.informativeText = "请前往 系统设置 > 隐私与安全性 > 登录项与扩展 中批准 DMSA Service。"
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "打开系统设置")
+            alert.addButton(withTitle: "稍后")
 
-        if alert.runModal() == .alertFirstButtonReturn {
-            if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
-                NSWorkspace.shared.open(url)
+            if alert.runModal() == .alertFirstButtonReturn {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
+                    NSWorkspace.shared.open(url)
+                }
             }
         }
     }
 
-    private func showServiceInstallFailedAlert(error: Error) {
-        let alert = NSAlert()
-        alert.messageText = "DMSA 服务安装失败"
-        alert.informativeText = "无法安装后台服务: \(error.localizedDescription)"
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "确定")
-        alert.runModal()
+    private func showServiceInstallFailedAlert(errorMessage: String) {
+        DispatchQueue.main.async { [weak self] in
+            let alert = NSAlert()
+            alert.messageText = "DMSA 服务安装失败"
+            alert.informativeText = "无法安装后台服务: \(errorMessage)"
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "重试")
+            alert.addButton(withTitle: "退出")
+
+            if alert.runModal() == .alertFirstButtonReturn {
+                // 重试
+                Task {
+                    await self?.checkAndInstallService()
+                }
+            } else {
+                NSApplication.shared.terminate(nil)
+            }
+        }
     }
 
     // MARK: - macFUSE 检查

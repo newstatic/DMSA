@@ -10,7 +10,17 @@ enum Constants {
     static let appFullName = "Delt MACOS Sync App"
 
     /// 版本
-    static let version = "4.1"
+    static let version = "4.7"
+
+    /// 服务版本信息
+    enum ServiceVersion {
+        static let protocolVersion = 1
+        static let buildNumber = 20260126
+        static let minAppVersion = "4.5"
+        static var fullVersion: String {
+            "\(Constants.version) (build \(buildNumber), protocol v\(protocolVersion))"
+        }
+    }
 
     /// 路径
     enum Paths {
@@ -20,6 +30,16 @@ enum Constants {
         static let config = appSupport.appendingPathComponent("config.json")
         static let configBackup = appSupport.appendingPathComponent("config.backup.json")
         static let database = appSupport.appendingPathComponent("Database")
+
+        /// 共享数据目录
+        static var sharedData: URL {
+            appSupport.appendingPathComponent("SharedData")
+        }
+
+        /// 共享状态文件
+        static var sharedState: URL {
+            sharedData.appendingPathComponent("shared_state.json")
+        }
 
         /// Downloads_Local - 原始 ~/Downloads 重命名后的本地存储目录
         static let downloadsLocal = FileManager.default.homeDirectoryForCurrentUser
@@ -32,6 +52,10 @@ enum Constants {
         static let logs = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/DMSA")
         static let logFile = logs.appendingPathComponent("app.log")
+
+        /// 服务日志 (Service 以 root 运行，日志在 /var/log/dmsa/)
+        static let serviceLogDir = URL(fileURLWithPath: "/var/log/dmsa")
+        static let serviceLog = serviceLogDir.appendingPathComponent("service.log")
 
         static let launchAgent = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/LaunchAgents/com.ttttt.dmsa.plist")

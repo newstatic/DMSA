@@ -135,6 +135,7 @@ public enum VFSError: Error, LocalizedError {
     case indexError(String)
     case serviceNotRunning
     case externalOffline
+    case conflictingPaths(String, String)  // TARGET_DIR 和 LOCAL_DIR 都存在
 
     public var errorDescription: String? {
         switch self {
@@ -164,6 +165,8 @@ public enum VFSError: Error, LocalizedError {
             return "VFS 服务未运行"
         case .externalOffline:
             return "外部存储离线"
+        case .conflictingPaths(let target, let local):
+            return "路径冲突: \(target) 和 \(local) 都存在，请手动处理"
         }
     }
 }

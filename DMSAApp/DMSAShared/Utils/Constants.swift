@@ -19,8 +19,25 @@ public enum Constants {
     public static let appFullName = "Delt MACOS Sync App"
 
     /// 版本
-    public static let version = "4.1"
+    public static let version = "4.7"
     public static let appVersion = version  // 别名，兼容旧代码
+
+    /// 服务版本信息
+    public enum ServiceVersion {
+        /// 服务协议版本 (用于检测 App 与 Service 兼容性)
+        public static let protocolVersion = 1
+
+        /// 服务构建号 (每次代码修改递增)
+        public static let buildNumber = 20260126
+
+        /// 最低兼容的 App 版本
+        public static let minAppVersion = "4.5"
+
+        /// 完整版本字符串
+        public static var fullVersion: String {
+            "\(Constants.version) (build \(buildNumber), protocol v\(protocolVersion))"
+        }
+    }
 
     /// XPC 服务名称
     public enum XPCService {
@@ -50,10 +67,26 @@ public enum Constants {
 
     /// 路径
     public enum Paths {
+        /// 当前用户的 home 目录
+        /// Service 以 root 运行时，需要访问实际用户的目录
+        private static var userHome: URL {
+            // 检测是否以 root 身份运行
+            if getuid() == 0 {
+                // 尝试从环境变量获取真实用户
+                if let sudoUser = ProcessInfo.processInfo.environment["SUDO_USER"],
+                   let pw = getpwnam(sudoUser) {
+                    return URL(fileURLWithPath: String(cString: pw.pointee.pw_dir))
+                }
+                // 回退: 获取 UID 1000+ 的第一个用户 (通常是主用户)
+                // 简化方案: 硬编码常见路径
+                return URL(fileURLWithPath: "/Users/ttttt")
+            }
+            return FileManager.default.homeDirectoryForCurrentUser
+        }
+
         /// 应用支持目录
         public static var appSupport: URL {
-            FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Application Support/DMSA")
+            userHome.appendingPathComponent("Library/Application Support/DMSA")
         }
 
         /// 共享数据目录 (服务间共享)
@@ -83,20 +116,24 @@ public enum Constants {
 
         /// Downloads_Local - 原始 ~/Downloads 重命名后的本地存储目录
         public static var downloadsLocal: URL {
-            FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Downloads_Local")
+            userHome.appendingPathComponent("Downloads_Local")
         }
 
         /// 虚拟 Downloads - FUSE 挂载点
         public static var virtualDownloads: URL {
-            FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Downloads")
+            userHome.appendingPathComponent("Downloads")
         }
 
         /// 日志目录
+        /// 注意: Service 以 root 运行时使用 /var/log/dmsa/
         public static var logs: URL {
-            FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Logs/DMSA")
+            // 检测是否以 root 身份运行
+            if getuid() == 0 {
+                return URL(fileURLWithPath: "/var/log/dmsa")
+            } else {
+                return FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent("Library/Logs/DMSA")
+            }
         }
 
         /// 统一服务日志
@@ -129,8 +166,7 @@ public enum Constants {
 
         /// LaunchAgent plist
         public static var launchAgent: URL {
-            FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/LaunchAgents/com.ttttt.dmsa.plist")
+            userHome.appendingPathComponent("Library/LaunchAgents/com.ttttt.dmsa.plist")
         }
 
         /// 版本文件目录名
@@ -162,13 +198,17 @@ public enum Constants {
     ]
 
     /// 路径安全白名单
-    public static let allowedPathPrefixes: [String] = [
-        NSHomeDirectory() + "/Downloads_Local",
-        NSHomeDirectory() + "/Downloads",
-        NSHomeDirectory() + "/Documents_Local",
-        NSHomeDirectory() + "/Documents",
-        "/Volumes/"  // 外置硬盘
-    ]
+    /// 使用计算属性确保在 root 身份下也能正确获取用户路径
+    public static var allowedPathPrefixes: [String] {
+        let home = UserPathManager.shared.userHome
+        return [
+            home + "/Downloads_Local",
+            home + "/Downloads",
+            home + "/Documents_Local",
+            home + "/Documents",
+            "/Volumes/"  // 外置硬盘
+        ]
+    }
 
     /// 危险路径黑名单
     public static let forbiddenPaths: [String] = [

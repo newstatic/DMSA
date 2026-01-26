@@ -108,20 +108,29 @@ public struct SyncPairConfig: Codable, Identifiable, Equatable, Hashable, Sendab
     }
 
     public var expandedLocalPath: String {
-        return (localPath as NSString).expandingTildeInPath
+        return SyncPairConfig.expandTilde(localPath)
     }
 
     // MARK: - VFS 属性 (v4.0)
 
     /// TARGET_DIR - VFS 挂载点 (用户访问入口)
+    /// 使用 UserPathManager 确保在 root 身份下也能正确解析
     public var targetDir: String {
-        return localPath
+        return SyncPairConfig.expandTilde(localPath)
     }
 
     /// LOCAL_DIR - 本地热数据缓存
+    /// 在 localPath 基础上添加 _Local 后缀
     public var localDir: String {
-        let path = (localPath as NSString).expandingTildeInPath
+        let path = SyncPairConfig.expandTilde(localPath)
         return path + "_Local"
+    }
+
+    /// 扩展 tilde (~) 为实际用户路径
+    /// 使用 UserPathManager (如果可用) 或回退到系统方法
+    private static func expandTilde(_ path: String) -> String {
+        // 尝试使用 UserPathManager (在 Service 中设置了正确的用户路径)
+        return UserPathManager.shared.expandTilde(path)
     }
 
     /// EXTERNAL_DIR - 外部完整数据源

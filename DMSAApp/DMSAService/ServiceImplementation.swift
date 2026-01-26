@@ -9,6 +9,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
     private let syncManager = SyncManager()
     private let evictionManager = EvictionManager()
     private var config: AppConfig
+    private let startedAt: Date = Date()
 
     override init() {
         self.config = Self.loadConfig()
@@ -601,6 +602,12 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
 
     // MARK: - ========== 通用操作 ==========
 
+    func setUserHome(_ path: String, withReply reply: @escaping (Bool) -> Void) {
+        UserPathManager.shared.setUserHome(path)
+        logger.info("用户 Home 目录已设置: \(path)")
+        reply(true)
+    }
+
     func reloadConfig(withReply reply: @escaping (Bool, String?) -> Void) {
         Task {
             await reloadConfig()
@@ -619,6 +626,55 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
 
     func getVersion(withReply reply: @escaping (String) -> Void) {
         reply(Constants.version)
+    }
+
+    func getVersionInfo(withReply reply: @escaping (Data) -> Void) {
+        let info = ServiceVersionInfo(
+            version: Constants.version,
+            buildNumber: Constants.ServiceVersion.buildNumber,
+            protocolVersion: Constants.ServiceVersion.protocolVersion,
+            minAppVersion: Constants.ServiceVersion.minAppVersion,
+            startedAt: startedAt
+        )
+        let data = info.toData() ?? Data()
+        reply(data)
+    }
+
+    func checkCompatibility(appVersion: String,
+                            withReply reply: @escaping (Bool, String?, Bool) -> Void) {
+        // 比较版本号
+        let minVersion = Constants.ServiceVersion.minAppVersion
+        let isCompatible = compareVersions(appVersion, minVersion) >= 0
+
+        if !isCompatible {
+            reply(false, "App 版本 \(appVersion) 过低，需要 \(minVersion) 或更高版本", false)
+            return
+        }
+
+        // 检查是否需要更新服务
+        let serviceVersion = Constants.version
+        let needsServiceUpdate = compareVersions(appVersion, serviceVersion) > 0
+
+        if needsServiceUpdate {
+            reply(true, "服务版本 \(serviceVersion) 较旧，建议更新服务", true)
+        } else {
+            reply(true, nil, false)
+        }
+    }
+
+    /// 比较版本号 (返回: -1 小于, 0 等于, 1 大于)
+    private func compareVersions(_ v1: String, _ v2: String) -> Int {
+        let parts1 = v1.split(separator: ".").compactMap { Int($0) }
+        let parts2 = v2.split(separator: ".").compactMap { Int($0) }
+
+        let maxLen = max(parts1.count, parts2.count)
+        for i in 0..<maxLen {
+            let p1 = i < parts1.count ? parts1[i] : 0
+            let p2 = i < parts2.count ? parts2[i] : 0
+            if p1 < p2 { return -1 }
+            if p1 > p2 { return 1 }
+        }
+        return 0
     }
 
     func healthCheck(withReply reply: @escaping (Bool, String?) -> Void) {
@@ -760,15 +816,40 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
     // MARK: - 内部方法
 
     func autoMount() async {
+        logger.info("autoMount: 开始处理，共 \(config.syncPairs.count) 个同步对，\(config.disks.count) 个磁盘")
+
+        // 打印配置详情
+        for disk in config.disks {
+            logger.info("磁盘配置: \(disk.name), id=\(disk.id), mountPath=\(disk.mountPath), isConnected=\(disk.isConnected)")
+        }
+
+        for syncPair in config.syncPairs {
+            logger.info("同步对配置: \(syncPair.name), id=\(syncPair.id), enabled=\(syncPair.enabled), diskId=\(syncPair.diskId)")
+            logger.info("  - localDir=\(syncPair.localDir)")
+            logger.info("  - externalRelativePath=\(syncPair.externalRelativePath)")
+            logger.info("  - targetDir=\(syncPair.targetDir)")
+        }
+
         for syncPair in config.syncPairs where syncPair.enabled {
+            logger.info("处理同步对: \(syncPair.name)")
+
             // 查找对应的磁盘配置
             guard let disk = config.disks.first(where: { $0.id == syncPair.diskId }) else {
-                logger.warning("找不到同步对 \(syncPair.name) 的磁盘配置")
+                logger.warning("找不到同步对 \(syncPair.name) 的磁盘配置 (diskId=\(syncPair.diskId))")
                 continue
             }
 
+            logger.info("找到磁盘: \(disk.name), isConnected=\(disk.isConnected)")
+
             do {
-                let externalPath = disk.isConnected ? syncPair.fullExternalDir(diskMountPath: disk.mountPath) : ""
+                // 注意：externalDir 需要是 nil 而不是空字符串，以便正确触发保护逻辑
+                let externalPath: String? = disk.isConnected ? syncPair.fullExternalDir(diskMountPath: disk.mountPath) : nil
+                logger.info("准备挂载: syncPairId=\(syncPair.id)")
+                logger.info("  - localDir=\(syncPair.localDir)")
+                logger.info("  - externalDir=\(externalPath ?? "(nil - 磁盘未连接)")")
+                logger.info("  - targetDir=\(syncPair.targetDir)")
+                logger.info("  - disk.isConnected=\(disk.isConnected)")
+
                 try await vfsManager.mount(
                     syncPairId: syncPair.id,
                     localDir: syncPair.localDir,
@@ -780,6 +861,8 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
                 logger.error("自动挂载失败 \(syncPair.name): \(error)")
             }
         }
+
+        logger.info("autoMount: 处理完成")
     }
 
     func startScheduler() async {

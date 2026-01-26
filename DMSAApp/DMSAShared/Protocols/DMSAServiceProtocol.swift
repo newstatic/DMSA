@@ -351,6 +351,10 @@ import Foundation
 
     // MARK: - ========== 通用操作 ==========
 
+    /// 设置用户 Home 目录 (App 启动时调用，用于 root 服务正确解析 ~ 路径)
+    func setUserHome(_ path: String,
+                     withReply reply: @escaping (Bool) -> Void)
+
     /// 重新加载配置
     func reloadConfig(withReply reply: @escaping (Bool, String?) -> Void)
 
@@ -359,6 +363,16 @@ import Foundation
 
     /// 获取版本
     func getVersion(withReply reply: @escaping (String) -> Void)
+
+    /// 获取详细版本信息
+    /// - Returns: Data (ServiceVersionInfo JSON)
+    func getVersionInfo(withReply reply: @escaping (Data) -> Void)
+
+    /// 检查版本兼容性
+    /// - Parameter appVersion: 客户端 App 版本
+    /// - Returns: (兼容, 错误信息, 是否需要更新服务)
+    func checkCompatibility(appVersion: String,
+                            withReply reply: @escaping (Bool, String?, Bool) -> Void)
 
     /// 健康检查
     func healthCheck(withReply reply: @escaping (Bool, String?) -> Void)

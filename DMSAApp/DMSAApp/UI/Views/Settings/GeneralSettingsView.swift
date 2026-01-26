@@ -91,7 +91,7 @@ struct GeneralSettingsView: View {
 
 // Make MenuBarStyle conform to Identifiable
 extension UIConfig.MenuBarStyle: Identifiable {
-    var id: String { rawValue }
+    public var id: String { rawValue }
 }
 
 // MARK: - Previews

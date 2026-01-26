@@ -137,6 +137,51 @@ public struct MountInfo: Codable, Identifiable, Sendable {
     }
 }
 
+/// 服务版本信息
+public struct ServiceVersionInfo: Codable, Sendable {
+    public var version: String
+    public var buildNumber: Int
+    public var protocolVersion: Int
+    public var minAppVersion: String
+    public var startedAt: Date
+    public var uptime: TimeInterval
+
+    /// 默认初始化 (空值，由 Service 填充)
+    public init() {
+        self.version = ""
+        self.buildNumber = 0
+        self.protocolVersion = 0
+        self.minAppVersion = ""
+        self.startedAt = Date()
+        self.uptime = 0
+    }
+
+    /// 完整初始化 (Service 端使用)
+    public init(version: String, buildNumber: Int, protocolVersion: Int, minAppVersion: String, startedAt: Date) {
+        self.version = version
+        self.buildNumber = buildNumber
+        self.protocolVersion = protocolVersion
+        self.minAppVersion = minAppVersion
+        self.startedAt = startedAt
+        self.uptime = Date().timeIntervalSince(startedAt)
+    }
+
+    /// 完整版本字符串
+    public var fullVersion: String {
+        "\(version) (build \(buildNumber), protocol v\(protocolVersion))"
+    }
+
+    /// 转换为 Data
+    public func toData() -> Data? {
+        return try? JSONEncoder().encode(self)
+    }
+
+    /// 从 Data 创建
+    public static func from(data: Data) -> ServiceVersionInfo? {
+        return try? JSONDecoder().decode(ServiceVersionInfo.self, from: data)
+    }
+}
+
 /// 同步状态信息
 public struct SyncStatusInfo: Codable, Identifiable, Sendable {
     public var id: String  // syncPairId
@@ -147,7 +192,7 @@ public struct SyncStatusInfo: Codable, Identifiable, Sendable {
     public var nextSyncTime: Date?
     public var pendingFiles: Int
     public var dirtyFiles: Int
-    public var currentProgress: SyncProgress?
+    // Note: currentProgress 通过 getSyncProgress API 单独获取
 
     public init(syncPairId: String) {
         self.id = syncPairId
@@ -158,7 +203,6 @@ public struct SyncStatusInfo: Codable, Identifiable, Sendable {
         self.nextSyncTime = nil
         self.pendingFiles = 0
         self.dirtyFiles = 0
-        self.currentProgress = nil
     }
 
     /// 转换为 Data
@@ -169,5 +213,10 @@ public struct SyncStatusInfo: Codable, Identifiable, Sendable {
     /// 从 Data 创建
     public static func from(data: Data) -> SyncStatusInfo? {
         return try? JSONDecoder().decode(SyncStatusInfo.self, from: data)
+    }
+
+    /// 从 Data 数组创建
+    public static func arrayFrom(data: Data) -> [SyncStatusInfo] {
+        return (try? JSONDecoder().decode([SyncStatusInfo].self, from: data)) ?? []
     }
 }

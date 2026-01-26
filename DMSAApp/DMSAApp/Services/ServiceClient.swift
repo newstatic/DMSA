@@ -118,7 +118,26 @@ final class ServiceClient {
         connectionLock.unlock()
 
         logger.info("已连接到 DMSAService")
+
+        // 告知 Service 当前用户的 Home 目录
+        let userHome = FileManager.default.homeDirectoryForCurrentUser.path
+        await sendUserHome(userHome, proxy: remoteProxy)
+
         return remoteProxy
+    }
+
+    /// 发送用户 Home 目录到 Service
+    private func sendUserHome(_ path: String, proxy: DMSAServiceProtocol) async {
+        await withCheckedContinuation { continuation in
+            proxy.setUserHome(path) { success in
+                if success {
+                    self.logger.info("已发送用户 Home 目录: \(path)")
+                } else {
+                    self.logger.warning("发送用户 Home 目录失败")
+                }
+                continuation.resume()
+            }
+        }
     }
 
     /// 断开连接
@@ -491,6 +510,33 @@ final class ServiceClient {
         return try await withCheckedThrowingContinuation { continuation in
             proxy.getVersion { version in
                 continuation.resume(returning: version)
+            }
+        }
+    }
+
+    /// 获取详细版本信息
+    func getVersionInfo() async throws -> ServiceVersionInfo {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.getVersionInfo { data in
+                if let info = ServiceVersionInfo.from(data: data) {
+                    continuation.resume(returning: info)
+                } else {
+                    continuation.resume(returning: ServiceVersionInfo())
+                }
+            }
+        }
+    }
+
+    /// 检查版本兼容性
+    /// - Returns: (兼容, 错误信息, 需要更新服务)
+    func checkCompatibility() async throws -> (compatible: Bool, message: String?, needsServiceUpdate: Bool) {
+        let proxy = try await getProxy()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.checkCompatibility(appVersion: Constants.version) { compatible, message, needsUpdate in
+                continuation.resume(returning: (compatible, message, needsUpdate))
             }
         }
     }

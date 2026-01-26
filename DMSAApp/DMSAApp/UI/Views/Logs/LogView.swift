@@ -144,7 +144,25 @@ struct LogView: View {
             Button {
                 NSWorkspace.shared.selectFile(logger.logFileLocation.path, inFileViewerRootedAtPath: "")
             } label: {
-                Label(L10n.Settings.Advanced.openLogFolder, systemImage: "folder")
+                Label("logs.openAppLog".localized, systemImage: "doc.text")
+            }
+
+            Button {
+                let serviceLogPath = Constants.Paths.serviceLog.path
+                if FileManager.default.fileExists(atPath: serviceLogPath) {
+                    NSWorkspace.shared.selectFile(serviceLogPath, inFileViewerRootedAtPath: "")
+                } else {
+                    // 如果文件不存在，打开服务日志目录
+                    let serviceLogDir = Constants.Paths.serviceLogDir
+                    if FileManager.default.fileExists(atPath: serviceLogDir.path) {
+                        NSWorkspace.shared.open(serviceLogDir)
+                    } else {
+                        // 回退到 App 日志目录
+                        NSWorkspace.shared.open(Constants.Paths.logs)
+                    }
+                }
+            } label: {
+                Label("logs.openServiceLog".localized, systemImage: "server.rack")
             }
 
             Button {

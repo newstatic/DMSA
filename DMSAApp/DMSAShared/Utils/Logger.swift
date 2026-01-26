@@ -80,15 +80,13 @@ public final class Logger: @unchecked Sendable {
 
         try? FileManager.default.createDirectory(at: logsDir, withIntermediateDirectories: true)
 
-        // 根据来源选择日志文件
-        switch source.lowercased() {
-        case "vfs":
-            logFileURL = Constants.Paths.vfsLog
-        case "sync":
-            logFileURL = Constants.Paths.syncLog
-        case "helper":
-            logFileURL = Constants.Paths.helperLog
-        default:
+        // 根据运行身份选择日志文件
+        // root 身份 (Service) -> serviceLog
+        // 普通用户 (App) -> appLog
+        let isRunningAsRoot = getuid() == 0
+        if isRunningAsRoot {
+            logFileURL = Constants.Paths.serviceLog
+        } else {
             logFileURL = Constants.Paths.appLog
         }
 

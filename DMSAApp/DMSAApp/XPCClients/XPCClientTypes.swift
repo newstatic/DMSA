@@ -1,41 +1,7 @@
 import Foundation
 
 // MARK: - VFS Types
-
-/// 挂载信息
- struct MountInfo: Codable, Identifiable {
-     var id: String  // syncPairId
-     var syncPairId: String
-     var targetDir: String
-     var localDir: String
-     var externalDir: String?
-     var isMounted: Bool
-     var isExternalOnline: Bool
-     var mountedAt: Date?
-     var fileCount: Int
-     var totalSize: Int64
-
-     init(syncPairId: String, targetDir: String, localDir: String) {
-        self.id = syncPairId
-        self.syncPairId = syncPairId
-        self.targetDir = targetDir
-        self.localDir = localDir
-        self.externalDir = nil
-        self.isMounted = false
-        self.isExternalOnline = false
-        self.mountedAt = nil
-        self.fileCount = 0
-        self.totalSize = 0
-    }
-
-     static func arrayFrom(data: Data) -> [MountInfo] {
-        return (try? JSONDecoder().decode([MountInfo].self, from: data)) ?? []
-    }
-
-     static func from(data: Data) -> MountInfo? {
-        return try? JSONDecoder().decode(MountInfo.self, from: data)
-    }
-}
+// Note: MountInfo, SyncStatusInfo, ServiceVersionInfo 定义在 DMSAShared/Models/SharedState.swift
 
 /// 索引统计信息
  struct IndexStats: Codable {
@@ -68,40 +34,7 @@ import Foundation
 }
 
 // MARK: - Sync Types
-
-/// 同步状态信息
- struct SyncStatusInfo: Codable, Identifiable {
-     var id: String  // syncPairId
-     var syncPairId: String
-     var status: SyncStatus
-     var isPaused: Bool
-     var lastSyncTime: Date?
-     var nextSyncTime: Date?
-     var pendingFiles: Int
-     var dirtyFiles: Int
-
-     init(syncPairId: String) {
-        self.id = syncPairId
-        self.syncPairId = syncPairId
-        self.status = .pending
-        self.isPaused = false
-        self.lastSyncTime = nil
-        self.nextSyncTime = nil
-        self.pendingFiles = 0
-        self.dirtyFiles = 0
-    }
-
-     static func from(data: Data) -> SyncStatusInfo? {
-        return try? JSONDecoder().decode(SyncStatusInfo.self, from: data)
-    }
-
-     static func arrayFrom(data: Data) -> [SyncStatusInfo] {
-        guard let statuses = try? JSONDecoder().decode([SyncStatusInfo].self, from: data) else {
-            return []
-        }
-        return statuses
-    }
-}
+// Note: SyncStatusInfo 定义在 DMSAShared/Models/SharedState.swift
 
 /// 同步进度 XPC 响应 (从服务返回的可解码版本)
  struct SyncProgressResponse: Codable {

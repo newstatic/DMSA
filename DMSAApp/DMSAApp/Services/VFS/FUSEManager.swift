@@ -64,10 +64,10 @@ final class FUSEManager {
             return currentStatus
         }
 
-        // 2. 检查 Framework 结构完整性
+        // 2. 检查 Framework 结构完整性 (Objective-C 版本使用 GMUserFileSystem.h)
         let requiredFiles = [
             "\(macFUSEFrameworkPath)/Versions/A/macFUSE",
-            "\(macFUSEFrameworkPath)/Headers/fuse.h"
+            "\(macFUSEFrameworkPath)/Headers/GMUserFileSystem.h"
         ]
 
         for file in requiredFiles {

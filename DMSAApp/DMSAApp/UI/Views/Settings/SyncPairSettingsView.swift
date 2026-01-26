@@ -425,17 +425,21 @@ struct AddSyncPairSheet: View {
 
 #if DEBUG
 struct SyncPairSettingsView_Previews: PreviewProvider {
+    static var config: AppConfig = {
+        var config = AppConfig()
+        config.disks = [
+            DiskConfig(name: "BACKUP", mountPath: "/Volumes/BACKUP"),
+            DiskConfig(name: "PORTABLE", mountPath: "/Volumes/PORTABLE")
+        ]
+        config.syncPairs = [
+            SyncPairConfig(diskId: "1", localPath: "~/Downloads", externalRelativePath: "Downloads"),
+            SyncPairConfig(diskId: "1", localPath: "~/Documents", externalRelativePath: "Documents")
+        ]
+        return config
+    }()
+
     static var previews: some View {
-        SyncPairSettingsView(config: .constant(AppConfig(
-            disks: [
-                DiskConfig(name: "BACKUP", mountPath: "/Volumes/BACKUP"),
-                DiskConfig(name: "PORTABLE", mountPath: "/Volumes/PORTABLE")
-            ],
-            syncPairs: [
-                SyncPairConfig(diskId: "1", localPath: "~/Downloads", externalRelativePath: "Downloads"),
-                SyncPairConfig(diskId: "1", localPath: "~/Documents", externalRelativePath: "Documents")
-            ]
-        )))
+        SyncPairSettingsView(config: .constant(config))
         .frame(width: 450, height: 600)
     }
 }

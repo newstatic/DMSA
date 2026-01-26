@@ -370,13 +370,17 @@ struct AddDiskSheet: View {
 
 #if DEBUG
 struct DiskSettingsView_Previews: PreviewProvider {
+    static var config: AppConfig = {
+        var config = AppConfig()
+        config.disks = [
+            DiskConfig(name: "BACKUP", mountPath: "/Volumes/BACKUP", priority: 0),
+            DiskConfig(name: "PORTABLE", mountPath: "/Volumes/PORTABLE", priority: 1)
+        ]
+        return config
+    }()
+
     static var previews: some View {
-        DiskSettingsView(config: .constant(AppConfig(
-            disks: [
-                DiskConfig(name: "BACKUP", mountPath: "/Volumes/BACKUP", priority: 0),
-                DiskConfig(name: "PORTABLE", mountPath: "/Volumes/PORTABLE", priority: 1)
-            ]
-        )))
+        DiskSettingsView(config: .constant(config))
         .frame(width: 450, height: 600)
     }
 }

@@ -481,6 +481,8 @@
 "logs.fileSize" = "Log file: %@";
 "logs.clearLogs" = "Clear Logs";
 "logs.clearLogsConfirm" = "Are you sure you want to clear all log entries? This cannot be undone.";
+"logs.openAppLog" = "App Log";
+"logs.openServiceLog" = "Service Log";
 
 // MARK: - Notifications History View
 "notifications.allTypes" = "All Types";

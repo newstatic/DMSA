@@ -461,4 +461,139 @@ enum FileLocation: Int, Codable { ... }
 
 ---
 
+### 代码签名修复
+
+**相关会话:** eae6e63e
+**日期:** 2026-01-26
+**状态:** ✅ 完成
+
+**功能描述:**
+修复 DMSAService 安装失败和 macFUSE 加载失败的代码签名问题。
+
+**问题与解决方案:**
+
+| 问题 | 错误信息 | 解决方案 |
+|------|----------|----------|
+| Service 安装失败 | `SMAppServiceErrorDomain Code=1 "Operation not permitted"` | 设置 `DEVELOPMENT_TEAM = 9QGKH6ZBPG` |
+| macFUSE 加载失败 | `different Team IDs` | 添加 `com.apple.security.cs.disable-library-validation` |
+
+**问题分析:**
+
+1. **Service 安装失败:**
+   - 根因: `com.ttttt.dmsa.service` target 的 `DEVELOPMENT_TEAM = ""` (空)
+   - 导致 service 用 ad-hoc 签名，SMAppService 无法注册
+   - 修复: 在 project.pbxproj 中设置 `DEVELOPMENT_TEAM = 9QGKH6ZBPG`
+
+2. **macFUSE 加载失败:**
+   - 根因: macFUSE 由第三方签名，与 App 的 Team ID 不同
+   - 默认启用的 Library Validation 阻止加载不同签名的动态库
+   - 修复: 在 DMSA.entitlements 添加 `disable-library-validation`
+
+**修改文件:**
+- `DMSAApp.xcodeproj/project.pbxproj` - Service Debug/Release 的 DEVELOPMENT_TEAM
+- `DMSAApp/Resources/DMSA.entitlements` - 添加 disable-library-validation
+
+**关键配置变更:**
+
+```xml
+<!-- DMSA.entitlements -->
+<key>com.apple.security.cs.disable-library-validation</key>
+<true/>
+```
+
+```
+// project.pbxproj (SVC700001, SVC700002)
+DEVELOPMENT_TEAM = 9QGKH6ZBPG;
+```
+
+**后续步骤:**
+- 用户需前往 **系统设置 > 隐私与安全性 > 登录项与扩展** 批准 "DMSA Service"
+
+---
+
+### C FUSE Wrapper 与权限修复
+
+**相关会话:** 2a099f6b
+**日期:** 2026-01-26
+**状态:** ✅ 完成
+
+**功能描述:**
+用 C 语言实现 libfuse wrapper，替换 GMUserFileSystem，解决多线程 fork() 崩溃问题。同时修复 FUSE 文件所有权和后端目录保护问题。
+
+**实现思路:**
+- GMUserFileSystem (Objective-C) 在多线程环境下 fork() 会崩溃
+- 用纯 C 直接调用 libfuse API，避免 ObjC runtime 问题
+- Service 以 root 运行，需从父目录获取用户 uid/gid
+
+**问题与解决方案:**
+
+| 问题 | 根因 | 解决方案 |
+|------|------|----------|
+| ~/Downloads 显示 root:wheel | getuid() 在 root 进程返回 0 | 从挂载点父目录获取 owner uid/gid |
+| "移到废纸篓" 变成 "立即删除" | root 所有者无法移到用户废纸篓 | 同上 |
+| EXTERNAL_DIR 未被保护 | externalPath 为空字符串而非 nil | 磁盘未连接时设为 nil |
+| 增量编译未更新 VFSManager | Xcode 增量编译跳过 | 执行 clean build |
+
+**新建文件:**
+- `DMSAService/VFS/fuse_wrapper.c` - C 语言 FUSE 实现 (~1200 行)
+- `DMSAService/VFS/fuse_wrapper.h` - 头文件
+- `DMSAService/DMSAService-Bridging-Header.h` - Swift-C 桥接
+
+**修改文件:**
+- `VFSManager.swift` - 调用 fuse_wrapper，添加保护日志
+- `ServiceImplementation.swift` - externalPath nil vs ""
+- `main.swift` - 添加构建时间日志
+- `com.ttttt.dmsa.service.plist` - 正确 Program 路径
+
+**关键代码变更:**
+
+```c
+// fuse_wrapper.c - 从父目录获取 owner
+struct stat parent_stat;
+char *parent_path = strdup(mount_path);
+char *last_slash = strrchr(parent_path, '/');
+if (last_slash && last_slash != parent_path) {
+    *last_slash = '\0';
+    if (stat(parent_path, &parent_stat) == 0) {
+        g_state.owner_uid = parent_stat.st_uid;
+        g_state.owner_gid = parent_stat.st_gid;
+    }
+}
+
+// dmsa_getattr - 使用保存的 owner
+stbuf->st_uid = g_state.owner_uid;  // 不再用 getuid()
+stbuf->st_gid = g_state.owner_gid;
+```
+
+```swift
+// ServiceImplementation.swift
+// Before: let externalPath = disk.isConnected ? ... : ""
+// After:
+let externalPath: String? = disk.isConnected ? ... : nil
+```
+
+**FUSE wrapper 功能:**
+- mount/unmount 管理
+- readdir 智能合并 (LOCAL ∪ EXTERNAL)
+- 读写路由 (优先 LOCAL，fallback EXTERNAL)
+- 离线模式支持
+- 后端目录保护 (chmod/ACL/chflags hidden)
+
+**部署步骤:**
+```bash
+# 1. Clean build
+xcodebuild clean build -scheme "com.ttttt.dmsa.service" -configuration Debug
+
+# 2. 停止服务
+sudo launchctl bootout system/com.ttttt.dmsa.service
+
+# 3. 复制二进制
+sudo cp .../Debug/com.ttttt.dmsa.service /Library/PrivilegedHelperTools/
+
+# 4. 启动服务
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.ttttt.dmsa.service.plist
+```
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*
