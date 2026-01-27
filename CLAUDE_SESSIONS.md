@@ -1000,4 +1000,170 @@ DMSAApp/DMSAApp/UI/Views/MainView.swift  # 使用 StateManager
 
 ---
 
+### UI 文件清理 + pbxproj 工具
+
+**相关会话:** 4f263311 (续)
+**日期:** 2026-01-27
+**状态:** ✅ 完成
+
+**功能描述:**
+基于 `22_UI修改计划.md` 和 `21_UI设计规范.md` 执行 UI 文件清理，删除 14 个已废弃的旧 UI 文件，并创建通用的 Xcode 项目管理工具 `pbxproj_tool.py`。
+
+**实现思路:**
+- 根据设计规范审查现有 UI 文件，识别不再使用的旧组件
+- MainView.swift 只引用 6 个新页面，旧 Settings/History/Progress/Wizard 目录下的文件可安全删除
+- 将 VFSSettingsViewModel 从即将删除的文件迁移到 SettingsPage.swift
+- 创建 Python 工具自动化 Xcode 项目文件管理
+
+---
+
+**阶段 1: 依赖分析与迁移**
+
+**完成任务:**
+1. ✅ 验证 MainView.swift 不引用任何旧组件
+2. ✅ 检查 VFSSettingsViewModel 依赖关系
+3. ✅ 将 VFSSettingsViewModel 和 VFSMountInfo 迁移到 SettingsPage.swift
+4. ✅ 生成清理报告文档 25_UI文件清理报告.md
+
+**迁移的代码:**
+```swift
+// SettingsPage.swift - 新增 VFSSettingsViewModel
+class VFSSettingsViewModel: ObservableObject {
+    @Published var isMacFUSEInstalled = false
+    @Published var macFUSEVersion: String?
+    @Published var macFUSEStatusText = "检查中..."
+    @Published var macFUSEStatusColor: Color = .secondary
+    @Published var isHelperInstalled = false
+    @Published var helperVersion: String?
+    @Published var helperStatusText = "检查中..."
+    @Published var helperStatusColor: Color = .secondary
+    @Published var mountedVFS: [VFSMountInfo] = []
+
+    func checkMacFUSE() async { ... }
+    func checkService() async { ... }
+    func loadVFSMounts() async { ... }
+}
+
+struct VFSMountInfo {
+    let targetDir: String
+    let localDir: String
+    let externalDir: String
+}
+```
+
+---
+
+**阶段 2: 删除旧 UI 文件**
+
+**删除文件 (14 个, ~5,600 行):**
+
+| 目录 | 文件 | 行数 | 原因 |
+|------|------|------|------|
+| Settings/ | GeneralSettingsView.swift | 106 | 已合并到 SettingsPage |
+| Settings/ | NotificationSettingsView.swift | 150 | 已合并到 SettingsPage |
+| Settings/ | FilterSettingsView.swift | 251 | 已合并到 SettingsPage |
+| Settings/ | AdvancedSettingsView.swift | 352 | 已合并到 SettingsPage |
+| Settings/ | SyncPairSettingsView.swift | 446 | 已合并到 SettingsPage |
+| Settings/ | VFSSettingsView.swift | 374 | 已合并到 SettingsPage |
+| Settings/ | SettingsView.swift | 196 | 被 SettingsPage 替代 |
+| Settings/ | DiskSettingsView.swift | 387 | 已合并到 DisksPage |
+| Settings/ | StatisticsView.swift | 492 | 已合并到 DashboardView |
+| History/ | HistoryView.swift | 663 | 已合并到 SyncPage |
+| History/ | HistoryContentView.swift | 326 | 已合并到 SyncPage |
+| Notifications/ | NotificationHistoryView.swift | 494 | 已合并到 SyncPage |
+| Progress/ | SyncProgressView.swift | 357 | 已合并到 SyncPage |
+| Wizard/ | WizardView.swift | 1017 | 设计规范未包含 |
+
+---
+
+**阶段 3: pbxproj_tool.py 创建**
+
+**完成任务:**
+1. ✅ 创建 Python 虚拟环境并安装 pbxproj
+2. ✅ 创建通用 Xcode 项目管理工具
+3. ✅ 移除 14 个已删除文件的项目引用
+4. ✅ 修复 96 个损坏的 PBXBuildFile 引用
+
+**工具功能 (pbxproj_tool.py):**
+
+```python
+class PBXProjTool:
+    # 文件列表
+    def list_files(self, pattern=None, file_type=None)
+    def list_groups(self)
+    def list_targets(self)
+
+    # 文件操作
+    def add_file(self, file_path, target_name=None, group_path=None)
+    def remove_files(self, file_names, save=True)
+    def find_files(self, pattern)
+    def file_info(self, file_name)
+
+    # 项目维护
+    def check(self)   # 检查项目完整性
+    def fix(self)     # 修复损坏引用
+    def backup(self)  # 备份项目文件
+    def restore(self, backup_name=None)  # 恢复备份
+```
+
+**命令行用法:**
+```bash
+# 列出所有 Swift 文件
+python pbxproj_tool.py list --type swift
+
+# 查找匹配模式的文件
+python pbxproj_tool.py find "Settings"
+
+# 检查项目完整性
+python pbxproj_tool.py check
+
+# 修复损坏引用
+python pbxproj_tool.py fix
+
+# 移除文件
+python pbxproj_tool.py remove "OldView.swift"
+```
+
+**问题与解决:**
+
+| 问题 | 根因 | 解决方案 |
+|------|------|----------|
+| `'objects' has no attribute 'values'` | pbxproj API 变更 | 使用 `get_objects_in_section()` |
+| 部分文件路径不匹配 | 文件在不同子目录 | 使用 Glob 查找实际路径 |
+| `remove_file_by_id()` 不工作 | PBXBuildFile 特殊处理 | 直接 `del project.objects[ref_id]` |
+| 96 个损坏引用 | 历史遗留问题 | 使用 fix() 命令自动修复 |
+
+---
+
+**变更统计:**
+
+| 维度 | 修改前 | 修改后 |
+|------|--------|--------|
+| UI 文件数 | 44 | 30 |
+| UI 代码行数 | ~14,815 | ~9,200 |
+| 代码精简比例 | - | 36% |
+| pbxproj 损坏引用 | 96 | 0 |
+
+**新建文件:**
+```
+pbxproj_tool.py                          # Xcode 项目管理工具 (645 行)
+DMSAApp/Docs/25_UI文件清理报告.md         # 清理报告文档
+.pbxproj_backups/                        # 项目备份目录
+```
+
+**修改文件:**
+```
+DMSAApp/DMSAApp.xcodeproj/project.pbxproj  # 移除 14 个文件引用 + 修复 96 个损坏引用
+DMSAApp/DMSAApp/UI/Views/SettingsPage.swift  # 添加 VFSSettingsViewModel
+```
+
+**删除文件:**
+- Settings/ 目录下 9 个文件
+- History/ 目录下 2 个文件
+- Notifications/ 目录下 1 个文件
+- Progress/ 目录下 1 个文件
+- Wizard/ 目录下 1 个文件
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*

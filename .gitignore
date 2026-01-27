@@ -27,3 +27,5 @@ build/
 
 # Logs
 *.log
+.pbxproj_backups/
+.venv/

@@ -874,6 +874,159 @@ struct PermissionStatusRow: View {
     }
 }
 
+// MARK: - VFS Settings View Model
+
+class VFSSettingsViewModel: ObservableObject {
+    @Published var isMacFUSEInstalled = false
+    @Published var macFUSEVersion: String?
+    @Published var macFUSEStatusText = "检查中..."
+    @Published var macFUSEStatusColor: Color = .secondary
+
+    @Published var isHelperInstalled = false
+    @Published var helperVersion: String?
+    @Published var helperStatusText = "检查中..."
+    @Published var helperStatusColor: Color = .secondary
+
+    @Published var mountedVFS: [VFSMountInfo] = []
+
+    private let serviceClient = ServiceClient.shared
+
+    func refresh() {
+        checkMacFUSE()
+        checkService()
+        checkMountedVFS()
+    }
+
+    // MARK: - macFUSE
+
+    private func checkMacFUSE() {
+        let availability = FUSEManager.shared.checkFUSEAvailability()
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            switch availability {
+            case .available(let version):
+                self.isMacFUSEInstalled = true
+                self.macFUSEVersion = version
+                self.macFUSEStatusText = "已安装"
+                self.macFUSEStatusColor = .green
+            case .notInstalled, .frameworkMissing:
+                self.isMacFUSEInstalled = false
+                self.macFUSEVersion = nil
+                self.macFUSEStatusText = "未安装"
+                self.macFUSEStatusColor = .red
+            case .versionTooOld(let current, _):
+                self.isMacFUSEInstalled = true
+                self.macFUSEVersion = current
+                self.macFUSEStatusText = "版本过旧"
+                self.macFUSEStatusColor = .orange
+            case .loadError(let error):
+                self.isMacFUSEInstalled = false
+                self.macFUSEVersion = nil
+                self.macFUSEStatusText = "加载失败: \(error.localizedDescription)"
+                self.macFUSEStatusColor = .red
+            }
+        }
+    }
+
+    func openMacFUSEDownload() {
+        if let url = URL(string: "https://macfuse.github.io/") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    // MARK: - Service (DMSAService)
+
+    private func checkService() {
+        Task {
+            do {
+                let isHealthy = try await serviceClient.healthCheck()
+                let version = try? await serviceClient.getVersion()
+
+                await MainActor.run {
+                    self.isHelperInstalled = isHealthy
+                    self.helperVersion = version
+                    self.helperStatusText = isHealthy ? "运行中" : "未响应"
+                    self.helperStatusColor = isHealthy ? .green : .red
+                }
+            } catch {
+                await MainActor.run {
+                    self.isHelperInstalled = false
+                    self.helperVersion = nil
+                    self.helperStatusText = "未连接"
+                    self.helperStatusColor = .red
+                }
+            }
+        }
+    }
+
+    func installHelper() {
+        if #available(macOS 13.0, *) {
+            do {
+                let service = SMAppService.daemon(plistName: "com.ttttt.dmsa.service.plist")
+                try service.register()
+                checkService()
+            } catch {
+                Logger.shared.error("安装服务失败: \(error.localizedDescription)")
+            }
+        } else {
+            Logger.shared.warn("macOS 13.0 以下版本需要手动安装服务")
+        }
+    }
+
+    func reinstallHelper() {
+        if #available(macOS 13.0, *) {
+            do {
+                let service = SMAppService.daemon(plistName: "com.ttttt.dmsa.service.plist")
+                try service.unregister()
+            } catch {
+                Logger.shared.warn("卸载服务失败: \(error.localizedDescription)")
+            }
+        }
+        installHelper()
+    }
+
+    @available(macOS 13.0, *)
+    func uninstallHelper() {
+        do {
+            let service = SMAppService.daemon(plistName: "com.ttttt.dmsa.service.plist")
+            try service.unregister()
+            checkService()
+        } catch {
+            Logger.shared.error("卸载服务失败: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - VFS Mounts
+
+    private func checkMountedVFS() {
+        Task {
+            do {
+                let mounts = try await ServiceClient.shared.getVFSMounts()
+                await MainActor.run {
+                    self.mountedVFS = mounts.map { mount in
+                        VFSMountInfo(
+                            targetDir: mount.targetDir,
+                            localDir: mount.localDir,
+                            externalDir: mount.externalDir ?? ""
+                        )
+                    }
+                }
+            } catch {
+                Logger.shared.error("获取挂载信息失败: \(error)")
+            }
+        }
+    }
+}
+
+// MARK: - VFS Mount Info
+
+struct VFSMountInfo {
+    let targetDir: String
+    let localDir: String
+    let externalDir: String
+}
+
 // MARK: - Previews
 
 #if DEBUG

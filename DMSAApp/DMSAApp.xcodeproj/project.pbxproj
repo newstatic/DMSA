@@ -7,124 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		"'F0003001'" = {isa = PBXBuildFile; productRef = F0900001; };
 		858ACF162F28A2BB0015612A /* ObjectBox.xcframework in Frameworks */ = {isa = PBXBuildFile; productRef = 858ACF152F28A2BB0015612A /* ObjectBox.xcframework */; };
-		COPY001003 /* com.ttttt.dmsa.service in Copy Service */ = {isa = PBXBuildFile; fileRef = SVC000001 /* com.ttttt.dmsa.service */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		COPY001004 /* com.ttttt.dmsa.service.plist in Copy LaunchDaemon plist */ = {isa = PBXBuildFile; fileRef = SVC101011 /* com.ttttt.dmsa.service.plist */; };
-		F0001001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101001 /* main.swift */; };
-		F0001002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101002 /* AppDelegate.swift */; };
-		F0001003 /* ConfigExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101003 /* ConfigExtensions.swift */; };
-		F0001004 /* DiskConfigEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101004 /* DiskConfigEntity.swift */; };
-		F0001005 /* FileEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101005 /* FileEntry.swift */; };
-		F0001006 /* SyncHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101006 /* SyncHistory.swift */; };
-		F0001007 /* SyncPairEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101007 /* SyncPairEntity.swift */; };
-		F0001008 /* SyncStatistics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101008 /* SyncStatistics.swift */; };
-		F0001011 /* DiskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101011 /* DiskManager.swift */; };
-		F0001012 /* ConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101012 /* ConfigManager.swift */; };
-		F0001014 /* AlertManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101014 /* AlertManager.swift */; };
-		F0001017 /* MenuBarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101017 /* MenuBarManager.swift */; };
-		F0001018 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101018 /* Constants.swift */; };
-		F0001019 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101019 /* Errors.swift */; };
-		F0001020 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101020 /* Logger.swift */; };
-		F0001021 /* Animation+DMSA.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101021 /* Animation+DMSA.swift */; };
-		F0001022 /* Color+DMSA.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101022 /* Color+DMSA.swift */; };
-		F0001023 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101023 /* Localization.swift */; };
-		F0001024 /* ButtonStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101024 /* ButtonStyles.swift */; };
-		F0001025 /* CardStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101025 /* CardStyles.swift */; };
-		F0001026 /* DiskCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101026 /* DiskCard.swift */; };
-		F0001027 /* PatternListEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101027 /* PatternListEditor.swift */; };
-		F0001028 /* PickerRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101028 /* PickerRow.swift */; };
-		F0001029 /* SectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101029 /* SectionHeader.swift */; };
-		F0001030 /* SettingRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101030 /* SettingRow.swift */; };
-		F0001031 /* SliderRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101031 /* SliderRow.swift */; };
-		F0001032 /* StorageBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101032 /* StorageBar.swift */; };
-		F0001033 /* ToggleRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101033 /* ToggleRow.swift */; };
-		F0001034 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101034 /* AboutView.swift */; };
-		F0001035 /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101035 /* ErrorView.swift */; };
-		F0001036 /* RecoveryWizard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101036 /* RecoveryWizard.swift */; };
-		F0001037 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101037 /* HistoryView.swift */; };
-		F0001038 /* SyncProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101038 /* SyncProgressView.swift */; };
-		F0001039 /* AdvancedSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101039 /* AdvancedSettingsView.swift */; };
-		F0001041 /* DiskSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101041 /* DiskSettingsView.swift */; };
-		F0001042 /* FilterSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101042 /* FilterSettingsView.swift */; };
-		F0001043 /* GeneralSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101043 /* GeneralSettingsView.swift */; };
-		F0001044 /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101044 /* NotificationSettingsView.swift */; };
-		F0001045 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101045 /* SettingsView.swift */; };
-		F0001046 /* SyncPairSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101046 /* SyncPairSettingsView.swift */; };
-		F0001047 /* WizardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101047 /* WizardView.swift */; };
-		F0001048 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101048 /* StatisticsView.swift */; };
-		F0001049 /* NotificationRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101049 /* NotificationRecord.swift */; };
-		F0001050 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101050 /* MainView.swift */; };
-		F0001051 /* HistoryContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101051 /* HistoryContentView.swift */; };
-		F0001052 /* LogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101052 /* LogView.swift */; };
-		F0001053 /* NotificationHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101053 /* NotificationHistoryView.swift */; };
-		F0001054 /* LaunchAtLoginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101054 /* LaunchAtLoginManager.swift */; };
-		F0001055 /* AppearanceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101055 /* AppearanceManager.swift */; };
-		F0001060 /* FileMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101060 /* FileMetadata.swift */; };
-		F0001061 /* SyncPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101061 /* SyncPlan.swift */; };
-		F0001062 /* ConflictInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101062 /* ConflictInfo.swift */; };
-		F0001063 /* SyncProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101063 /* SyncProgress.swift */; };
-		F0001071 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101071 /* PermissionManager.swift */; };
-		F0001072 /* PermissionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101072 /* PermissionRow.swift */; };
-		F0001073 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101073 /* DashboardView.swift */; };
-		F0001074 /* FUSEManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101074 /* FUSEManager.swift */; };
-		F0001083 /* PathValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101083 /* PathValidator.swift */; };
-		F0001084 /* ServiceClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101084 /* ServiceClient.swift */; };
-		F0001085 /* ServiceInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101085 /* ServiceInstaller.swift */; };
-		F0001090 /* VFSSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101090 /* VFSSettingsView.swift */; };
-		F0002001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F0201001 /* Localizable.strings */; };
-		F0002002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F0201004 /* Assets.xcassets */; };
-		F0003001 /* PermissionsKit in Frameworks */ = {isa = PBXBuildFile; productRef = F0900001 /* PermissionsKit */; };
-		SHARED001008 /* SharedConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101008 /* SharedConfig.swift */; };
-		SHARED001011 /* SharedState.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101011 /* SharedState.swift */; };
-		SHARED001013 /* DMSAServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101013 /* DMSAServiceProtocol.swift */; };
-		SHARED001019 /* SharedUserPathManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101019 /* SharedUserPathManager.swift */; };
-		SVC001001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101001 /* main.swift */; };
-		SVC001002 /* ServiceDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101002 /* ServiceDelegate.swift */; };
-		SVC001003 /* ServiceImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101003 /* ServiceImplementation.swift */; };
-		SVC001004 /* VFSManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101004 /* VFSManager.swift */; };
-		SVC001005 /* FUSEFileSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101005 /* FUSEFileSystem.swift */; };
-		SVC001006 /* SyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101006 /* SyncManager.swift */; };
-		SVC001007 /* PrivilegedOperations.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101007 /* PrivilegedOperations.swift */; };
-		SVC001008 /* EvictionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101008 /* EvictionManager.swift */; };
-		SVC001012 /* ServiceDatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101012 /* ServiceDatabaseManager.swift */; };
-		SVC001013 /* ServiceConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101013 /* ServiceConfigManager.swift */; };
-		SVC001014 /* ServiceTreeVersionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101014 /* ServiceTreeVersionManager.swift */; };
-		SVC001015 /* ServiceFSEventsMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101015 /* ServiceFSEventsMonitor.swift */; };
-		SVC001016 /* ServiceDiskMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101016 /* ServiceDiskMonitor.swift */; };
-		SVC001017 /* NativeSyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101017 /* NativeSyncEngine.swift */; };
-		SVC001018 /* FileScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101018 /* FileScanner.swift */; };
-		SVC001019 /* FileHasher.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101019 /* FileHasher.swift */; };
-		SVC001020 /* DiffEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101020 /* DiffEngine.swift */; };
-		SVC001021 /* FileCopier.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101021 /* FileCopier.swift */; };
-		SVC001022 /* ConflictResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101022 /* ConflictResolver.swift */; };
-		SVC001023 /* SyncStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101023 /* SyncStateManager.swift */; };
-		SVC001024 /* LockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101024 /* LockManager.swift */; };
-		SVC001025 /* ServiceSyncProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101025 /* ServiceSyncProgress.swift */; };
-		SVC001026 /* fuse_wrapper.c in Sources */ = {isa = PBXBuildFile; fileRef = SVC101026 /* fuse_wrapper.c */; };
-		SVC001101 /* DMSAServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101013 /* DMSAServiceProtocol.swift */; };
-		SVC001102 /* SharedConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101004 /* SharedConstants.swift */; };
-		SVC001103 /* SharedErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101005 /* SharedErrors.swift */; };
-		SVC001104 /* SharedLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101006 /* SharedLogger.swift */; };
-		SVC001105 /* SharedPathValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101007 /* SharedPathValidator.swift */; };
-		SVC001106 /* SharedConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101008 /* SharedConfig.swift */; };
-		SVC001107 /* SharedFileEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101009 /* SharedFileEntry.swift */; };
-		SVC001108 /* SharedState.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101011 /* SharedState.swift */; };
-		SVC001109 /* SharedSyncProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101012 /* SharedSyncProgress.swift */; };
-		SVC001110 /* SharedSyncHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101010 /* SharedSyncHistory.swift */; };
-		SVC001111 /* SharedFileMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101014 /* SharedFileMetadata.swift */; };
-		SVC001112 /* SharedSyncPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101015 /* SharedSyncPlan.swift */; };
-		SVC001113 /* SharedConflictInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101016 /* SharedConflictInfo.swift */; };
-		SVC001114 /* SharedSyncTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101017 /* SharedSyncTask.swift */; };
-		SVC001115 /* SharedNotificationRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101018 /* SharedNotificationRecord.swift */; };
-		SVC001119 /* SharedUserPathManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101019 /* SharedUserPathManager.swift */; };
-		XPC001005 /* XPCClientTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = XPC101005 /* XPCClientTypes.swift */; };
-		GEN001001 /* EntityInfo-com.ttttt.dmsa.service.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = GEN101001 /* EntityInfo-com.ttttt.dmsa.service.generated.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		SVC300001 /* PBXContainerItemProxy */ = {
+		"'SVC300001'" = {
 			isa = PBXContainerItemProxy;
-			containerPortal = F0700001 /* Project object */;
+			containerPortal = F0700001;
 			proxyType = 1;
 			remoteGlobalIDString = SVC500001;
 			remoteInfo = com.ttttt.dmsa.service;
@@ -132,24 +22,24 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		SVC400005 /* Copy Service */ = {
+		"'SVC400005'" = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = Contents/Library/LaunchServices;
 			dstSubfolderSpec = 1;
 			files = (
-				COPY001003 /* com.ttttt.dmsa.service in Copy Service */,
+				COPY001003,
 			);
 			name = "Copy Service";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		SVC400006 /* Copy LaunchDaemon plist */ = {
+		"'SVC400006'" = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 7;
 			files = (
-				COPY001004 /* com.ttttt.dmsa.service.plist in Copy LaunchDaemon plist */,
+				COPY001004,
 			);
 			name = "Copy LaunchDaemon plist";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -157,132 +47,118 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		F0000001 /* DMSA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DMSA.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		F0101001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
-		F0101002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		F0101003 /* ConfigExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigExtensions.swift; sourceTree = "<group>"; };
-		F0101004 /* DiskConfigEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskConfigEntity.swift; sourceTree = "<group>"; };
-		F0101005 /* FileEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileEntry.swift; sourceTree = "<group>"; };
-		F0101006 /* SyncHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncHistory.swift; sourceTree = "<group>"; };
-		F0101007 /* SyncPairEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPairEntity.swift; sourceTree = "<group>"; };
-		F0101008 /* SyncStatistics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatistics.swift; sourceTree = "<group>"; };
-		F0101011 /* DiskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskManager.swift; sourceTree = "<group>"; };
-		F0101012 /* ConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigManager.swift; sourceTree = "<group>"; };
-		F0101014 /* AlertManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertManager.swift; sourceTree = "<group>"; };
-		F0101017 /* MenuBarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarManager.swift; sourceTree = "<group>"; };
-		F0101018 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
-		F0101019 /* Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
-		F0101020 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
-		F0101021 /* Animation+DMSA.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Animation+DMSA.swift"; sourceTree = "<group>"; };
-		F0101022 /* Color+DMSA.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+DMSA.swift"; sourceTree = "<group>"; };
-		F0101023 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
-		F0101024 /* ButtonStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonStyles.swift; sourceTree = "<group>"; };
-		F0101025 /* CardStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardStyles.swift; sourceTree = "<group>"; };
-		F0101026 /* DiskCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskCard.swift; sourceTree = "<group>"; };
-		F0101027 /* PatternListEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternListEditor.swift; sourceTree = "<group>"; };
-		F0101028 /* PickerRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickerRow.swift; sourceTree = "<group>"; };
-		F0101029 /* SectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionHeader.swift; sourceTree = "<group>"; };
-		F0101030 /* SettingRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingRow.swift; sourceTree = "<group>"; };
-		F0101031 /* SliderRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SliderRow.swift; sourceTree = "<group>"; };
-		F0101032 /* StorageBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageBar.swift; sourceTree = "<group>"; };
-		F0101033 /* ToggleRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToggleRow.swift; sourceTree = "<group>"; };
-		F0101034 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
-		F0101035 /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
-		F0101036 /* RecoveryWizard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryWizard.swift; sourceTree = "<group>"; };
-		F0101037 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
-		F0101038 /* SyncProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncProgressView.swift; sourceTree = "<group>"; };
-		F0101039 /* AdvancedSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettingsView.swift; sourceTree = "<group>"; };
-		F0101041 /* DiskSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskSettingsView.swift; sourceTree = "<group>"; };
-		F0101042 /* FilterSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterSettingsView.swift; sourceTree = "<group>"; };
-		F0101043 /* GeneralSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettingsView.swift; sourceTree = "<group>"; };
-		F0101044 /* NotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsView.swift; sourceTree = "<group>"; };
-		F0101045 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		F0101046 /* SyncPairSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPairSettingsView.swift; sourceTree = "<group>"; };
-		F0101047 /* WizardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WizardView.swift; sourceTree = "<group>"; };
-		F0101048 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
-		F0101049 /* NotificationRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRecord.swift; sourceTree = "<group>"; };
-		F0101050 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
-		F0101051 /* HistoryContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryContentView.swift; sourceTree = "<group>"; };
-		F0101052 /* LogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogView.swift; sourceTree = "<group>"; };
-		F0101053 /* NotificationHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationHistoryView.swift; sourceTree = "<group>"; };
-		F0101054 /* LaunchAtLoginManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManager.swift; sourceTree = "<group>"; };
-		F0101055 /* AppearanceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceManager.swift; sourceTree = "<group>"; };
-		F0101060 /* FileMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileMetadata.swift; sourceTree = "<group>"; };
-		F0101061 /* SyncPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPlan.swift; sourceTree = "<group>"; };
-		F0101062 /* ConflictInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictInfo.swift; sourceTree = "<group>"; };
-		F0101063 /* SyncProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncProgress.swift; sourceTree = "<group>"; };
-		F0101071 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
-		F0101072 /* PermissionRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionRow.swift; sourceTree = "<group>"; };
-		F0101073 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
-		F0101074 /* FUSEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FUSEManager.swift; sourceTree = "<group>"; };
-		F0101083 /* PathValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathValidator.swift; sourceTree = "<group>"; };
-		F0101084 /* ServiceClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceClient.swift; sourceTree = "<group>"; };
-		F0101085 /* ServiceInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInstaller.swift; sourceTree = "<group>"; };
-		F0101090 /* VFSSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VFSSettingsView.swift; sourceTree = "<group>"; };
-		F0201002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
-		F0201003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
-		F0201004 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		F0201005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		F0201006 /* DMSA.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DMSA.entitlements; sourceTree = "<group>"; };
-		SHARED101004 /* SharedConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedConstants.swift; path = Constants.swift; sourceTree = "<group>"; };
-		SHARED101005 /* SharedErrors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedErrors.swift; path = Errors.swift; sourceTree = "<group>"; };
-		SHARED101006 /* SharedLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedLogger.swift; path = Logger.swift; sourceTree = "<group>"; };
-		SHARED101007 /* SharedPathValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedPathValidator.swift; path = PathValidator.swift; sourceTree = "<group>"; };
-		SHARED101008 /* SharedConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedConfig.swift; path = Config.swift; sourceTree = "<group>"; };
-		SHARED101009 /* SharedFileEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedFileEntry.swift; path = FileEntry.swift; sourceTree = "<group>"; };
-		SHARED101010 /* SharedSyncHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedSyncHistory.swift; path = SyncHistory.swift; sourceTree = "<group>"; };
-		SHARED101011 /* SharedState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedState.swift; sourceTree = "<group>"; };
-		SHARED101012 /* SharedSyncProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedSyncProgress.swift; path = SyncProgress.swift; sourceTree = "<group>"; };
-		SHARED101013 /* DMSAServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMSAServiceProtocol.swift; sourceTree = "<group>"; };
-		SHARED101014 /* SharedFileMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedFileMetadata.swift; path = FileMetadata.swift; sourceTree = "<group>"; };
-		SHARED101015 /* SharedSyncPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedSyncPlan.swift; path = SyncPlan.swift; sourceTree = "<group>"; };
-		SHARED101016 /* SharedConflictInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedConflictInfo.swift; path = ConflictInfo.swift; sourceTree = "<group>"; };
-		SHARED101017 /* SharedSyncTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedSyncTask.swift; path = SyncTask.swift; sourceTree = "<group>"; };
-		SHARED101018 /* SharedNotificationRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedNotificationRecord.swift; path = NotificationRecord.swift; sourceTree = "<group>"; };
-		SHARED101019 /* SharedUserPathManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedUserPathManager.swift; path = UserPathManager.swift; sourceTree = "<group>"; };
-		SVC000001 /* com.ttttt.dmsa.service */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.ttttt.dmsa.service; sourceTree = BUILT_PRODUCTS_DIR; };
-		SVC101001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
-		SVC101002 /* ServiceDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDelegate.swift; sourceTree = "<group>"; };
-		SVC101003 /* ServiceImplementation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceImplementation.swift; sourceTree = "<group>"; };
-		SVC101004 /* VFSManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VFSManager.swift; sourceTree = "<group>"; };
-		SVC101005 /* FUSEFileSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FUSEFileSystem.swift; sourceTree = "<group>"; };
-		SVC101006 /* SyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManager.swift; sourceTree = "<group>"; };
-		SVC101007 /* PrivilegedOperations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedOperations.swift; sourceTree = "<group>"; };
-		SVC101008 /* EvictionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvictionManager.swift; sourceTree = "<group>"; };
-		SVC101009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		SVC101010 /* DMSAService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DMSAService.entitlements; sourceTree = "<group>"; };
-		SVC101011 /* com.ttttt.dmsa.service.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.ttttt.dmsa.service.plist; sourceTree = "<group>"; };
-		SVC101012 /* ServiceDatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDatabaseManager.swift; sourceTree = "<group>"; };
-		SVC101013 /* ServiceConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceConfigManager.swift; sourceTree = "<group>"; };
-		SVC101014 /* ServiceTreeVersionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceTreeVersionManager.swift; sourceTree = "<group>"; };
-		SVC101015 /* ServiceFSEventsMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceFSEventsMonitor.swift; sourceTree = "<group>"; };
-		SVC101016 /* ServiceDiskMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDiskMonitor.swift; sourceTree = "<group>"; };
-		SVC101017 /* NativeSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSyncEngine.swift; sourceTree = "<group>"; };
-		SVC101018 /* FileScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileScanner.swift; sourceTree = "<group>"; };
-		SVC101019 /* FileHasher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileHasher.swift; sourceTree = "<group>"; };
-		SVC101020 /* DiffEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffEngine.swift; sourceTree = "<group>"; };
-		SVC101021 /* FileCopier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileCopier.swift; sourceTree = "<group>"; };
-		SVC101022 /* ConflictResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolver.swift; sourceTree = "<group>"; };
-		SVC101023 /* SyncStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStateManager.swift; sourceTree = "<group>"; };
-		SVC101024 /* LockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockManager.swift; sourceTree = "<group>"; };
-		SVC101025 /* ServiceSyncProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceSyncProgress.swift; sourceTree = "<group>"; };
-		SVC101026 /* fuse_wrapper.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fuse_wrapper.c; sourceTree = "<group>"; };
-		SVC101028 /* fuse_wrapper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fuse_wrapper.h; sourceTree = "<group>"; };
-		SVC101029 /* DMSAService-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "DMSAService-Bridging-Header.h"; sourceTree = "<group>"; };
-		XPC101005 /* XPCClientTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCClientTypes.swift; sourceTree = "<group>"; };
-		GEN101001 /* EntityInfo-com.ttttt.dmsa.service.generated.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EntityInfo-com.ttttt.dmsa.service.generated.swift"; sourceTree = "<group>"; };
+		"'F0000001'" = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DMSA.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		"'F0101001'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		"'F0101002'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		"'F0101003'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigExtensions.swift; sourceTree = "<group>"; };
+		"'F0101004'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskConfigEntity.swift; sourceTree = "<group>"; };
+		"'F0101005'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileEntry.swift; sourceTree = "<group>"; };
+		"'F0101006'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncHistory.swift; sourceTree = "<group>"; };
+		"'F0101007'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPairEntity.swift; sourceTree = "<group>"; };
+		"'F0101008'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStatistics.swift; sourceTree = "<group>"; };
+		"'F0101011'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskManager.swift; sourceTree = "<group>"; };
+		"'F0101012'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigManager.swift; sourceTree = "<group>"; };
+		"'F0101014'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertManager.swift; sourceTree = "<group>"; };
+		"'F0101017'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarManager.swift; sourceTree = "<group>"; };
+		"'F0101018'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		"'F0101019'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
+		"'F0101020'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		"'F0101021'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Animation+DMSA.swift"; sourceTree = "<group>"; };
+		"'F0101022'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+DMSA.swift"; sourceTree = "<group>"; };
+		"'F0101023'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		"'F0101024'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonStyles.swift; sourceTree = "<group>"; };
+		"'F0101025'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardStyles.swift; sourceTree = "<group>"; };
+		"'F0101026'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskCard.swift; sourceTree = "<group>"; };
+		"'F0101027'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternListEditor.swift; sourceTree = "<group>"; };
+		"'F0101028'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickerRow.swift; sourceTree = "<group>"; };
+		"'F0101029'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionHeader.swift; sourceTree = "<group>"; };
+		"'F0101030'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingRow.swift; sourceTree = "<group>"; };
+		"'F0101031'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SliderRow.swift; sourceTree = "<group>"; };
+		"'F0101032'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageBar.swift; sourceTree = "<group>"; };
+		"'F0101033'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToggleRow.swift; sourceTree = "<group>"; };
+		"'F0101034'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		"'F0101035'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
+		"'F0101036'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryWizard.swift; sourceTree = "<group>"; };
+		"'F0101049'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRecord.swift; sourceTree = "<group>"; };
+		"'F0101050'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		"'F0101052'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogView.swift; sourceTree = "<group>"; };
+		"'F0101054'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManager.swift; sourceTree = "<group>"; };
+		"'F0101055'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceManager.swift; sourceTree = "<group>"; };
+		"'F0101060'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileMetadata.swift; sourceTree = "<group>"; };
+		"'F0101061'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPlan.swift; sourceTree = "<group>"; };
+		"'F0101062'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictInfo.swift; sourceTree = "<group>"; };
+		"'F0101063'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncProgress.swift; sourceTree = "<group>"; };
+		"'F0101071'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
+		"'F0101072'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionRow.swift; sourceTree = "<group>"; };
+		"'F0101073'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		"'F0101074'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FUSEManager.swift; sourceTree = "<group>"; };
+		"'F0101083'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathValidator.swift; sourceTree = "<group>"; };
+		"'F0101084'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceClient.swift; sourceTree = "<group>"; };
+		"'F0101085'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInstaller.swift; sourceTree = "<group>"; };
+		"'F0201002'" = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		"'F0201003'" = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		"'F0201004'" = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		"'F0201005'" = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		"'F0201006'" = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DMSA.entitlements; sourceTree = "<group>"; };
+		"'GEN101001'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EntityInfo-com.ttttt.dmsa.service.generated.swift"; sourceTree = "<group>"; };
+		"'SHARED101004'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedConstants.swift; path = Constants.swift; sourceTree = "<group>"; };
+		"'SHARED101005'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedErrors.swift; path = Errors.swift; sourceTree = "<group>"; };
+		"'SHARED101006'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedLogger.swift; path = Logger.swift; sourceTree = "<group>"; };
+		"'SHARED101007'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedPathValidator.swift; path = PathValidator.swift; sourceTree = "<group>"; };
+		"'SHARED101008'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedConfig.swift; path = Config.swift; sourceTree = "<group>"; };
+		"'SHARED101009'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedFileEntry.swift; path = FileEntry.swift; sourceTree = "<group>"; };
+		"'SHARED101010'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedSyncHistory.swift; path = SyncHistory.swift; sourceTree = "<group>"; };
+		"'SHARED101011'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedState.swift; sourceTree = "<group>"; };
+		"'SHARED101012'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedSyncProgress.swift; path = SyncProgress.swift; sourceTree = "<group>"; };
+		"'SHARED101013'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DMSAServiceProtocol.swift; sourceTree = "<group>"; };
+		"'SHARED101014'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedFileMetadata.swift; path = FileMetadata.swift; sourceTree = "<group>"; };
+		"'SHARED101015'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedSyncPlan.swift; path = SyncPlan.swift; sourceTree = "<group>"; };
+		"'SHARED101016'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedConflictInfo.swift; path = ConflictInfo.swift; sourceTree = "<group>"; };
+		"'SHARED101017'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedSyncTask.swift; path = SyncTask.swift; sourceTree = "<group>"; };
+		"'SHARED101018'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedNotificationRecord.swift; path = NotificationRecord.swift; sourceTree = "<group>"; };
+		"'SHARED101019'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedUserPathManager.swift; path = UserPathManager.swift; sourceTree = "<group>"; };
+		"'SVC000001'" = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.ttttt.dmsa.service; sourceTree = BUILT_PRODUCTS_DIR; };
+		"'SVC101001'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		"'SVC101002'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDelegate.swift; sourceTree = "<group>"; };
+		"'SVC101003'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceImplementation.swift; sourceTree = "<group>"; };
+		"'SVC101004'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VFSManager.swift; sourceTree = "<group>"; };
+		"'SVC101005'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FUSEFileSystem.swift; sourceTree = "<group>"; };
+		"'SVC101006'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManager.swift; sourceTree = "<group>"; };
+		"'SVC101007'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedOperations.swift; sourceTree = "<group>"; };
+		"'SVC101008'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvictionManager.swift; sourceTree = "<group>"; };
+		"'SVC101009'" = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		"'SVC101010'" = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DMSAService.entitlements; sourceTree = "<group>"; };
+		"'SVC101011'" = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.ttttt.dmsa.service.plist; sourceTree = "<group>"; };
+		"'SVC101012'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDatabaseManager.swift; sourceTree = "<group>"; };
+		"'SVC101013'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceConfigManager.swift; sourceTree = "<group>"; };
+		"'SVC101014'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceTreeVersionManager.swift; sourceTree = "<group>"; };
+		"'SVC101015'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceFSEventsMonitor.swift; sourceTree = "<group>"; };
+		"'SVC101016'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDiskMonitor.swift; sourceTree = "<group>"; };
+		"'SVC101017'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSyncEngine.swift; sourceTree = "<group>"; };
+		"'SVC101018'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileScanner.swift; sourceTree = "<group>"; };
+		"'SVC101019'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileHasher.swift; sourceTree = "<group>"; };
+		"'SVC101020'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffEngine.swift; sourceTree = "<group>"; };
+		"'SVC101021'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileCopier.swift; sourceTree = "<group>"; };
+		"'SVC101022'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictResolver.swift; sourceTree = "<group>"; };
+		"'SVC101023'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncStateManager.swift; sourceTree = "<group>"; };
+		"'SVC101024'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockManager.swift; sourceTree = "<group>"; };
+		"'SVC101025'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceSyncProgress.swift; sourceTree = "<group>"; };
+		"'SVC101026'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fuse_wrapper.c; sourceTree = "<group>"; };
+		"'SVC101028'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fuse_wrapper.h; sourceTree = "<group>"; };
+		"'SVC101029'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "DMSAService-Bridging-Header.h"; sourceTree = "<group>"; };
+		"'XPC101005'" = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCClientTypes.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		F0300001 /* Frameworks */ = {
+		"'F0300001'" = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F0003001 /* PermissionsKit in Frameworks */,
+				F0003001,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		SVC300002 /* Frameworks */ = {
+		"'SVC300002'" = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -293,445 +169,431 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		F0400000 = {
+		"'F0400000'" = {
 			isa = PBXGroup;
 			children = (
-				SHARED400000 /* DMSAShared */,
-				F0400001 /* DMSAApp */,
-				SVC400000 /* DMSAService */,
-				GEN400000 /* generated */,
-				F0400002 /* Products */,
+				SHARED400000,
+				F0400001,
+				SVC400000,
+				GEN400000,
+				F0400002,
 			);
 			sourceTree = "<group>";
 		};
-		F0400001 /* DMSAApp */ = {
+		"'F0400001'" = {
 			isa = PBXGroup;
 			children = (
-				F0101001 /* main.swift */,
-				F0400003 /* App */,
-				F0400004 /* Models */,
-				F0400005 /* Services */,
-				XPC400000 /* XPCClients */,
-				F0400006 /* UI */,
-				F0400007 /* Utils */,
-				F0400008 /* Resources */,
+				F0101001,
+				F0400003,
+				F0400004,
+				F0400005,
+				XPC400000,
+				F0400006,
+				F0400007,
+				F0400008,
 			);
 			path = DMSAApp;
 			sourceTree = "<group>";
 		};
-		F0400002 /* Products */ = {
+		"'F0400002'" = {
 			isa = PBXGroup;
 			children = (
-				F0000001 /* DMSA.app */,
-				SVC000001 /* com.ttttt.dmsa.service */,
+				F0000001,
+				SVC000001,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		F0400003 /* App */ = {
+		"'F0400003'" = {
 			isa = PBXGroup;
 			children = (
-				F0101002 /* AppDelegate.swift */,
+				F0101002,
 			);
 			path = App;
 			sourceTree = "<group>";
 		};
-		F0400004 /* Models */ = {
+		"'F0400004'" = {
 			isa = PBXGroup;
 			children = (
-				F0101003 /* ConfigExtensions.swift */,
-				F0400009 /* Entities */,
-				F0400021 /* Sync */,
+				F0101003,
+				F0400009,
+				F0400021,
 			);
 			path = Models;
 			sourceTree = "<group>";
 		};
-		F0400005 /* Services */ = {
+		"'F0400005'" = {
 			isa = PBXGroup;
 			children = (
-				F0101055 /* AppearanceManager.swift */,
-				F0101012 /* ConfigManager.swift */,
-				F0101011 /* DiskManager.swift */,
-				F0101054 /* LaunchAtLoginManager.swift */,
-				F0101014 /* AlertManager.swift */,
-				F0101071 /* PermissionManager.swift */,
-				F0101084 /* ServiceClient.swift */,
-				F0101085 /* ServiceInstaller.swift */,
+				F0101055,
+				F0101012,
+				F0101011,
+				F0101054,
+				F0101014,
+				F0101071,
+				F0101084,
+				F0101085,
 				F93176731F1554B49F0EA2C2 /* VFS */,
 			);
 			path = Services;
 			sourceTree = "<group>";
 		};
-		F0400006 /* UI */ = {
+		"'F0400006'" = {
 			isa = PBXGroup;
 			children = (
-				F0101017 /* MenuBarManager.swift */,
-				F0400010 /* Extensions */,
-				F0400011 /* Styles */,
-				F0400012 /* Components */,
-				F0400013 /* Views */,
+				F0101017,
+				F0400010,
+				F0400011,
+				F0400012,
+				F0400013,
 			);
 			path = UI;
 			sourceTree = "<group>";
 		};
-		F0400007 /* Utils */ = {
+		"'F0400007'" = {
 			isa = PBXGroup;
 			children = (
-				F0101018 /* Constants.swift */,
-				F0101019 /* Errors.swift */,
-				F0101020 /* Logger.swift */,
-				F0101083 /* PathValidator.swift */,
+				F0101018,
+				F0101019,
+				F0101020,
+				F0101083,
 			);
 			path = Utils;
 			sourceTree = "<group>";
 		};
-		F0400008 /* Resources */ = {
+		"'F0400008'" = {
 			isa = PBXGroup;
 			children = (
-				F0201004 /* Assets.xcassets */,
-				F0201001 /* Localizable.strings */,
-				F0201005 /* Info.plist */,
-				F0201006 /* DMSA.entitlements */,
+				F0201004,
+				F0201001,
+				F0201005,
+				F0201006,
 			);
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		F0400009 /* Entities */ = {
+		"'F0400009'" = {
 			isa = PBXGroup;
 			children = (
-				F0101004 /* DiskConfigEntity.swift */,
-				F0101005 /* FileEntry.swift */,
-				F0101006 /* SyncHistory.swift */,
-				F0101007 /* SyncPairEntity.swift */,
-				F0101008 /* SyncStatistics.swift */,
-				F0101049 /* NotificationRecord.swift */,
+				F0101004,
+				F0101005,
+				F0101006,
+				F0101007,
+				F0101008,
+				F0101049,
 			);
 			path = Entities;
 			sourceTree = "<group>";
 		};
-		F0400010 /* Extensions */ = {
+		"'F0400010'" = {
 			isa = PBXGroup;
 			children = (
-				F0101021 /* Animation+DMSA.swift */,
-				F0101022 /* Color+DMSA.swift */,
-				F0101023 /* Localization.swift */,
+				F0101021,
+				F0101022,
+				F0101023,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
 		};
-		F0400011 /* Styles */ = {
+		"'F0400011'" = {
 			isa = PBXGroup;
 			children = (
-				F0101024 /* ButtonStyles.swift */,
-				F0101025 /* CardStyles.swift */,
+				F0101024,
+				F0101025,
 			);
 			path = Styles;
 			sourceTree = "<group>";
 		};
-		F0400012 /* Components */ = {
+		"'F0400012'" = {
 			isa = PBXGroup;
 			children = (
-				F0101026 /* DiskCard.swift */,
-				F0101027 /* PatternListEditor.swift */,
-				F0101072 /* PermissionRow.swift */,
-				F0101028 /* PickerRow.swift */,
-				F0101029 /* SectionHeader.swift */,
-				F0101030 /* SettingRow.swift */,
-				F0101031 /* SliderRow.swift */,
-				F0101032 /* StorageBar.swift */,
-				F0101033 /* ToggleRow.swift */,
+				F0101026,
+				F0101027,
+				F0101072,
+				F0101028,
+				F0101029,
+				F0101030,
+				F0101031,
+				F0101032,
+				F0101033,
 			);
 			path = Components;
 			sourceTree = "<group>";
 		};
-		F0400013 /* Views */ = {
+		"'F0400013'" = {
 			isa = PBXGroup;
 			children = (
-				F0101050 /* MainView.swift */,
-				F0400014 /* Common */,
-				F0400015 /* History */,
-				F0400019 /* Logs */,
-				F0400020 /* Notifications */,
-				F0400016 /* Progress */,
-				F0400017 /* Settings */,
-				F0400018 /* Wizard */,
+				F0101050,
+				F0400014,
+				F0400015,
+				F0400019,
+				F0400020,
+				F0400016,
+				F0400017,
+				F0400018,
 			);
 			path = Views;
 			sourceTree = "<group>";
 		};
-		F0400014 /* Common */ = {
+		"'F0400014'" = {
 			isa = PBXGroup;
 			children = (
-				F0101034 /* AboutView.swift */,
-				F0101035 /* ErrorView.swift */,
-				F0101036 /* RecoveryWizard.swift */,
+				F0101034,
+				F0101035,
+				F0101036,
 			);
 			path = Common;
 			sourceTree = "<group>";
 		};
-		F0400015 /* History */ = {
+		"'F0400015'" = {
 			isa = PBXGroup;
 			children = (
-				F0101037 /* HistoryView.swift */,
-				F0101051 /* HistoryContentView.swift */,
 			);
 			path = History;
 			sourceTree = "<group>";
 		};
-		F0400016 /* Progress */ = {
+		"'F0400016'" = {
 			isa = PBXGroup;
 			children = (
-				F0101038 /* SyncProgressView.swift */,
 			);
 			path = Progress;
 			sourceTree = "<group>";
 		};
-		F0400017 /* Settings */ = {
+		"'F0400017'" = {
 			isa = PBXGroup;
 			children = (
-				F0101039 /* AdvancedSettingsView.swift */,
-				F0101073 /* DashboardView.swift */,
-				F0101041 /* DiskSettingsView.swift */,
-				F0101042 /* FilterSettingsView.swift */,
-				F0101043 /* GeneralSettingsView.swift */,
-				F0101044 /* NotificationSettingsView.swift */,
-				F0101045 /* SettingsView.swift */,
-				F0101046 /* SyncPairSettingsView.swift */,
-				F0101048 /* StatisticsView.swift */,
-				F0101090 /* VFSSettingsView.swift */,
+				F0101073,
 			);
 			path = Settings;
 			sourceTree = "<group>";
 		};
-		F0400018 /* Wizard */ = {
+		"'F0400018'" = {
 			isa = PBXGroup;
 			children = (
-				F0101047 /* WizardView.swift */,
 			);
 			path = Wizard;
 			sourceTree = "<group>";
 		};
-		F0400019 /* Logs */ = {
+		"'F0400019'" = {
 			isa = PBXGroup;
 			children = (
-				F0101052 /* LogView.swift */,
+				F0101052,
 			);
 			path = Logs;
 			sourceTree = "<group>";
 		};
-		F0400020 /* Notifications */ = {
+		"'F0400020'" = {
 			isa = PBXGroup;
 			children = (
-				F0101053 /* NotificationHistoryView.swift */,
 			);
 			path = Notifications;
 			sourceTree = "<group>";
 		};
-		F0400021 /* Sync */ = {
+		"'F0400021'" = {
 			isa = PBXGroup;
 			children = (
-				F0101060 /* FileMetadata.swift */,
-				F0101061 /* SyncPlan.swift */,
-				F0101062 /* ConflictInfo.swift */,
-				F0101063 /* SyncProgress.swift */,
+				F0101060,
+				F0101061,
+				F0101062,
+				F0101063,
 			);
 			path = Sync;
+			sourceTree = "<group>";
+		};
+		"'GEN400000'" = {
+			isa = PBXGroup;
+			children = (
+				GEN101001,
+			);
+			path = generated;
+			sourceTree = "<group>";
+		};
+		"'SHARED400000'" = {
+			isa = PBXGroup;
+			children = (
+				SHARED400001,
+				SHARED400002,
+				SHARED400003,
+			);
+			path = DMSAShared;
+			sourceTree = "<group>";
+		};
+		"'SHARED400001'" = {
+			isa = PBXGroup;
+			children = (
+				SHARED101013,
+			);
+			path = Protocols;
+			sourceTree = "<group>";
+		};
+		"'SHARED400002'" = {
+			isa = PBXGroup;
+			children = (
+				SHARED101004,
+				SHARED101005,
+				SHARED101006,
+				SHARED101007,
+				SHARED101019,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		"'SHARED400003'" = {
+			isa = PBXGroup;
+			children = (
+				SHARED101008,
+				SHARED101009,
+				SHARED101010,
+				SHARED101011,
+				SHARED101018,
+				SHARED400004,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		"'SHARED400004'" = {
+			isa = PBXGroup;
+			children = (
+				SHARED101012,
+				SHARED101014,
+				SHARED101015,
+				SHARED101016,
+				SHARED101017,
+			);
+			path = Sync;
+			sourceTree = "<group>";
+		};
+		"'SVC400000'" = {
+			isa = PBXGroup;
+			children = (
+				SVC101001,
+				SVC101002,
+				SVC101003,
+				SVC101029,
+				SVC400001,
+				SVC400002,
+				SVC400003,
+				SVC400007,
+				SVC400008,
+				SVC400004,
+			);
+			path = DMSAService;
+			sourceTree = "<group>";
+		};
+		"'SVC400001'" = {
+			isa = PBXGroup;
+			children = (
+				SVC101004,
+				SVC101005,
+				SVC101008,
+				SVC101024,
+				SVC101026,
+				SVC101028,
+			);
+			path = VFS;
+			sourceTree = "<group>";
+		};
+		"'SVC400002'" = {
+			isa = PBXGroup;
+			children = (
+				SVC101006,
+				SVC101017,
+				SVC101018,
+				SVC101019,
+				SVC101020,
+				SVC101021,
+				SVC101022,
+				SVC101023,
+				SVC101025,
+			);
+			path = Sync;
+			sourceTree = "<group>";
+		};
+		"'SVC400003'" = {
+			isa = PBXGroup;
+			children = (
+				SVC101007,
+			);
+			path = Privileged;
+			sourceTree = "<group>";
+		};
+		"'SVC400004'" = {
+			isa = PBXGroup;
+			children = (
+				SVC101009,
+				SVC101010,
+				SVC101011,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		"'SVC400007'" = {
+			isa = PBXGroup;
+			children = (
+				SVC101012,
+				SVC101013,
+				SVC101014,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		"'SVC400008'" = {
+			isa = PBXGroup;
+			children = (
+				SVC101015,
+				SVC101016,
+			);
+			path = Monitor;
+			sourceTree = "<group>";
+		};
+		"'XPC400000'" = {
+			isa = PBXGroup;
+			children = (
+				XPC101005,
+			);
+			path = XPCClients;
 			sourceTree = "<group>";
 		};
 		F93176731F1554B49F0EA2C2 /* VFS */ = {
 			isa = PBXGroup;
 			children = (
-				F0101074 /* FUSEManager.swift */,
+				F0101074,
 			);
 			path = VFS;
-			sourceTree = "<group>";
-		};
-		SHARED400000 /* DMSAShared */ = {
-			isa = PBXGroup;
-			children = (
-				SHARED400001 /* Protocols */,
-				SHARED400002 /* Utils */,
-				SHARED400003 /* Models */,
-			);
-			path = DMSAShared;
-			sourceTree = "<group>";
-		};
-		SHARED400001 /* Protocols */ = {
-			isa = PBXGroup;
-			children = (
-				SHARED101013 /* DMSAServiceProtocol.swift */,
-			);
-			path = Protocols;
-			sourceTree = "<group>";
-		};
-		SHARED400002 /* Utils */ = {
-			isa = PBXGroup;
-			children = (
-				SHARED101004 /* SharedConstants.swift */,
-				SHARED101005 /* SharedErrors.swift */,
-				SHARED101006 /* SharedLogger.swift */,
-				SHARED101007 /* SharedPathValidator.swift */,
-				SHARED101019 /* SharedUserPathManager.swift */,
-			);
-			path = Utils;
-			sourceTree = "<group>";
-		};
-		SHARED400003 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				SHARED101008 /* SharedConfig.swift */,
-				SHARED101009 /* SharedFileEntry.swift */,
-				SHARED101010 /* SharedSyncHistory.swift */,
-				SHARED101011 /* SharedState.swift */,
-				SHARED101018 /* SharedNotificationRecord.swift */,
-				SHARED400004 /* Sync */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		SHARED400004 /* Sync */ = {
-			isa = PBXGroup;
-			children = (
-				SHARED101012 /* SharedSyncProgress.swift */,
-				SHARED101014 /* SharedFileMetadata.swift */,
-				SHARED101015 /* SharedSyncPlan.swift */,
-				SHARED101016 /* SharedConflictInfo.swift */,
-				SHARED101017 /* SharedSyncTask.swift */,
-			);
-			path = Sync;
-			sourceTree = "<group>";
-		};
-		SVC400000 /* DMSAService */ = {
-			isa = PBXGroup;
-			children = (
-				SVC101001 /* main.swift */,
-				SVC101002 /* ServiceDelegate.swift */,
-				SVC101003 /* ServiceImplementation.swift */,
-				SVC101029 /* DMSAService-Bridging-Header.h */,
-				SVC400001 /* VFS */,
-				SVC400002 /* Sync */,
-				SVC400003 /* Privileged */,
-				SVC400007 /* Data */,
-				SVC400008 /* Monitor */,
-				SVC400004 /* Resources */,
-			);
-			path = DMSAService;
-			sourceTree = "<group>";
-		};
-		SVC400001 /* VFS */ = {
-			isa = PBXGroup;
-			children = (
-				SVC101004 /* VFSManager.swift */,
-				SVC101005 /* FUSEFileSystem.swift */,
-				SVC101008 /* EvictionManager.swift */,
-				SVC101024 /* LockManager.swift */,
-				SVC101026 /* fuse_wrapper.c */,
-				SVC101028 /* fuse_wrapper.h */,
-			);
-			path = VFS;
-			sourceTree = "<group>";
-		};
-		SVC400002 /* Sync */ = {
-			isa = PBXGroup;
-			children = (
-				SVC101006 /* SyncManager.swift */,
-				SVC101017 /* NativeSyncEngine.swift */,
-				SVC101018 /* FileScanner.swift */,
-				SVC101019 /* FileHasher.swift */,
-				SVC101020 /* DiffEngine.swift */,
-				SVC101021 /* FileCopier.swift */,
-				SVC101022 /* ConflictResolver.swift */,
-				SVC101023 /* SyncStateManager.swift */,
-				SVC101025 /* ServiceSyncProgress.swift */,
-			);
-			path = Sync;
-			sourceTree = "<group>";
-		};
-		SVC400003 /* Privileged */ = {
-			isa = PBXGroup;
-			children = (
-				SVC101007 /* PrivilegedOperations.swift */,
-			);
-			path = Privileged;
-			sourceTree = "<group>";
-		};
-		SVC400004 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				SVC101009 /* Info.plist */,
-				SVC101010 /* DMSAService.entitlements */,
-				SVC101011 /* com.ttttt.dmsa.service.plist */,
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
-		SVC400007 /* Data */ = {
-			isa = PBXGroup;
-			children = (
-				SVC101012 /* ServiceDatabaseManager.swift */,
-				SVC101013 /* ServiceConfigManager.swift */,
-				SVC101014 /* ServiceTreeVersionManager.swift */,
-			);
-			path = Data;
-			sourceTree = "<group>";
-		};
-		SVC400008 /* Monitor */ = {
-			isa = PBXGroup;
-			children = (
-				SVC101015 /* ServiceFSEventsMonitor.swift */,
-				SVC101016 /* ServiceDiskMonitor.swift */,
-			);
-			path = Monitor;
-			sourceTree = "<group>";
-		};
-		XPC400000 /* XPCClients */ = {
-			isa = PBXGroup;
-			children = (
-				XPC101005 /* XPCClientTypes.swift */,
-			);
-			path = XPCClients;
-			sourceTree = "<group>";
-		};
-		GEN400000 /* generated */ = {
-			isa = PBXGroup;
-			children = (
-				GEN101001 /* EntityInfo-com.ttttt.dmsa.service.generated.swift */,
-			);
-			path = generated;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		F0500001 /* DMSAApp */ = {
+		"'F0500001'" = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F0600001 /* Build configuration list for PBXNativeTarget "DMSAApp" */;
+			buildConfigurationList = F0600001;
 			buildPhases = (
-				F0500002 /* Sources */,
-				F0300001 /* Frameworks */,
-				F0500003 /* Resources */,
-				SVC400005 /* Copy Service */,
-				SVC400006 /* Copy LaunchDaemon plist */,
+				F0500002,
+				F0300001,
+				F0500003,
+				SVC400005,
+				SVC400006,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				SVC300003 /* PBXTargetDependency */,
+				SVC300003,
 			);
 			name = DMSAApp;
 			packageProductDependencies = (
-				F0900001 /* PermissionsKit */,
+				F0900001,
 			);
 			productName = DMSAApp;
-			productReference = F0000001 /* DMSA.app */;
+			productReference = F0000001;
 			productType = "com.apple.product-type.application";
 		};
-		SVC500001 /* com.ttttt.dmsa.service */ = {
+		"'SVC500001'" = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = SVC600001 /* Build configuration list for PBXNativeTarget "com.ttttt.dmsa.service" */;
+			buildConfigurationList = SVC600001;
 			buildPhases = (
-				SVC500002 /* Sources */,
-				SVC300002 /* Frameworks */,
+				SVC500002,
+				SVC300002,
 			);
 			buildRules = (
 			);
@@ -739,13 +601,13 @@
 			);
 			name = com.ttttt.dmsa.service;
 			productName = com.ttttt.dmsa.service;
-			productReference = SVC000001 /* com.ttttt.dmsa.service */;
+			productReference = SVC000001;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		F0700001 /* Project object */ = {
+		"'F0700001'" = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
@@ -760,7 +622,7 @@
 					};
 				};
 			};
-			buildConfigurationList = F0600002 /* Build configuration list for PBXProject "DMSAApp" */;
+			buildConfigurationList = F0600002;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -771,168 +633,154 @@
 			);
 			mainGroup = F0400000;
 			packageReferences = (
-				F0A00001 /* XCRemoteSwiftPackageReference "PermissionsKit" */,
+				F0A00001,
 				858ACF142F28A2BB0015612A /* XCRemoteSwiftPackageReference "objectbox-swift-spm" */,
 			);
-			productRefGroup = F0400002 /* Products */;
+			productRefGroup = F0400002;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				F0500001 /* DMSAApp */,
-				SVC500001 /* com.ttttt.dmsa.service */,
+				F0500001,
+				SVC500001,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		F0500003 /* Resources */ = {
+		"'F0500003'" = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F0002002 /* Assets.xcassets in Resources */,
-				F0002001 /* Localizable.strings in Resources */,
+				F0002002,
+				F0002001,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		F0500002 /* Sources */ = {
+		"'F0500002'" = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F0001001 /* main.swift in Sources */,
-				F0001002 /* AppDelegate.swift in Sources */,
-				F0001003 /* ConfigExtensions.swift in Sources */,
-				F0001004 /* DiskConfigEntity.swift in Sources */,
-				F0001005 /* FileEntry.swift in Sources */,
-				F0001006 /* SyncHistory.swift in Sources */,
-				F0001007 /* SyncPairEntity.swift in Sources */,
-				F0001008 /* SyncStatistics.swift in Sources */,
-				F0001011 /* DiskManager.swift in Sources */,
-				F0001012 /* ConfigManager.swift in Sources */,
-				F0001014 /* AlertManager.swift in Sources */,
-				F0001054 /* LaunchAtLoginManager.swift in Sources */,
-				F0001055 /* AppearanceManager.swift in Sources */,
-				F0001017 /* MenuBarManager.swift in Sources */,
-				F0001018 /* Constants.swift in Sources */,
-				F0001019 /* Errors.swift in Sources */,
-				F0001020 /* Logger.swift in Sources */,
-				F0001021 /* Animation+DMSA.swift in Sources */,
-				F0001022 /* Color+DMSA.swift in Sources */,
-				F0001023 /* Localization.swift in Sources */,
-				F0001024 /* ButtonStyles.swift in Sources */,
-				F0001025 /* CardStyles.swift in Sources */,
-				F0001026 /* DiskCard.swift in Sources */,
-				F0001027 /* PatternListEditor.swift in Sources */,
-				F0001028 /* PickerRow.swift in Sources */,
-				F0001029 /* SectionHeader.swift in Sources */,
-				F0001030 /* SettingRow.swift in Sources */,
-				F0001031 /* SliderRow.swift in Sources */,
-				F0001032 /* StorageBar.swift in Sources */,
-				F0001033 /* ToggleRow.swift in Sources */,
-				F0001034 /* AboutView.swift in Sources */,
-				F0001035 /* ErrorView.swift in Sources */,
-				F0001036 /* RecoveryWizard.swift in Sources */,
-				F0001037 /* HistoryView.swift in Sources */,
-				F0001038 /* SyncProgressView.swift in Sources */,
-				F0001039 /* AdvancedSettingsView.swift in Sources */,
-				F0001041 /* DiskSettingsView.swift in Sources */,
-				F0001042 /* FilterSettingsView.swift in Sources */,
-				F0001043 /* GeneralSettingsView.swift in Sources */,
-				F0001044 /* NotificationSettingsView.swift in Sources */,
-				F0001045 /* SettingsView.swift in Sources */,
-				F0001046 /* SyncPairSettingsView.swift in Sources */,
-				F0001047 /* WizardView.swift in Sources */,
-				F0001048 /* StatisticsView.swift in Sources */,
-				F0001049 /* NotificationRecord.swift in Sources */,
-				F0001050 /* MainView.swift in Sources */,
-				F0001051 /* HistoryContentView.swift in Sources */,
-				F0001052 /* LogView.swift in Sources */,
-				F0001053 /* NotificationHistoryView.swift in Sources */,
-				F0001060 /* FileMetadata.swift in Sources */,
-				F0001061 /* SyncPlan.swift in Sources */,
-				F0001062 /* ConflictInfo.swift in Sources */,
-				F0001063 /* SyncProgress.swift in Sources */,
-				F0001071 /* PermissionManager.swift in Sources */,
-				F0001072 /* PermissionRow.swift in Sources */,
-				F0001073 /* DashboardView.swift in Sources */,
-				F0001090 /* VFSSettingsView.swift in Sources */,
-				F0001074 /* FUSEManager.swift in Sources */,
-				F0001084 /* ServiceClient.swift in Sources */,
-				F0001085 /* ServiceInstaller.swift in Sources */,
-				SHARED001008 /* SharedConfig.swift in Sources */,
-				SHARED001013 /* DMSAServiceProtocol.swift in Sources */,
-				SHARED001011 /* SharedState.swift in Sources */,
-				SHARED001019 /* SharedUserPathManager.swift in Sources */,
-				F0001083 /* PathValidator.swift in Sources */,
-				XPC001005 /* XPCClientTypes.swift in Sources */,
+				F0001001,
+				F0001002,
+				F0001003,
+				F0001004,
+				F0001005,
+				F0001006,
+				F0001007,
+				F0001008,
+				F0001011,
+				F0001012,
+				F0001014,
+				F0001054,
+				F0001055,
+				F0001017,
+				F0001018,
+				F0001019,
+				F0001020,
+				F0001021,
+				F0001022,
+				F0001023,
+				F0001024,
+				F0001025,
+				F0001026,
+				F0001027,
+				F0001028,
+				F0001029,
+				F0001030,
+				F0001031,
+				F0001032,
+				F0001033,
+				F0001034,
+				F0001035,
+				F0001036,
+				F0001049,
+				F0001050,
+				F0001052,
+				F0001060,
+				F0001061,
+				F0001062,
+				F0001063,
+				F0001071,
+				F0001072,
+				F0001073,
+				F0001074,
+				F0001084,
+				F0001085,
+				SHARED001008,
+				SHARED001013,
+				SHARED001011,
+				SHARED001019,
+				F0001083,
+				XPC001005,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		SVC500002 /* Sources */ = {
+		"'SVC500002'" = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				SVC001001 /* main.swift in Sources */,
-				SVC001002 /* ServiceDelegate.swift in Sources */,
-				SVC001003 /* ServiceImplementation.swift in Sources */,
-				SVC001004 /* VFSManager.swift in Sources */,
-				SVC001005 /* FUSEFileSystem.swift in Sources */,
-				SVC001006 /* SyncManager.swift in Sources */,
-				SVC001007 /* PrivilegedOperations.swift in Sources */,
-				SVC001008 /* EvictionManager.swift in Sources */,
-				SVC001012 /* ServiceDatabaseManager.swift in Sources */,
-				SVC001013 /* ServiceConfigManager.swift in Sources */,
-				SVC001014 /* ServiceTreeVersionManager.swift in Sources */,
-				SVC001015 /* ServiceFSEventsMonitor.swift in Sources */,
-				SVC001016 /* ServiceDiskMonitor.swift in Sources */,
-				SVC001017 /* NativeSyncEngine.swift in Sources */,
-				SVC001018 /* FileScanner.swift in Sources */,
-				SVC001019 /* FileHasher.swift in Sources */,
-				SVC001020 /* DiffEngine.swift in Sources */,
-				SVC001021 /* FileCopier.swift in Sources */,
-				SVC001022 /* ConflictResolver.swift in Sources */,
-				SVC001023 /* SyncStateManager.swift in Sources */,
-				SVC001101 /* DMSAServiceProtocol.swift in Sources */,
-				SVC001102 /* SharedConstants.swift in Sources */,
-				SVC001103 /* SharedErrors.swift in Sources */,
-				SVC001104 /* SharedLogger.swift in Sources */,
-				SVC001105 /* SharedPathValidator.swift in Sources */,
-				SVC001119 /* SharedUserPathManager.swift in Sources */,
-				SVC001106 /* SharedConfig.swift in Sources */,
-				SVC001107 /* SharedFileEntry.swift in Sources */,
-				SVC001108 /* SharedState.swift in Sources */,
-				SVC001109 /* SharedSyncProgress.swift in Sources */,
-				SVC001110 /* SharedSyncHistory.swift in Sources */,
-				SVC001111 /* SharedFileMetadata.swift in Sources */,
-				SVC001112 /* SharedSyncPlan.swift in Sources */,
-				SVC001113 /* SharedConflictInfo.swift in Sources */,
-				SVC001114 /* SharedSyncTask.swift in Sources */,
-				SVC001024 /* LockManager.swift in Sources */,
-				SVC001025 /* ServiceSyncProgress.swift in Sources */,
-				SVC001115 /* SharedNotificationRecord.swift in Sources */,
-				SVC001026 /* fuse_wrapper.c in Sources */,
-				GEN001001 /* EntityInfo-com.ttttt.dmsa.service.generated.swift in Sources */,
+				SVC001001,
+				SVC001002,
+				SVC001003,
+				SVC001004,
+				SVC001005,
+				SVC001006,
+				SVC001007,
+				SVC001008,
+				SVC001012,
+				SVC001013,
+				SVC001014,
+				SVC001015,
+				SVC001016,
+				SVC001017,
+				SVC001018,
+				SVC001019,
+				SVC001020,
+				SVC001021,
+				SVC001022,
+				SVC001023,
+				SVC001101,
+				SVC001102,
+				SVC001103,
+				SVC001104,
+				SVC001105,
+				SVC001119,
+				SVC001106,
+				SVC001107,
+				SVC001108,
+				SVC001109,
+				SVC001110,
+				SVC001111,
+				SVC001112,
+				SVC001113,
+				SVC001114,
+				SVC001024,
+				SVC001025,
+				SVC001115,
+				SVC001026,
+				GEN001001,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		SVC300003 /* PBXTargetDependency */ = {
+		"'SVC300003'" = {
 			isa = PBXTargetDependency;
-			target = SVC500001 /* com.ttttt.dmsa.service */;
-			targetProxy = SVC300001 /* PBXContainerItemProxy */;
+			target = SVC500001;
+			targetProxy = SVC300001;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
-		F0201001 /* Localizable.strings */ = {
+		"'F0201001'" = {
 			isa = PBXVariantGroup;
 			children = (
-				F0201002 /* en */,
-				F0201003 /* zh-Hans */,
+				F0201002,
+				F0201003,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";
@@ -940,7 +788,7 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		F0800001 /* Debug */ = {
+		"'F0800001'" = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -1003,7 +851,7 @@
 			};
 			name = Debug;
 		};
-		F0800002 /* Release */ = {
+		"'F0800002'" = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -1058,7 +906,7 @@
 			};
 			name = Release;
 		};
-		F0800003 /* Debug */ = {
+		"'F0800003'" = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -1088,7 +936,7 @@
 			};
 			name = Debug;
 		};
-		F0800004 /* Release */ = {
+		"'F0800004'" = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -1118,7 +966,7 @@
 			};
 			name = Release;
 		};
-		SVC700001 /* Debug */ = {
+		"'SVC700001'" = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = DMSAService/Resources/DMSAService.entitlements;
@@ -1163,7 +1011,7 @@
 			};
 			name = Debug;
 		};
-		SVC700002 /* Release */ = {
+		"'SVC700002'" = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = DMSAService/Resources/DMSAService.entitlements;
@@ -1210,29 +1058,29 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		F0600001 /* Build configuration list for PBXNativeTarget "DMSAApp" */ = {
+		"'F0600001'" = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F0800003 /* Debug */,
-				F0800004 /* Release */,
+				F0800003,
+				F0800004,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F0600002 /* Build configuration list for PBXProject "DMSAApp" */ = {
+		"'F0600002'" = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				F0800001 /* Debug */,
-				F0800002 /* Release */,
+				F0800001,
+				F0800002,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		SVC600001 /* Build configuration list for PBXNativeTarget "com.ttttt.dmsa.service" */ = {
+		"'SVC600001'" = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				SVC700001 /* Debug */,
-				SVC700002 /* Release */,
+				SVC700001,
+				SVC700002,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1240,6 +1088,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		"'F0A00001'" = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/MacPaw/PermissionsKit.git";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
 		858ACF142F28A2BB0015612A /* XCRemoteSwiftPackageReference "objectbox-swift-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/objectbox/objectbox-swift-spm";
@@ -1248,28 +1104,20 @@
 				minimumVersion = 5.1.1;
 			};
 		};
-		F0A00001 /* XCRemoteSwiftPackageReference "PermissionsKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/MacPaw/PermissionsKit.git";
-			requirement = {
-				branch = master;
-				kind = branch;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		"'F0900001'" = {
+			isa = XCSwiftPackageProductDependency;
+			package = F0A00001;
+			productName = PermissionsKit;
+		};
 		858ACF152F28A2BB0015612A /* ObjectBox.xcframework */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 858ACF142F28A2BB0015612A /* XCRemoteSwiftPackageReference "objectbox-swift-spm" */;
 			productName = ObjectBox.xcframework;
 		};
-		F0900001 /* PermissionsKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = F0A00001 /* XCRemoteSwiftPackageReference "PermissionsKit" */;
-			productName = PermissionsKit;
-		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = F0700001 /* Project object */;
+	rootObject = F0700001;
 }

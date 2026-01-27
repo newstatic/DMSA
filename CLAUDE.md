@@ -35,6 +35,7 @@
 | "Service" | `DMSAService` 统一后台服务 (root 权限) |
 | "XPC" | App 与 Service 的通信机制 |
 | "ServiceClient" | App 端 XPC 客户端 `ServiceClient.swift` |
+| "pbxproj_tool" | Xcode 项目管理工具 `pbxproj_tool.py`，支持 list/add/remove/check/fix |
 
 **添加条件:**
 - 用户多次用某个词指代特定文件/组件
@@ -349,6 +350,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | 50877371 | 2026-01-27 | v4.9 代码修改 (P0-P3) | 状态管理/VFS阻塞/通知/错误码/启动检查/冲突检测/日志格式 |
 | 50877371 | 2026-01-27 | UI 设计规范 | 21_UI设计规范.md + HTML 原型 |
 | 4f263311 | 2026-01-27 | App 修改计划 + P0-P2 修复 | 代码审查 + App 端 P0-P2 问题修复 |
+| 4f263311 | 2026-01-27 | UI 文件清理 + pbxproj 工具 | 删除 14 个旧 UI 文件 + 创建 Xcode 项目管理工具 |
 
 ---
 
