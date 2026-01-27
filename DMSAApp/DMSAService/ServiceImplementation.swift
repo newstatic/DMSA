@@ -11,6 +11,9 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
     private var config: AppConfig
     private let startedAt: Date = Date()
 
+    /// XPC 调试日志开关
+    private let xpcDebugEnabled = true
+
     override init() {
         self.config = Self.loadConfig()
         super.init()
@@ -22,6 +25,34 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         }
 
         logger.info("ServiceImplementation 初始化完成")
+    }
+
+    // MARK: - XPC 日志辅助方法
+
+    private func logXPCReceive(_ method: String, params: [String: Any] = [:]) {
+        guard xpcDebugEnabled else { return }
+        let paramsStr = params.isEmpty ? "" : " params=\(params)"
+        logger.debug("[XPC⬇] \(method)\(paramsStr)")
+    }
+
+    private func logXPCReply(_ method: String, success: Bool, result: Any? = nil, error: String? = nil) {
+        guard xpcDebugEnabled else { return }
+        if success {
+            let resultStr = result.map { " result=\($0)" } ?? ""
+            logger.debug("[XPC⬆] \(method) ✓\(resultStr)")
+        } else {
+            logger.debug("[XPC⬆] \(method) ✗ error=\(error ?? "unknown")")
+        }
+    }
+
+    private func logXPCReplyData(_ method: String, data: Data?) {
+        guard xpcDebugEnabled else { return }
+        if let data = data, let str = String(data: data, encoding: .utf8) {
+            let preview = str.count > 200 ? String(str.prefix(200)) + "..." : str
+            logger.debug("[XPC⬆] \(method) data=\(preview)")
+        } else {
+            logger.debug("[XPC⬆] \(method) data=\(data?.count ?? 0) bytes")
+        }
     }
 
     private static func loadConfig() -> AppConfig {
@@ -42,6 +73,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
                   externalDir: String?,
                   targetDir: String,
                   withReply reply: @escaping (Bool, String?) -> Void) {
+        logXPCReceive("vfsMount", params: ["syncPairId": syncPairId, "localDir": localDir, "externalDir": externalDir ?? "nil", "targetDir": targetDir])
         Task {
             do {
                 try await vfsManager.mount(
@@ -51,9 +83,11 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
                     targetDir: targetDir
                 )
                 logger.info("VFS 挂载成功: \(syncPairId)")
+                logXPCReply("vfsMount", success: true)
                 reply(true, nil)
             } catch {
                 logger.error("VFS 挂载失败: \(error)")
+                logXPCReply("vfsMount", success: false, error: error.localizedDescription)
                 reply(false, error.localizedDescription)
             }
         }
@@ -61,38 +95,47 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
 
     func vfsUnmount(syncPairId: String,
                     withReply reply: @escaping (Bool, String?) -> Void) {
+        logXPCReceive("vfsUnmount", params: ["syncPairId": syncPairId])
         Task {
             do {
                 try await vfsManager.unmount(syncPairId: syncPairId)
                 logger.info("VFS 卸载成功: \(syncPairId)")
+                logXPCReply("vfsUnmount", success: true)
                 reply(true, nil)
             } catch {
                 logger.error("VFS 卸载失败: \(error)")
+                logXPCReply("vfsUnmount", success: false, error: error.localizedDescription)
                 reply(false, error.localizedDescription)
             }
         }
     }
 
     func vfsUnmountAll(withReply reply: @escaping (Bool, String?) -> Void) {
+        logXPCReceive("vfsUnmountAll")
         Task {
             await vfsManager.unmountAll()
             logger.info("所有 VFS 已卸载")
+            logXPCReply("vfsUnmountAll", success: true)
             reply(true, nil)
         }
     }
 
     func vfsGetMountStatus(syncPairId: String,
                            withReply reply: @escaping (Bool, String?) -> Void) {
+        logXPCReceive("vfsGetMountStatus", params: ["syncPairId": syncPairId])
         Task {
             let isMounted = await vfsManager.isMounted(syncPairId: syncPairId)
+            logXPCReply("vfsGetMountStatus", success: true, result: isMounted)
             reply(isMounted, nil)
         }
     }
 
     func vfsGetAllMounts(withReply reply: @escaping (Data) -> Void) {
+        logXPCReceive("vfsGetAllMounts")
         Task {
             let mounts = await vfsManager.getAllMounts()
             let data = (try? JSONEncoder().encode(mounts)) ?? Data()
+            logXPCReplyData("vfsGetAllMounts", data: data)
             reply(data)
         }
     }
@@ -175,22 +218,28 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
 
     func syncNow(syncPairId: String,
                  withReply reply: @escaping (Bool, String?) -> Void) {
+        logXPCReceive("syncNow", params: ["syncPairId": syncPairId])
         Task {
             do {
                 try await syncManager.syncNow(syncPairId: syncPairId)
+                logXPCReply("syncNow", success: true)
                 reply(true, nil)
             } catch {
+                logXPCReply("syncNow", success: false, error: error.localizedDescription)
                 reply(false, error.localizedDescription)
             }
         }
     }
 
     func syncAll(withReply reply: @escaping (Bool, String?) -> Void) {
+        logXPCReceive("syncAll")
         Task {
             do {
                 try await syncManager.syncAll()
+                logXPCReply("syncAll", success: true)
                 reply(true, nil)
             } catch {
+                logXPCReply("syncAll", success: false, error: error.localizedDescription)
                 reply(false, error.localizedDescription)
             }
         }

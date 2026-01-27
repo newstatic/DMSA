@@ -1,0 +1,252 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:6523160760332935424",
+      "lastPropertyId": "16:7632578806194930432",
+      "name": "ServiceFileEntry",
+      "properties": [
+        {
+          "id": "1:2253414601196038144",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:3739739575401150208",
+          "name": "virtualPath",
+          "indexId": "1:1914263140449825280",
+          "type": 9,
+          "flags": 2056
+        },
+        {
+          "id": "3:4883201504717826048",
+          "name": "localPath",
+          "type": 9
+        },
+        {
+          "id": "4:2338943473623005440",
+          "name": "externalPath",
+          "type": 9
+        },
+        {
+          "id": "5:6556215519676730624",
+          "name": "location",
+          "type": 6
+        },
+        {
+          "id": "6:2839541951513324800",
+          "name": "size",
+          "type": 6
+        },
+        {
+          "id": "7:6740839692599499008",
+          "name": "createdAt",
+          "type": 10
+        },
+        {
+          "id": "8:4167846886768930816",
+          "name": "modifiedAt",
+          "type": 10
+        },
+        {
+          "id": "9:1554881577085474048",
+          "name": "accessedAt",
+          "type": 10
+        },
+        {
+          "id": "10:7473478053128636416",
+          "name": "checksum",
+          "type": 9
+        },
+        {
+          "id": "11:426354863782007040",
+          "name": "isDirty",
+          "type": 1
+        },
+        {
+          "id": "12:2216813390412348672",
+          "name": "isDirectory",
+          "type": 1
+        },
+        {
+          "id": "13:5719259272208382720",
+          "name": "syncPairId",
+          "indexId": "2:1013210664427496960",
+          "type": 9,
+          "flags": 2056
+        },
+        {
+          "id": "14:1883274516743287040",
+          "name": "lockState",
+          "type": 6
+        },
+        {
+          "id": "15:4658160339947214080",
+          "name": "lockTime",
+          "type": 10
+        },
+        {
+          "id": "16:7632578806194930432",
+          "name": "lockDirection",
+          "type": 6
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "2:5546110147861545216",
+      "lastPropertyId": "13:5835790924020346624",
+      "name": "ServiceSyncHistory",
+      "properties": [
+        {
+          "id": "1:9048534855598341632",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:7902501728545585920",
+          "name": "syncPairId",
+          "indexId": "3:1611844169087301376",
+          "type": 9,
+          "flags": 2056
+        },
+        {
+          "id": "3:8704595903928023552",
+          "name": "diskId",
+          "type": 9
+        },
+        {
+          "id": "4:9209406812942102784",
+          "name": "startTime",
+          "indexId": "4:2062295401991771136",
+          "type": 10,
+          "flags": 8
+        },
+        {
+          "id": "5:4728022604082098688",
+          "name": "endTime",
+          "type": 10
+        },
+        {
+          "id": "6:7443159110585213696",
+          "name": "status",
+          "type": 6
+        },
+        {
+          "id": "7:9001854343434633984",
+          "name": "direction",
+          "type": 6
+        },
+        {
+          "id": "8:5524101397852849152",
+          "name": "totalFiles",
+          "type": 6
+        },
+        {
+          "id": "9:4951718239270053632",
+          "name": "filesUpdated",
+          "type": 6
+        },
+        {
+          "id": "10:7627945492807191808",
+          "name": "filesDeleted",
+          "type": 6
+        },
+        {
+          "id": "11:4248757896395226880",
+          "name": "filesSkipped",
+          "type": 6
+        },
+        {
+          "id": "12:2285316207016390912",
+          "name": "bytesTransferred",
+          "type": 6
+        },
+        {
+          "id": "13:5835790924020346624",
+          "name": "errorMessage",
+          "type": 9
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "3:6794996534435832064",
+      "lastPropertyId": "10:7617871385796899328",
+      "name": "ServiceSyncStatistics",
+      "properties": [
+        {
+          "id": "1:3564937623048296448",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:8035417422069545728",
+          "name": "date",
+          "indexId": "5:6548826889766988544",
+          "type": 10,
+          "flags": 8
+        },
+        {
+          "id": "3:129209526642612736",
+          "name": "syncPairId",
+          "indexId": "6:2853245467694275072",
+          "type": 9,
+          "flags": 2056
+        },
+        {
+          "id": "4:8898091481406911232",
+          "name": "diskId",
+          "type": 9
+        },
+        {
+          "id": "5:7093678854383734016",
+          "name": "totalSyncs",
+          "type": 6
+        },
+        {
+          "id": "6:9165783164445434112",
+          "name": "successfulSyncs",
+          "type": 6
+        },
+        {
+          "id": "7:6793078338254398464",
+          "name": "failedSyncs",
+          "type": 6
+        },
+        {
+          "id": "8:922367386519213824",
+          "name": "totalFilesProcessed",
+          "type": 6
+        },
+        {
+          "id": "9:2768892825480184320",
+          "name": "totalBytesTransferred",
+          "type": 6
+        },
+        {
+          "id": "10:7617871385796899328",
+          "name": "averageDuration",
+          "type": 8
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "3:6794996534435832064",
+  "lastIndexId": "6:2853245467694275072",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 4,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [],
+  "retiredRelationUids": [],
+  "version": 1
+}

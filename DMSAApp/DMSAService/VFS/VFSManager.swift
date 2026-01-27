@@ -12,18 +12,6 @@ struct VFSMountPoint {
     var fuseFileSystem: FUSEFileSystem?  // 使用实际的 FUSE 文件系统
 }
 
-/// 索引统计
-struct IndexStats: Codable, Sendable {
-    var totalFiles: Int
-    var totalDirectories: Int
-    var totalSize: Int64
-    var localOnlyCount: Int
-    var externalOnlyCount: Int
-    var bothCount: Int
-    var dirtyCount: Int
-    var lastUpdated: Date
-}
-
 /// VFS 管理器
 /// - 使用 ServiceDatabaseManager 持久化文件索引
 /// - 使用 ServiceConfigManager 保存挂载状态
@@ -183,16 +171,37 @@ actor VFSManager {
         // - ACL deny: 拒绝所有用户访问
         // LOCAL_DIR 和 EXTERNAL_DIR 都需要保护
 
-        logger.info("保护后端目录...")
-        logger.info("  - LOCAL_DIR: \(localDir)")
-        logger.info("  - EXTERNAL_DIR: \(externalDir ?? "(nil)")")
+        logger.info("========== 保护后端目录 (步骤 6) ==========")
+        logger.info("  LOCAL_DIR: \(localDir)")
+        logger.info("  EXTERNAL_DIR: \(externalDir ?? "(nil)")")
+        logger.info("  externalDir == nil: \(externalDir == nil)")
+        logger.info("  externalDir?.isEmpty: \(externalDir?.isEmpty ?? true)")
+        logger.flush()  // 确保日志写入磁盘
 
+        logger.info("[1/2] 开始保护 LOCAL_DIR...")
+        logger.flush()
         protectBackendDir(localDir)
-        if let extDir = externalDir, !extDir.isEmpty {
-            logger.info("保护 EXTERNAL_DIR: \(extDir)")
-            protectBackendDir(extDir)
+        logger.info("[1/2] LOCAL_DIR 保护完成")
+        logger.flush()
+
+        logger.info("[2/2] 检查 EXTERNAL_DIR...")
+        logger.flush()
+        if let extDir = externalDir {
+            logger.info("[2/2] extDir 解包成功: \(extDir)")
+            logger.flush()
+            if !extDir.isEmpty {
+                logger.info("[2/2] extDir 非空，开始保护 EXTERNAL_DIR: \(extDir)")
+                logger.flush()
+                protectBackendDir(extDir)
+                logger.info("[2/2] EXTERNAL_DIR 保护完成")
+                logger.flush()
+            } else {
+                logger.info("[2/2] 跳过: extDir 是空字符串")
+                logger.flush()
+            }
         } else {
-            logger.info("跳过 EXTERNAL_DIR 保护 (磁盘未连接或路径为空)")
+            logger.info("[2/2] 跳过: externalDir 为 nil (磁盘未连接)")
+            logger.flush()
         }
 
         // 记录挂载点
@@ -366,6 +375,11 @@ actor VFSManager {
 
     func getDirtyFiles(syncPairId: String) async -> [ServiceFileEntry] {
         return await database.getDirtyFiles(syncPairId: syncPairId)
+    }
+
+    /// 获取需要同步的文件（脏文件 + 仅本地存在的文件）
+    func getFilesToSync(syncPairId: String) async -> [ServiceFileEntry] {
+        return await database.getFilesToSync(syncPairId: syncPairId)
     }
 
     func getEvictableFiles(syncPairId: String) async -> [ServiceFileEntry] {
@@ -627,6 +641,7 @@ actor VFSManager {
         let logger = Logger.forService("VFS")
         logger.info("========== 保护后端目录开始 ==========")
         logger.info("路径: \(path)")
+        logger.flush()
 
         // 检查路径是否存在
         let fm = FileManager.default
@@ -636,12 +651,17 @@ actor VFSManager {
         }
 
         // 显示当前状态
+        logger.info("[步骤0] 获取当前权限...")
+        logger.flush()
         if let attrs = try? fm.attributesOfItem(atPath: path) {
             let perms = attrs[.posixPermissions] as? Int ?? 0
             logger.info("当前权限: \(String(perms, radix: 8))")
+            logger.flush()
         }
 
         // 1. 设置权限为 700 (仅 root 可访问)
+        logger.info("[步骤1] 设置权限 700...")
+        logger.flush()
         do {
             let attrs: [FileAttributeKey: Any] = [
                 .posixPermissions: 0o700  // rwx------
@@ -653,6 +673,8 @@ actor VFSManager {
         }
 
         // 2. 添加 ACL deny 规则 - 拒绝所有用户访问
+        logger.info("[步骤2] 添加 ACL deny 规则...")
+        logger.flush()
         // 获取目录所有者用户名
         if let attrs = try? fm.attributesOfItem(atPath: path),
            let ownerAccountName = attrs[.ownerAccountName] as? String {
@@ -708,6 +730,8 @@ actor VFSManager {
         }
 
         // 3. 设置隐藏标志 (chflags hidden)
+        logger.info("[步骤3] 设置隐藏标志...")
+        logger.flush()
         logger.info("执行: chflags hidden \(path)")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/chflags")
@@ -734,30 +758,23 @@ actor VFSManager {
             logger.warning("执行 chflags 失败: \(error)")
         }
 
-        // 4. 验证保护状态
-        // 验证权限和隐藏状态
-        let lsProcess = Process()
-        lsProcess.executableURL = URL(fileURLWithPath: "/bin/ls")
-        lsProcess.arguments = ["-laO", path]
-        let lsPipe = Pipe()
-        lsProcess.standardOutput = lsPipe
-        try? lsProcess.run()
-        lsProcess.waitUntilExit()
-        let lsOutput = String(data: lsPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        logger.info("ls -laO 结果: \(lsOutput.trimmingCharacters(in: .whitespacesAndNewlines))")
+        // 4. 验证保护状态 (使用 stat 代替 ls，避免卡住)
+        logger.info("[步骤4] 验证保护状态...")
+        logger.flush()
 
-        // 验证 ACL
-        let aclCheckProcess = Process()
-        aclCheckProcess.executableURL = URL(fileURLWithPath: "/bin/ls")
-        aclCheckProcess.arguments = ["-le", path]
-        let aclCheckPipe = Pipe()
-        aclCheckProcess.standardOutput = aclCheckPipe
-        try? aclCheckProcess.run()
-        aclCheckProcess.waitUntilExit()
-        let aclCheckOutput = String(data: aclCheckPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        logger.info("ACL 状态:\n\(aclCheckOutput)")
+        // 使用 FileManager 验证，避免 Process 可能的阻塞
+        if let attrs = try? fm.attributesOfItem(atPath: path) {
+            let perms = attrs[.posixPermissions] as? Int ?? 0
+            let owner = attrs[.ownerAccountName] as? String ?? "unknown"
+            logger.info("验证结果: 权限=\(String(perms, radix: 8)), 所有者=\(owner)")
+            logger.flush()
+        } else {
+            logger.warning("无法获取目录属性进行验证")
+            logger.flush()
+        }
 
         logger.info("========== 保护后端目录完成 ==========")
+        logger.flush()
     }
 
     /// 取消保护后端目录 (卸载时调用)

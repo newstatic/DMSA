@@ -95,5 +95,14 @@ enum Constants {
         static let configChanged = "com.ttttt.dmsa.configChanged"
         static let diskConnected = "com.ttttt.dmsa.diskConnected"
         static let diskDisconnected = "com.ttttt.dmsa.diskDisconnected"
+
+        /// 服务启动完成，下发配置
+        static let serviceReady = "com.ttttt.dmsa.notification.serviceReady"
+        /// 配置已更新（Service → App）
+        static let configUpdated = "com.ttttt.dmsa.notification.configUpdated"
+        /// 同步进度实时更新
+        static let syncProgress = "com.ttttt.dmsa.notification.syncProgress"
+        /// 同步状态变更（开始/完成/失败）
+        static let syncStatusChanged = "com.ttttt.dmsa.notification.syncStatusChanged"
     }
 }

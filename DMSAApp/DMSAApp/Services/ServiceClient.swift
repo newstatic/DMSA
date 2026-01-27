@@ -11,6 +11,69 @@ struct VersionCheckResult: Sendable {
     }
 }
 
+/// 同步进度数据 (用于从服务端接收的 JSON 数据)
+struct SyncProgressData: Codable {
+    var syncPairId: String
+    var status: SyncStatus
+    var totalFiles: Int
+    var processedFiles: Int
+    var totalBytes: Int64
+    var processedBytes: Int64
+    var currentFile: String?
+    var startTime: Date?
+    var endTime: Date?
+    var errorMessage: String?
+    var speed: Int64
+    var phase: SyncPhaseData
+
+    struct SyncPhaseData: Codable, Equatable {
+        var rawValue: String
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            rawValue = try container.decode(String.self)
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
+        }
+
+        var description: String {
+            switch rawValue {
+            case "idle": return "空闲"
+            case "scanning": return "扫描文件"
+            case "calculating": return "计算差异"
+            case "checksumming": return "计算校验和"
+            case "resolving": return "解决冲突"
+            case "diffing": return "比较差异"
+            case "syncing": return "同步文件"
+            case "verifying": return "验证完整性"
+            case "completed": return "已完成"
+            case "failed": return "失败"
+            case "cancelled": return "已取消"
+            case "paused": return "已暂停"
+            default: return rawValue
+            }
+        }
+
+        static let idle = SyncPhaseData(rawValue: "idle")
+        static let paused = SyncPhaseData(rawValue: "paused")
+
+        init(rawValue: String) {
+            self.rawValue = rawValue
+        }
+    }
+}
+
+/// 同步进度回调
+protocol SyncProgressDelegate: AnyObject {
+    func syncProgressDidUpdate(_ progress: SyncProgressData)
+    func syncStatusDidChange(syncPairId: String, status: SyncStatus, message: String?)
+    func serviceDidBecomeReady()
+    func configDidUpdate()
+}
+
 /// DMSAService XPC 客户端
 /// 统一管理与 DMSAService 的通信
 @MainActor
@@ -27,9 +90,43 @@ final class ServiceClient {
     private var proxy: DMSAServiceProtocol?
     private let connectionLock = NSLock()
 
+    /// XPC 调试日志开关
+    private let xpcDebugEnabled = true
+
+    // MARK: - XPC 日志辅助方法
+
+    private func logXPCRequest(_ method: String, params: [String: Any] = [:]) {
+        guard xpcDebugEnabled else { return }
+        let paramsStr = params.isEmpty ? "" : " params=\(params)"
+        logger.debug("[XPC→] \(method)\(paramsStr)")
+    }
+
+    private func logXPCResponse(_ method: String, success: Bool, result: Any? = nil, error: String? = nil) {
+        guard xpcDebugEnabled else { return }
+        if success {
+            let resultStr = result.map { " result=\($0)" } ?? ""
+            logger.debug("[XPC←] \(method) ✓\(resultStr)")
+        } else {
+            logger.debug("[XPC←] \(method) ✗ error=\(error ?? "unknown")")
+        }
+    }
+
+    private func logXPCResponseData(_ method: String, data: Data?) {
+        guard xpcDebugEnabled else { return }
+        if let data = data, let str = String(data: data, encoding: .utf8) {
+            let preview = str.count > 200 ? String(str.prefix(200)) + "..." : str
+            logger.debug("[XPC←] \(method) data=\(preview)")
+        } else {
+            logger.debug("[XPC←] \(method) data=(nil or non-utf8)")
+        }
+    }
+
     private var isConnecting = false
     private var connectionRetryCount = 0
     private let maxRetryCount = 3
+
+    /// 同步进度代理
+    weak var progressDelegate: SyncProgressDelegate?
 
     var isConnected: Bool {
         connectionLock.lock()
@@ -39,7 +136,92 @@ final class ServiceClient {
 
     // MARK: - Initialization
 
-    private init() {}
+    private init() {
+        setupNotificationObservers()
+    }
+
+    // MARK: - 分布式通知监听
+
+    private func setupNotificationObservers() {
+        let dnc = DistributedNotificationCenter.default()
+
+        // 监听服务就绪通知
+        dnc.addObserver(
+            self,
+            selector: #selector(handleServiceReady(_:)),
+            name: NSNotification.Name(Constants.Notifications.serviceReady),
+            object: nil
+        )
+
+        // 监听同步进度通知
+        dnc.addObserver(
+            self,
+            selector: #selector(handleSyncProgress(_:)),
+            name: NSNotification.Name(Constants.Notifications.syncProgress),
+            object: nil
+        )
+
+        // 监听同步状态变更通知
+        dnc.addObserver(
+            self,
+            selector: #selector(handleSyncStatusChanged(_:)),
+            name: NSNotification.Name(Constants.Notifications.syncStatusChanged),
+            object: nil
+        )
+
+        // 监听配置更新通知
+        dnc.addObserver(
+            self,
+            selector: #selector(handleConfigUpdated(_:)),
+            name: NSNotification.Name(Constants.Notifications.configUpdated),
+            object: nil
+        )
+
+        logger.info("已设置分布式通知监听")
+    }
+
+    @objc private func handleServiceReady(_ notification: Notification) {
+        logger.info("收到服务就绪通知")
+        Task { @MainActor in
+            progressDelegate?.serviceDidBecomeReady()
+        }
+    }
+
+    @objc private func handleSyncProgress(_ notification: Notification) {
+        guard let jsonString = notification.object as? String,
+              let data = jsonString.data(using: .utf8),
+              let progress = try? JSONDecoder().decode(SyncProgressData.self, from: data) else {
+            return
+        }
+
+        Task { @MainActor in
+            progressDelegate?.syncProgressDidUpdate(progress)
+        }
+    }
+
+    @objc private func handleSyncStatusChanged(_ notification: Notification) {
+        guard let jsonString = notification.object as? String,
+              let data = jsonString.data(using: .utf8),
+              let info = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let syncPairId = info["syncPairId"] as? String,
+              let statusRaw = info["status"] as? Int,
+              let status = SyncStatus(rawValue: statusRaw) else {
+            return
+        }
+
+        let message = info["message"] as? String
+
+        Task { @MainActor in
+            progressDelegate?.syncStatusDidChange(syncPairId: syncPairId, status: status, message: message)
+        }
+    }
+
+    @objc private func handleConfigUpdated(_ notification: Notification) {
+        logger.info("收到配置更新通知")
+        Task { @MainActor in
+            progressDelegate?.configDidUpdate()
+        }
+    }
 
     // MARK: - Connection Management
 
@@ -185,10 +367,12 @@ final class ServiceClient {
 
     /// 挂载 VFS
     func mountVFS(syncPairId: String, localDir: String, externalDir: String?, targetDir: String) async throws {
+        logXPCRequest("vfsMount", params: ["syncPairId": syncPairId, "localDir": localDir, "externalDir": externalDir ?? "nil", "targetDir": targetDir])
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.vfsMount(syncPairId: syncPairId, localDir: localDir, externalDir: externalDir, targetDir: targetDir) { success, error in
+            proxy.vfsMount(syncPairId: syncPairId, localDir: localDir, externalDir: externalDir, targetDir: targetDir) { [weak self] success, error in
+                self?.logXPCResponse("vfsMount", success: success, error: error)
                 if success {
                     continuation.resume()
                 } else {
@@ -200,10 +384,12 @@ final class ServiceClient {
 
     /// 卸载 VFS
     func unmountVFS(syncPairId: String) async throws {
+        logXPCRequest("vfsUnmount", params: ["syncPairId": syncPairId])
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.vfsUnmount(syncPairId: syncPairId) { success, error in
+            proxy.vfsUnmount(syncPairId: syncPairId) { [weak self] success, error in
+                self?.logXPCResponse("vfsUnmount", success: success, error: error)
                 if success {
                     continuation.resume()
                 } else {
@@ -215,10 +401,12 @@ final class ServiceClient {
 
     /// 获取 VFS 挂载信息
     func getVFSMounts() async throws -> [MountInfo] {
+        logXPCRequest("vfsGetAllMounts")
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.vfsGetAllMounts { data in
+            proxy.vfsGetAllMounts { [weak self] data in
+                self?.logXPCResponseData("vfsGetAllMounts", data: data)
                 continuation.resume(returning: MountInfo.arrayFrom(data: data))
             }
         }
@@ -226,10 +414,12 @@ final class ServiceClient {
 
     /// 更新外部路径
     func updateExternalPath(syncPairId: String, newPath: String) async throws {
+        logXPCRequest("vfsUpdateExternalPath", params: ["syncPairId": syncPairId, "newPath": newPath])
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.vfsUpdateExternalPath(syncPairId: syncPairId, newPath: newPath) { success, error in
+            proxy.vfsUpdateExternalPath(syncPairId: syncPairId, newPath: newPath) { [weak self] success, error in
+                self?.logXPCResponse("vfsUpdateExternalPath", success: success, error: error)
                 if success {
                     continuation.resume()
                 } else {
@@ -241,10 +431,12 @@ final class ServiceClient {
 
     /// 设置外部存储离线状态
     func setExternalOffline(syncPairId: String, offline: Bool) async throws {
+        logXPCRequest("vfsSetExternalOffline", params: ["syncPairId": syncPairId, "offline": offline])
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.vfsSetExternalOffline(syncPairId: syncPairId, offline: offline) { success, _ in
+            proxy.vfsSetExternalOffline(syncPairId: syncPairId, offline: offline) { [weak self] success, _ in
+                self?.logXPCResponse("vfsSetExternalOffline", success: success)
                 continuation.resume()
             }
         }
@@ -254,10 +446,12 @@ final class ServiceClient {
 
     /// 立即同步
     func syncNow(syncPairId: String) async throws {
+        logXPCRequest("syncNow", params: ["syncPairId": syncPairId])
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncNow(syncPairId: syncPairId) { success, error in
+            proxy.syncNow(syncPairId: syncPairId) { [weak self] success, error in
+                self?.logXPCResponse("syncNow", success: success, error: error)
                 if success {
                     continuation.resume()
                 } else {
@@ -269,10 +463,12 @@ final class ServiceClient {
 
     /// 同步所有
     func syncAll() async throws {
+        logXPCRequest("syncAll")
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncAll { success, error in
+            proxy.syncAll { [weak self] success, error in
+                self?.logXPCResponse("syncAll", success: success, error: error)
                 if success {
                     continuation.resume()
                 } else {
@@ -284,10 +480,12 @@ final class ServiceClient {
 
     /// 暂停同步 (指定 syncPairId)
     func pauseSync(syncPairId: String) async throws {
+        logXPCRequest("syncPause", params: ["syncPairId": syncPairId])
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncPause(syncPairId: syncPairId) { success, _ in
+            proxy.syncPause(syncPairId: syncPairId) { [weak self] success, _ in
+                self?.logXPCResponse("syncPause", success: success)
                 continuation.resume()
             }
         }
@@ -300,10 +498,12 @@ final class ServiceClient {
 
     /// 恢复同步 (指定 syncPairId)
     func resumeSync(syncPairId: String) async throws {
+        logXPCRequest("syncResume", params: ["syncPairId": syncPairId])
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncResume(syncPairId: syncPairId) { success, _ in
+            proxy.syncResume(syncPairId: syncPairId) { [weak self] success, _ in
+                self?.logXPCResponse("syncResume", success: success)
                 continuation.resume()
             }
         }
@@ -316,10 +516,12 @@ final class ServiceClient {
 
     /// 取消同步 (指定 syncPairId)
     func cancelSync(syncPairId: String) async throws {
+        logXPCRequest("syncCancel", params: ["syncPairId": syncPairId])
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncCancel(syncPairId: syncPairId) { success, _ in
+            proxy.syncCancel(syncPairId: syncPairId) { [weak self] success, _ in
+                self?.logXPCResponse("syncCancel", success: success)
                 continuation.resume()
             }
         }
@@ -332,10 +534,12 @@ final class ServiceClient {
 
     /// 获取同步状态
     func getSyncStatus(syncPairId: String) async throws -> SyncStatusInfo {
+        logXPCRequest("syncGetStatus", params: ["syncPairId": syncPairId])
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncGetStatus(syncPairId: syncPairId) { data in
+            proxy.syncGetStatus(syncPairId: syncPairId) { [weak self] data in
+                self?.logXPCResponseData("syncGetStatus", data: data)
                 continuation.resume(returning: SyncStatusInfo.from(data: data) ?? SyncStatusInfo(syncPairId: syncPairId))
             }
         }
@@ -343,10 +547,12 @@ final class ServiceClient {
 
     /// 获取所有同步状态
     func getAllSyncStatus() async throws -> [SyncStatusInfo] {
+        logXPCRequest("syncGetAllStatus")
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncGetAllStatus { data in
+            proxy.syncGetAllStatus { [weak self] data in
+                self?.logXPCResponseData("syncGetAllStatus", data: data)
                 continuation.resume(returning: SyncStatusInfo.arrayFrom(data: data))
             }
         }
@@ -354,10 +560,12 @@ final class ServiceClient {
 
     /// 获取同步进度 (返回的是 SyncProgressResponse，可解码的进度信息)
     func getSyncProgress(syncPairId: String) async throws -> SyncProgressResponse? {
+        logXPCRequest("syncGetProgress", params: ["syncPairId": syncPairId])
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncGetProgress(syncPairId: syncPairId) { data in
+            proxy.syncGetProgress(syncPairId: syncPairId) { [weak self] data in
+                self?.logXPCResponseData("syncGetProgress", data: data)
                 if let data = data {
                     continuation.resume(returning: SyncProgressResponse.from(data: data))
                 } else {
@@ -369,10 +577,12 @@ final class ServiceClient {
 
     /// 获取同步历史 (指定 syncPairId)
     func getSyncHistory(syncPairId: String, limit: Int = 50) async throws -> [SyncHistory] {
+        logXPCRequest("syncGetHistory", params: ["syncPairId": syncPairId, "limit": limit])
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncGetHistory(syncPairId: syncPairId, limit: limit) { data in
+            proxy.syncGetHistory(syncPairId: syncPairId, limit: limit) { [weak self] data in
+                self?.logXPCResponseData("syncGetHistory", data: data)
                 continuation.resume(returning: SyncHistory.arrayFrom(data: data))
             }
         }

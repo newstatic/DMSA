@@ -155,6 +155,15 @@ Task {
 
     // 启动同步调度器
     await delegate.startScheduler()
+
+    // 发送服务就绪通知，通知 App 可以获取配置
+    logger.info("发送服务就绪通知...")
+    DistributedNotificationCenter.default().postNotificationName(
+        NSNotification.Name(Constants.Notifications.serviceReady),
+        object: nil,
+        userInfo: nil,
+        deliverImmediately: true
+    )
 }
 
 // 6. 运行主事件循环

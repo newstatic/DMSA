@@ -13,9 +13,10 @@ struct DashboardView: View {
     @State private var syncProgress: Double = 0
     @State private var syncStatusMessage: String = ""
     @State private var isPaused = false
+    @State private var currentSyncPhaseText: String = "空闲"
 
-    // Timer for updating sync status
-    @State private var statusTimer: Timer?
+    // 进度监听器
+    @StateObject private var progressListener = SyncProgressListener()
 
     private let serviceClient = ServiceClient.shared
     private let diskManager = DiskManager.shared
@@ -62,12 +63,22 @@ struct DashboardView: View {
         }
         .onAppear {
             loadData()
-            startStatusTimer()
+            setupProgressListener()
         }
         .onDisappear {
-            stopStatusTimer()
+            // 清理监听器
         }
         .onChange(of: selectedTimeRange) { _ in loadData() }
+        .onChange(of: progressListener.currentProgress) { progress in
+            if let progress = progress {
+                updateFromProgress(progress)
+            }
+        }
+        .onChange(of: progressListener.lastStatusChange) { change in
+            if let change = change {
+                handleStatusChange(change)
+            }
+        }
     }
 
     // MARK: - Sync Control Section
@@ -349,11 +360,14 @@ struct DashboardView: View {
 
         Task {
             do {
+                // 1. 先上发当前配置到 Service
+                try await serviceClient.updateConfig(config)
+                Logger.shared.info("配置已上发到 Service")
+
+                // 2. 开始同步（Service 会实时下发进度）
                 try await serviceClient.syncAll()
-                await MainActor.run {
-                    isSyncing = false
-                    loadData()
-                }
+
+                // 注意：同步完成后的 UI 更新由 progressListener 处理
             } catch {
                 await MainActor.run {
                     isSyncing = false
@@ -405,28 +419,113 @@ struct DashboardView: View {
         return diskManager.getDiskInfo(at: disk.mountPath)
     }
 
-    private func startStatusTimer() {
-        statusTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
-            updateSyncStatus()
+    private func setupProgressListener() {
+        // 通过 ServiceClient 设置进度监听
+        serviceClient.progressDelegate = progressListener
+    }
+
+    private func updateFromProgress(_ progress: ServiceSyncProgressInfo) {
+        isSyncing = progress.status == .inProgress
+        syncProgress = progress.progress
+        syncStatusMessage = progress.currentFile ?? progress.phaseText
+        isPaused = progress.isPaused
+        currentSyncPhaseText = progress.phaseText
+
+        // 如果同步完成，刷新数据
+        if progress.status == .completed || progress.status == .failed {
+            loadData()
         }
     }
 
-    private func stopStatusTimer() {
-        statusTimer?.invalidate()
-        statusTimer = nil
-    }
-
-    private func updateSyncStatus() {
-        Task {
-            if let progress = try? await serviceClient.getSyncProgress(syncPairId: "default_downloads") {
-                await MainActor.run {
-                    isSyncing = progress.isRunning
-                    syncProgress = progress.overallProgress
-                    syncStatusMessage = progress.currentFile ?? ""
-                    isPaused = progress.isPaused
-                }
+    private func handleStatusChange(_ change: SyncStatusChange) {
+        switch change.status {
+        case .inProgress:
+            isSyncing = true
+            isPaused = false
+        case .completed:
+            isSyncing = false
+            isPaused = false
+            loadData()  // 刷新历史记录
+        case .failed:
+            isSyncing = false
+            isPaused = false
+            if let message = change.message {
+                syncStatusMessage = message
             }
+            loadData()
+        case .cancelled:
+            isSyncing = false
+            isPaused = false
+        case .paused:
+            isPaused = true
+        default:
+            break
         }
+    }
+}
+
+// MARK: - 同步进度监听器
+
+struct SyncStatusChange: Equatable {
+    let syncPairId: String
+    let status: SyncStatus
+    let message: String?
+}
+
+/// 从服务端接收的同步进度简化数据
+struct ServiceSyncProgressInfo: Equatable {
+    var syncPairId: String
+    var status: SyncStatus
+    var totalFiles: Int
+    var processedFiles: Int
+    var totalBytes: Int64
+    var processedBytes: Int64
+    var currentFile: String?
+    var phaseText: String
+    var isPaused: Bool
+
+    var progress: Double {
+        guard totalBytes > 0 else { return 0 }
+        return Double(processedBytes) / Double(totalBytes)
+    }
+}
+
+class SyncProgressListener: ObservableObject, SyncProgressDelegate {
+    @Published var currentProgress: ServiceSyncProgressInfo?
+    @Published var lastStatusChange: SyncStatusChange?
+    @Published var isServiceReady = false
+
+    func syncProgressDidUpdate(_ progress: SyncProgressData) {
+        DispatchQueue.main.async {
+            self.currentProgress = ServiceSyncProgressInfo(
+                syncPairId: progress.syncPairId,
+                status: progress.status,
+                totalFiles: progress.totalFiles,
+                processedFiles: progress.processedFiles,
+                totalBytes: progress.totalBytes,
+                processedBytes: progress.processedBytes,
+                currentFile: progress.currentFile,
+                phaseText: progress.phase.description,
+                isPaused: progress.phase == .paused
+            )
+        }
+    }
+
+    func syncStatusDidChange(syncPairId: String, status: SyncStatus, message: String?) {
+        DispatchQueue.main.async {
+            self.lastStatusChange = SyncStatusChange(syncPairId: syncPairId, status: status, message: message)
+        }
+    }
+
+    func serviceDidBecomeReady() {
+        DispatchQueue.main.async {
+            self.isServiceReady = true
+        }
+    }
+
+    func configDidUpdate() {
+        // 配置更新时可以触发刷新
+        Logger.shared.info("收到配置更新通知")
     }
 }
 

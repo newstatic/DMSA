@@ -63,6 +63,13 @@ public enum Constants {
         public static let configChanged = "com.ttttt.dmsa.notification.configChanged"
         public static let vfsMounted = "com.ttttt.dmsa.notification.vfsMounted"
         public static let vfsUnmounted = "com.ttttt.dmsa.notification.vfsUnmounted"
+
+        /// 服务启动完成，下发配置
+        public static let serviceReady = "com.ttttt.dmsa.notification.serviceReady"
+        /// 配置已更新（Service → App）
+        public static let configUpdated = "com.ttttt.dmsa.notification.configUpdated"
+        /// 同步状态变更（开始/完成/失败）
+        public static let syncStatusChanged = "com.ttttt.dmsa.notification.syncStatusChanged"
     }
 
     /// 路径

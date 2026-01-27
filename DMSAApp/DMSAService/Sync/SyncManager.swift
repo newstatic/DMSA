@@ -40,6 +40,10 @@ actor SyncManager {
     // 配置
     private let debounceInterval: TimeInterval = 5.0
 
+    // 进度通知节流
+    private var lastProgressNotificationTime: Date = .distantPast
+    private let progressNotificationInterval: TimeInterval = 0.2  // 每 200ms 最多发一次
+
     // MARK: - 生命周期
 
     func startScheduler(config: AppConfig?) async {
@@ -304,7 +308,12 @@ actor SyncManager {
         var progress = SyncProgress(syncPairId: syncPairId)
         progress.status = .inProgress
         progress.startTime = Date()
+        progress.phase = .scanning
         syncProgress[syncPairId] = progress
+
+        // 通知：同步开始
+        notifySyncStatusChanged(syncPairId: syncPairId, status: .inProgress, message: "开始同步")
+        notifyProgressUpdate(progress)
 
         // 创建历史记录 (使用服务端实体)
         var history = ServiceSyncHistory(syncPairId: syncPairId, diskId: disk.id)
@@ -315,11 +324,24 @@ actor SyncManager {
 
         // 确定要同步的文件 (在 do 块外部定义以便 catch 块访问)
         let filesToSync: [String]
-        if files.isEmpty {
-            // 全量同步：获取所有脏文件
-            filesToSync = Array(dirtyFiles[syncPairId] ?? [])
-        } else {
+        if !files.isEmpty {
+            // 指定了具体文件
             filesToSync = files
+        } else {
+            // 全量同步：从文件索引获取需要同步的文件
+            // needsSync = isDirty || localOnly (已在构建索引时标记)
+            logger.info("从文件索引获取需要同步的文件...")
+            progress.phase = .scanning
+            syncProgress[syncPairId] = progress
+            notifyProgressUpdate(progress)
+
+            let entries = await database.getFilesToSync(syncPairId: syncPairId)
+            filesToSync = entries.map { entry -> String in
+                // virtualPath 以 "/" 开头，需要去掉
+                let path = entry.virtualPath
+                return path.hasPrefix("/") ? String(path.dropFirst()) : path
+            }
+            logger.info("从索引获取 \(filesToSync.count) 个需要同步的文件")
         }
 
         do {
@@ -327,7 +349,9 @@ actor SyncManager {
             let localDir = syncPair.localDir
 
             progress.totalFiles = filesToSync.count
+            progress.phase = .syncing
             syncProgress[syncPairId] = progress
+            notifyProgressUpdate(progress)
 
             // 执行同步
             for (index, virtualPath) in filesToSync.enumerated() {
@@ -379,10 +403,14 @@ actor SyncManager {
                 }
 
                 syncProgress[syncPairId] = progress
+
+                // 实时推送进度
+                notifyProgressUpdate(progress)
             }
 
             // 同步完成
             progress.status = .completed
+            progress.phase = .completed
             progress.endTime = Date()
             syncProgress[syncPairId] = progress
 
@@ -397,7 +425,10 @@ actor SyncManager {
 
             logger.info("同步完成: \(syncPair.name), \(history.filesUpdated) 个文件")
 
-            // 发送通知
+            // 发送通知：同步完成
+            notifySyncStatusChanged(syncPairId: syncPairId, status: .completed, message: "同步完成，共 \(history.filesUpdated) 个文件")
+            notifyProgressUpdate(progress)
+
             DistributedNotificationCenter.default().postNotificationName(
                 NSNotification.Name(Constants.Notifications.syncCompleted),
                 object: nil,
@@ -408,6 +439,7 @@ actor SyncManager {
         } catch {
             // 同步失败
             progress.status = .failed
+            progress.phase = .failed
             progress.endTime = Date()
             progress.errorMessage = error.localizedDescription
             syncProgress[syncPairId] = progress
@@ -421,6 +453,11 @@ actor SyncManager {
             history.totalFiles = filesToSync.count
 
             logger.error("同步失败: \(syncPair.name) - \(error)")
+
+            // 发送通知：同步失败
+            notifySyncStatusChanged(syncPairId: syncPairId, status: .failed, message: error.localizedDescription)
+            notifyProgressUpdate(progress)
+
             throw error
         }
 
@@ -522,6 +559,53 @@ actor SyncManager {
     func healthCheck() -> Bool {
         // 检查基本状态
         return true
+    }
+
+    // MARK: - 进度通知
+
+    /// 发送同步进度通知到 App
+    private func notifyProgressUpdate(_ progress: SyncProgress) {
+        // 节流：避免过于频繁的通知
+        let now = Date()
+        guard now.timeIntervalSince(lastProgressNotificationTime) >= progressNotificationInterval else {
+            return
+        }
+        lastProgressNotificationTime = now
+
+        // 将进度信息编码为 JSON 字符串，通过 object 参数传递
+        guard let data = try? JSONEncoder().encode(progress),
+              let jsonString = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        DistributedNotificationCenter.default().postNotificationName(
+            NSNotification.Name(Constants.Notifications.syncProgress),
+            object: jsonString,
+            userInfo: nil,
+            deliverImmediately: true
+        )
+    }
+
+    /// 发送同步状态变更通知
+    private func notifySyncStatusChanged(syncPairId: String, status: SyncStatus, message: String? = nil) {
+        let statusInfo: [String: Any] = [
+            "syncPairId": syncPairId,
+            "status": status.rawValue,
+            "message": message ?? "",
+            "timestamp": Date().timeIntervalSince1970
+        ]
+
+        guard let data = try? JSONSerialization.data(withJSONObject: statusInfo),
+              let jsonString = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        DistributedNotificationCenter.default().postNotificationName(
+            NSNotification.Name(Constants.Notifications.syncStatusChanged),
+            object: jsonString,
+            userInfo: nil,
+            deliverImmediately: true
+        )
     }
 
     // MARK: - 额外方法 (ServiceImplementation 需要)
