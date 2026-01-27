@@ -94,33 +94,6 @@ func formatBytes(_ bytes: Int64) -> String {
     return formatter.string(fromByteCount: bytes)
 }
 
-/// Helper 错误
-enum HelperError: Error, LocalizedError {
-    case notInstalled
-    case installFailed(String)
-    case connectionFailed(String)
-    case operationFailed(String)
-    case pathNotAllowed(String)
-    case authorizationFailed
-
-    var errorDescription: String? {
-        switch self {
-        case .notInstalled:
-            return "Helper 服务未安装"
-        case .installFailed(let msg):
-            return "Helper 安装失败: \(msg)"
-        case .connectionFailed(let msg):
-            return "Helper 连接失败: \(msg)"
-        case .operationFailed(let msg):
-            return "Helper 操作失败: \(msg)"
-        case .pathNotAllowed(let path):
-            return "路径不允许操作: \(path)"
-        case .authorizationFailed:
-            return "授权失败"
-        }
-    }
-}
-
 /// 通用 DMSA 错误
 enum DMSAError: Error, LocalizedError {
     case xpcConnectionFailed(String)
@@ -133,7 +106,6 @@ enum DMSAError: Error, LocalizedError {
     case serviceNotAvailable(String)
     case vfsError(String)
     case syncError(String)
-    case helperError(String)
 
     var errorDescription: String? {
         switch self {
@@ -157,8 +129,6 @@ enum DMSAError: Error, LocalizedError {
             return "VFS 错误: \(message)"
         case .syncError(let message):
             return "同步错误: \(message)"
-        case .helperError(let message):
-            return "助手错误: \(message)"
         }
     }
 }

@@ -85,9 +85,9 @@ final class DiskManager {
         Task {
             let disks = await getDisks()
 
-            // 查找匹配的配置硬盘
+            // 查找匹配的配置硬盘 (使用精确匹配)
             for disk in disks where disk.enabled {
-                if devicePath.contains(disk.name) || devicePath == disk.mountPath {
+                if matchesDisk(devicePath: devicePath, disk: disk) {
                     Logger.shared.info("目标硬盘 \(disk.name) 已连接: \(devicePath)")
 
                     // 延迟执行，等待挂载稳定
@@ -117,9 +117,9 @@ final class DiskManager {
         Task {
             let disks = await getDisks()
 
-            // 查找匹配的硬盘
+            // 查找匹配的硬盘 (使用精确匹配)
             for disk in disks {
-                if devicePath.contains(disk.name) || devicePath == disk.mountPath {
+                if matchesDisk(devicePath: devicePath, disk: disk) {
                     Logger.shared.info("目标硬盘 \(disk.name) 已断开")
 
                     await MainActor.run {
@@ -133,6 +133,44 @@ final class DiskManager {
                 }
             }
         }
+    }
+
+    // MARK: - 磁盘匹配
+
+    /// 精确匹配磁盘
+    /// 优先级: 1. 完全路径匹配 2. 卷名匹配 (/Volumes/NAME)
+    private func matchesDisk(devicePath: String, disk: DiskConfig) -> Bool {
+        // 1. 完全路径匹配
+        if devicePath == disk.mountPath {
+            return true
+        }
+
+        // 2. 卷名匹配: /Volumes/{name}
+        let volumePath = "/Volumes/\(disk.name)"
+        if devicePath == volumePath {
+            return true
+        }
+
+        // 3. 路径末尾匹配 (处理 /Volumes/BACKUP-1 这种情况)
+        let pathComponents = devicePath.split(separator: "/")
+        if let lastComponent = pathComponents.last {
+            // 精确匹配卷名
+            if String(lastComponent) == disk.name {
+                return true
+            }
+            // 处理带序号的卷名 (如 BACKUP-1, BACKUP 1)
+            let normalizedName = String(lastComponent)
+                .replacingOccurrences(of: " ", with: "-")
+            // 移除末尾数字后缀
+            if let range = normalizedName.range(of: "-\\d+$", options: .regularExpression) {
+                let baseName = String(normalizedName[..<range.lowerBound])
+                if baseName == disk.name {
+                    return true
+                }
+            }
+        }
+
+        return false
     }
 
     /// 检查初始状态

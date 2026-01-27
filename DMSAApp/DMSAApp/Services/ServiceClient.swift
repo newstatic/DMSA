@@ -125,6 +125,12 @@ final class ServiceClient {
     private var connectionRetryCount = 0
     private let maxRetryCount = 3
 
+    /// XPC 调用默认超时时间 (10秒)
+    private let defaultTimeout: TimeInterval = 10
+
+    /// 连接状态变更回调 (用于通知 UI)
+    var onConnectionStateChanged: ((Bool) -> Void)?
+
     /// 同步进度代理
     weak var progressDelegate: SyncProgressDelegate?
 
@@ -341,13 +347,30 @@ final class ServiceClient {
         proxy = nil
         connectionLock.unlock()
 
+        // 通知 UI 连接中断
+        Task { @MainActor in
+            onConnectionStateChanged?(false)
+            progressDelegate?.syncStatusDidChange(syncPairId: "", status: .error, message: "XPC 连接中断")
+        }
+
         // 尝试重连
         Task { @MainActor in
             if connectionRetryCount < maxRetryCount {
                 connectionRetryCount += 1
                 logger.info("尝试重连 (第 \(connectionRetryCount) 次)...")
                 try? await Task.sleep(nanoseconds: UInt64(connectionRetryCount) * 1_000_000_000)
-                try? await connect()
+
+                do {
+                    try await connect()
+                    // 重连成功，通知 UI
+                    onConnectionStateChanged?(true)
+                    progressDelegate?.serviceDidBecomeReady()
+                    logger.info("XPC 重连成功")
+                } catch {
+                    logger.error("XPC 重连失败: \(error)")
+                }
+            } else {
+                logger.error("已达到最大重连次数 (\(maxRetryCount))，停止重连")
             }
         }
     }
@@ -357,10 +380,65 @@ final class ServiceClient {
         connection = nil
         proxy = nil
         connectionLock.unlock()
+
+        // 通知 UI 连接失效
+        Task { @MainActor in
+            onConnectionStateChanged?(false)
+            progressDelegate?.syncStatusDidChange(syncPairId: "", status: .error, message: "XPC 连接失效")
+        }
     }
 
     private func handleConnectionError(_ error: Error) {
         logger.error("连接错误: \(error)")
+
+        // 通知 UI 连接错误
+        Task { @MainActor in
+            onConnectionStateChanged?(false)
+        }
+    }
+
+    // MARK: - XPC 超时包装
+
+    /// 带超时的 XPC 调用包装
+    private func withTimeout<T>(
+        _ operation: String,
+        timeout: TimeInterval? = nil,
+        task: @escaping () async throws -> T
+    ) async throws -> T {
+        let timeoutDuration = timeout ?? defaultTimeout
+
+        return try await withThrowingTaskGroup(of: T.self) { group in
+            // 实际操作任务
+            group.addTask {
+                try await task()
+            }
+
+            // 超时任务
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(timeoutDuration * 1_000_000_000))
+                throw ServiceError.timeout
+            }
+
+            // 返回先完成的任务结果
+            guard let result = try await group.next() else {
+                throw ServiceError.timeout
+            }
+
+            // 取消剩余任务
+            group.cancelAll()
+
+            self.logger.debug("[XPC] \(operation) 完成")
+            return result
+        }
+    }
+
+    /// 带超时的 XPC 调用包装 (无返回值版本)
+    private func withTimeoutVoid(
+        _ operation: String,
+        timeout: TimeInterval? = nil,
+        task: @escaping () async throws -> Void
+    ) async throws {
+        let _: Void = try await withTimeout(operation, timeout: timeout, task: task)
     }
 
     // MARK: - VFS Operations
@@ -368,15 +446,17 @@ final class ServiceClient {
     /// 挂载 VFS
     func mountVFS(syncPairId: String, localDir: String, externalDir: String?, targetDir: String) async throws {
         logXPCRequest("vfsMount", params: ["syncPairId": syncPairId, "localDir": localDir, "externalDir": externalDir ?? "nil", "targetDir": targetDir])
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.vfsMount(syncPairId: syncPairId, localDir: localDir, externalDir: externalDir, targetDir: targetDir) { [weak self] success, error in
-                self?.logXPCResponse("vfsMount", success: success, error: error)
-                if success {
-                    continuation.resume()
-                } else {
-                    continuation.resume(throwing: ServiceError.operationFailed(error ?? "挂载失败"))
+        try await withTimeoutVoid("vfsMount", timeout: 30) { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.vfsMount(syncPairId: syncPairId, localDir: localDir, externalDir: externalDir, targetDir: targetDir) { [weak self] success, error in
+                    self?.logXPCResponse("vfsMount", success: success, error: error)
+                    if success {
+                        continuation.resume()
+                    } else {
+                        continuation.resume(throwing: ServiceError.operationFailed(error ?? "挂载失败"))
+                    }
                 }
             }
         }
@@ -385,15 +465,17 @@ final class ServiceClient {
     /// 卸载 VFS
     func unmountVFS(syncPairId: String) async throws {
         logXPCRequest("vfsUnmount", params: ["syncPairId": syncPairId])
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.vfsUnmount(syncPairId: syncPairId) { [weak self] success, error in
-                self?.logXPCResponse("vfsUnmount", success: success, error: error)
-                if success {
-                    continuation.resume()
-                } else {
-                    continuation.resume(throwing: ServiceError.operationFailed(error ?? "卸载失败"))
+        try await withTimeoutVoid("vfsUnmount", timeout: 30) { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.vfsUnmount(syncPairId: syncPairId) { [weak self] success, error in
+                    self?.logXPCResponse("vfsUnmount", success: success, error: error)
+                    if success {
+                        continuation.resume()
+                    } else {
+                        continuation.resume(throwing: ServiceError.operationFailed(error ?? "卸载失败"))
+                    }
                 }
             }
         }
@@ -402,12 +484,14 @@ final class ServiceClient {
     /// 获取 VFS 挂载信息
     func getVFSMounts() async throws -> [MountInfo] {
         logXPCRequest("vfsGetAllMounts")
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.vfsGetAllMounts { [weak self] data in
-                self?.logXPCResponseData("vfsGetAllMounts", data: data)
-                continuation.resume(returning: MountInfo.arrayFrom(data: data))
+        return try await withTimeout("vfsGetAllMounts") { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.vfsGetAllMounts { [weak self] data in
+                    self?.logXPCResponseData("vfsGetAllMounts", data: data)
+                    continuation.resume(returning: MountInfo.arrayFrom(data: data))
+                }
             }
         }
     }
@@ -415,15 +499,17 @@ final class ServiceClient {
     /// 更新外部路径
     func updateExternalPath(syncPairId: String, newPath: String) async throws {
         logXPCRequest("vfsUpdateExternalPath", params: ["syncPairId": syncPairId, "newPath": newPath])
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.vfsUpdateExternalPath(syncPairId: syncPairId, newPath: newPath) { [weak self] success, error in
-                self?.logXPCResponse("vfsUpdateExternalPath", success: success, error: error)
-                if success {
-                    continuation.resume()
-                } else {
-                    continuation.resume(throwing: ServiceError.operationFailed(error ?? "更新失败"))
+        try await withTimeoutVoid("vfsUpdateExternalPath") { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.vfsUpdateExternalPath(syncPairId: syncPairId, newPath: newPath) { [weak self] success, error in
+                    self?.logXPCResponse("vfsUpdateExternalPath", success: success, error: error)
+                    if success {
+                        continuation.resume()
+                    } else {
+                        continuation.resume(throwing: ServiceError.operationFailed(error ?? "更新失败"))
+                    }
                 }
             }
         }
@@ -432,12 +518,14 @@ final class ServiceClient {
     /// 设置外部存储离线状态
     func setExternalOffline(syncPairId: String, offline: Bool) async throws {
         logXPCRequest("vfsSetExternalOffline", params: ["syncPairId": syncPairId, "offline": offline])
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.vfsSetExternalOffline(syncPairId: syncPairId, offline: offline) { [weak self] success, _ in
-                self?.logXPCResponse("vfsSetExternalOffline", success: success)
-                continuation.resume()
+        try await withTimeoutVoid("vfsSetExternalOffline") { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.vfsSetExternalOffline(syncPairId: syncPairId, offline: offline) { [weak self] success, _ in
+                    self?.logXPCResponse("vfsSetExternalOffline", success: success)
+                    continuation.resume()
+                }
             }
         }
     }
@@ -447,15 +535,17 @@ final class ServiceClient {
     /// 立即同步
     func syncNow(syncPairId: String) async throws {
         logXPCRequest("syncNow", params: ["syncPairId": syncPairId])
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncNow(syncPairId: syncPairId) { [weak self] success, error in
-                self?.logXPCResponse("syncNow", success: success, error: error)
-                if success {
-                    continuation.resume()
-                } else {
-                    continuation.resume(throwing: ServiceError.operationFailed(error ?? "同步启动失败"))
+        try await withTimeoutVoid("syncNow") { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.syncNow(syncPairId: syncPairId) { [weak self] success, error in
+                    self?.logXPCResponse("syncNow", success: success, error: error)
+                    if success {
+                        continuation.resume()
+                    } else {
+                        continuation.resume(throwing: ServiceError.operationFailed(error ?? "同步启动失败"))
+                    }
                 }
             }
         }
@@ -464,15 +554,17 @@ final class ServiceClient {
     /// 同步所有
     func syncAll() async throws {
         logXPCRequest("syncAll")
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncAll { [weak self] success, error in
-                self?.logXPCResponse("syncAll", success: success, error: error)
-                if success {
-                    continuation.resume()
-                } else {
-                    continuation.resume(throwing: ServiceError.operationFailed(error ?? "同步失败"))
+        try await withTimeoutVoid("syncAll") { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.syncAll { [weak self] success, error in
+                    self?.logXPCResponse("syncAll", success: success, error: error)
+                    if success {
+                        continuation.resume()
+                    } else {
+                        continuation.resume(throwing: ServiceError.operationFailed(error ?? "同步失败"))
+                    }
                 }
             }
         }
@@ -481,12 +573,14 @@ final class ServiceClient {
     /// 暂停同步 (指定 syncPairId)
     func pauseSync(syncPairId: String) async throws {
         logXPCRequest("syncPause", params: ["syncPairId": syncPairId])
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncPause(syncPairId: syncPairId) { [weak self] success, _ in
-                self?.logXPCResponse("syncPause", success: success)
-                continuation.resume()
+        try await withTimeoutVoid("syncPause") { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.syncPause(syncPairId: syncPairId) { [weak self] success, _ in
+                    self?.logXPCResponse("syncPause", success: success)
+                    continuation.resume()
+                }
             }
         }
     }
@@ -499,12 +593,14 @@ final class ServiceClient {
     /// 恢复同步 (指定 syncPairId)
     func resumeSync(syncPairId: String) async throws {
         logXPCRequest("syncResume", params: ["syncPairId": syncPairId])
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncResume(syncPairId: syncPairId) { [weak self] success, _ in
-                self?.logXPCResponse("syncResume", success: success)
-                continuation.resume()
+        try await withTimeoutVoid("syncResume") { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.syncResume(syncPairId: syncPairId) { [weak self] success, _ in
+                    self?.logXPCResponse("syncResume", success: success)
+                    continuation.resume()
+                }
             }
         }
     }
@@ -517,12 +613,14 @@ final class ServiceClient {
     /// 取消同步 (指定 syncPairId)
     func cancelSync(syncPairId: String) async throws {
         logXPCRequest("syncCancel", params: ["syncPairId": syncPairId])
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncCancel(syncPairId: syncPairId) { [weak self] success, _ in
-                self?.logXPCResponse("syncCancel", success: success)
-                continuation.resume()
+        try await withTimeoutVoid("syncCancel") { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.syncCancel(syncPairId: syncPairId) { [weak self] success, _ in
+                    self?.logXPCResponse("syncCancel", success: success)
+                    continuation.resume()
+                }
             }
         }
     }
@@ -535,12 +633,14 @@ final class ServiceClient {
     /// 获取同步状态
     func getSyncStatus(syncPairId: String) async throws -> SyncStatusInfo {
         logXPCRequest("syncGetStatus", params: ["syncPairId": syncPairId])
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncGetStatus(syncPairId: syncPairId) { [weak self] data in
-                self?.logXPCResponseData("syncGetStatus", data: data)
-                continuation.resume(returning: SyncStatusInfo.from(data: data) ?? SyncStatusInfo(syncPairId: syncPairId))
+        return try await withTimeout("syncGetStatus") { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.syncGetStatus(syncPairId: syncPairId) { [weak self] data in
+                    self?.logXPCResponseData("syncGetStatus", data: data)
+                    continuation.resume(returning: SyncStatusInfo.from(data: data) ?? SyncStatusInfo(syncPairId: syncPairId))
+                }
             }
         }
     }
@@ -548,12 +648,14 @@ final class ServiceClient {
     /// 获取所有同步状态
     func getAllSyncStatus() async throws -> [SyncStatusInfo] {
         logXPCRequest("syncGetAllStatus")
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncGetAllStatus { [weak self] data in
-                self?.logXPCResponseData("syncGetAllStatus", data: data)
-                continuation.resume(returning: SyncStatusInfo.arrayFrom(data: data))
+        return try await withTimeout("syncGetAllStatus") { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.syncGetAllStatus { [weak self] data in
+                    self?.logXPCResponseData("syncGetAllStatus", data: data)
+                    continuation.resume(returning: SyncStatusInfo.arrayFrom(data: data))
+                }
             }
         }
     }
@@ -561,15 +663,17 @@ final class ServiceClient {
     /// 获取同步进度 (返回的是 SyncProgressResponse，可解码的进度信息)
     func getSyncProgress(syncPairId: String) async throws -> SyncProgressResponse? {
         logXPCRequest("syncGetProgress", params: ["syncPairId": syncPairId])
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncGetProgress(syncPairId: syncPairId) { [weak self] data in
-                self?.logXPCResponseData("syncGetProgress", data: data)
-                if let data = data {
-                    continuation.resume(returning: SyncProgressResponse.from(data: data))
-                } else {
-                    continuation.resume(returning: nil)
+        return try await withTimeout("syncGetProgress") { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.syncGetProgress(syncPairId: syncPairId) { [weak self] data in
+                    self?.logXPCResponseData("syncGetProgress", data: data)
+                    if let data = data {
+                        continuation.resume(returning: SyncProgressResponse.from(data: data))
+                    } else {
+                        continuation.resume(returning: nil)
+                    }
                 }
             }
         }
@@ -578,12 +682,14 @@ final class ServiceClient {
     /// 获取同步历史 (指定 syncPairId)
     func getSyncHistory(syncPairId: String, limit: Int = 50) async throws -> [SyncHistory] {
         logXPCRequest("syncGetHistory", params: ["syncPairId": syncPairId, "limit": limit])
-        let proxy = try await getProxy()
 
-        return try await withCheckedThrowingContinuation { continuation in
-            proxy.syncGetHistory(syncPairId: syncPairId, limit: limit) { [weak self] data in
-                self?.logXPCResponseData("syncGetHistory", data: data)
-                continuation.resume(returning: SyncHistory.arrayFrom(data: data))
+        return try await withTimeout("syncGetHistory") { [self] in
+            let proxy = try await getProxy()
+            return try await withCheckedThrowingContinuation { continuation in
+                proxy.syncGetHistory(syncPairId: syncPairId, limit: limit) { [weak self] data in
+                    self?.logXPCResponseData("syncGetHistory", data: data)
+                    continuation.resume(returning: SyncHistory.arrayFrom(data: data))
+                }
             }
         }
     }

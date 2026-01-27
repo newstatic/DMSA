@@ -1,66 +1,13 @@
 import SwiftUI
 
-// MARK: - App State for UI Binding
-
-/// 应用全局状态 (用于 UI 绑定)
-class AppUIState: ObservableObject {
-    static let shared = AppUIState()
-
-    @Published var syncStatus: SyncUIStatus = .ready
-    @Published var conflictCount: Int = 0
-    @Published var isSyncing: Bool = false
-    @Published var syncProgress: Double = 0
-    @Published var lastSyncTime: Date?
-    @Published var connectedDiskCount: Int = 0
-    @Published var totalDiskCount: Int = 0
-    @Published var totalFiles: Int = 0
-
-    enum SyncUIStatus {
-        case ready
-        case syncing
-        case paused
-        case error(String)
-        case serviceUnavailable
-
-        var icon: String {
-            switch self {
-            case .ready: return "checkmark.circle.fill"
-            case .syncing: return "arrow.clockwise"
-            case .paused: return "pause.circle.fill"
-            case .error: return "exclamationmark.triangle.fill"
-            case .serviceUnavailable: return "xmark.circle.fill"
-            }
-        }
-
-        var color: Color {
-            switch self {
-            case .ready: return .green
-            case .syncing: return .blue
-            case .paused: return .orange
-            case .error: return .red
-            case .serviceUnavailable: return .gray
-            }
-        }
-
-        var text: String {
-            switch self {
-            case .ready: return "sidebar.status.ready".localized
-            case .syncing: return "sidebar.status.syncing".localized
-            case .paused: return "sidebar.status.paused".localized
-            case .error(let msg): return msg
-            case .serviceUnavailable: return "sidebar.status.unavailable".localized
-            }
-        }
-    }
-}
-
 // MARK: - Main View
 
 /// 主窗口视图 - 单窗口 + 左侧导航
+/// v4.8: 使用 StateManager 作为唯一状态管理器
 struct MainView: View {
     @ObservedObject var configManager: ConfigManager
     @ObservedObject private var localizationManager = LocalizationManager.shared
-    @StateObject private var appState = AppUIState.shared
+    @ObservedObject private var stateManager = StateManager.shared
     @State private var selectedTab: MainTab = .dashboard
 
     // MARK: - Navigation Tabs (6 items as per design spec)
@@ -126,7 +73,7 @@ struct MainView: View {
             // MARK: Sidebar
             VStack(spacing: 0) {
                 // Sidebar Header - Status Display
-                SidebarHeaderView(appState: appState)
+                SidebarHeaderView(stateManager: stateManager)
 
                 Divider()
                     .padding(.horizontal, 12)
@@ -183,13 +130,13 @@ struct MainView: View {
     private func badgeForTab(_ tab: MainTab) -> NavigationBadge? {
         switch tab {
         case .sync:
-            if appState.isSyncing {
+            if stateManager.isSyncing {
                 return NavigationBadge(text: "nav.badge.syncing".localized, color: .blue)
             }
             return nil
         case .conflicts:
-            if appState.conflictCount > 0 {
-                return NavigationBadge(text: "\(appState.conflictCount)", color: .orange)
+            if stateManager.conflictCount > 0 {
+                return NavigationBadge(text: "\(stateManager.conflictCount)", color: .orange)
             }
             return nil
         default:
@@ -292,15 +239,15 @@ struct NavigationItemView: View {
 // MARK: - Sidebar Header View
 
 struct SidebarHeaderView: View {
-    @ObservedObject var appState: AppUIState
+    @ObservedObject var stateManager: StateManager
 
     var body: some View {
         HStack(spacing: 12) {
             // Status indicator
             StatusIndicatorView(
-                icon: appState.syncStatus.icon,
-                color: appState.syncStatus.color,
-                isAnimating: appState.isSyncing
+                icon: stateManager.syncStatus.icon,
+                color: stateManager.syncStatus.color,
+                isAnimating: stateManager.isSyncing
             )
             .frame(width: 36, height: 36)
 
@@ -309,7 +256,7 @@ struct SidebarHeaderView: View {
                     .font(.title3)
                     .fontWeight(.semibold)
 
-                Text(appState.syncStatus.text)
+                Text(stateManager.syncStatus.text)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

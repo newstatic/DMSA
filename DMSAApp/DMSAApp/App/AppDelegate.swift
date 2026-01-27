@@ -14,27 +14,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let serviceClient = ServiceClient.shared
     private let serviceInstaller = ServiceInstaller.shared
 
+    // MARK: - 状态管理
+
+    private let stateManager = StateManager.shared
+    private let notificationHandler = NotificationHandler.shared
+
     // MARK: - 窗口控制器
 
     private var mainWindowController: MainWindowController?
+
+    // MARK: - 刷新定时器
+
+    private var stateRefreshTimer: Timer?
+    private let stateRefreshInterval: TimeInterval = 30 // 30秒刷新一次
 
     // MARK: - 配置缓存
 
     private var cachedConfig: AppConfig?
     private var lastConfigFetch: Date?
     private let configCacheTimeout: TimeInterval = 30 // 30秒缓存
+    private let configLock = NSLock() // 配置缓存锁，防止竞态条件
+    private var isConfigFetching = false // 防止并发获取
 
     // MARK: - 同步控制属性
 
     var isAutoSyncEnabled: Bool {
-        get { cachedConfig?.general.autoSyncEnabled ?? true }
+        get {
+            configLock.lock()
+            defer { configLock.unlock() }
+            return cachedConfig?.general.autoSyncEnabled ?? true
+        }
         set {
             Task {
                 do {
-                    var config = try await serviceClient.getConfig()
+                    var config = try await getConfig()
                     config.general.autoSyncEnabled = newValue
                     try await serviceClient.updateConfig(config)
+
+                    configLock.lock()
                     cachedConfig = config
+                    lastConfigFetch = Date()
+                    configLock.unlock()
+
                     Logger.shared.info("自动同步开关: \(newValue ? "开启" : "关闭")")
                 } catch {
                     Logger.shared.error("更新自动同步配置失败: \(error)")
@@ -67,6 +88,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         Logger.shared.info("应用即将退出")
 
+        // 清理定时器
+        stateRefreshTimer?.invalidate()
+        stateRefreshTimer = nil
+
         // 通知 Service 准备关闭 (Service 本身不会退出，只是做清理)
         Task {
             try? await serviceClient.prepareForShutdown()
@@ -77,8 +102,122 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Logger.shared.info("============================================")
     }
 
+    deinit {
+        // 确保定时器被清理
+        stateRefreshTimer?.invalidate()
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false // 菜单栏应用
+    }
+
+    func applicationDidResignActive(_ notification: Notification) {
+        Logger.shared.debug("App 进入后台")
+
+        // 保存状态到缓存
+        stateManager.saveToCache()
+
+        // 暂停状态刷新定时器
+        stateRefreshTimer?.invalidate()
+        stateRefreshTimer = nil
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        Logger.shared.debug("App 进入前台")
+
+        // 恢复状态
+        stateManager.restoreFromCache()
+
+        // 同步最新状态
+        Task {
+            await stateManager.syncFullState()
+        }
+
+        // 恢复状态刷新定时器
+        startStateRefreshTimer()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        if !hasVisibleWindows {
+            mainWindowController?.showWindow()
+        }
+        return true
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // 检查是否有进行中的同步操作
+        if stateManager.isSyncing {
+            showTerminationConfirmation()
+            return .terminateCancel
+        }
+
+        return .terminateNow
+    }
+
+    // MARK: - 退出确认
+
+    private func showTerminationConfirmation() {
+        let alert = NSAlert()
+        alert.messageText = "alert.sync.inprogress.title".localized
+        alert.informativeText = "alert.sync.inprogress.message".localized
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "alert.sync.inprogress.wait".localized)
+        alert.addButton(withTitle: "alert.sync.inprogress.force".localized)
+        alert.addButton(withTitle: "alert.cancel".localized)
+
+        let response = alert.runModal()
+        switch response {
+        case .alertFirstButtonReturn:
+            // 等待完成后退出
+            waitForSyncAndQuit()
+        case .alertSecondButtonReturn:
+            // 强制退出
+            forceQuit()
+        default:
+            // 取消
+            break
+        }
+    }
+
+    private func waitForSyncAndQuit() {
+        Logger.shared.info("等待同步完成后退出...")
+
+        // 设置观察者，等待同步完成
+        Task {
+            // 简单轮询等待同步完成
+            while stateManager.isSyncing {
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+            }
+
+            // 同步完成后退出
+            await MainActor.run {
+                NSApplication.shared.terminate(nil)
+            }
+        }
+    }
+
+    private func forceQuit() {
+        Logger.shared.warn("用户选择强制退出，取消进行中的同步")
+
+        Task {
+            try? await serviceClient.cancelSync()
+            try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
+
+            await MainActor.run {
+                NSApplication.shared.terminate(nil)
+            }
+        }
+    }
+
+    // MARK: - 状态刷新定时器
+
+    private func startStateRefreshTimer() {
+        stateRefreshTimer?.invalidate()
+        stateRefreshTimer = Timer.scheduledTimer(withTimeInterval: stateRefreshInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await self?.stateManager.syncFullState()
+            }
+        }
     }
 
     // MARK: - 初始化
@@ -150,22 +289,53 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Config Cache
 
     private func getConfig() async -> AppConfig {
+        // 使用锁检查缓存状态
+        configLock.lock()
+
         // 检查缓存是否有效
         if let cached = cachedConfig,
            let lastFetch = lastConfigFetch,
            Date().timeIntervalSince(lastFetch) < configCacheTimeout {
+            configLock.unlock()
             return cached
         }
 
+        // 检查是否已有正在进行的获取操作
+        if isConfigFetching {
+            let cached = cachedConfig
+            configLock.unlock()
+            // 等待其他任务完成获取
+            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+            return cached ?? await getConfig()
+        }
+
+        isConfigFetching = true
+        configLock.unlock()
+
         // 从服务获取配置
+        defer {
+            configLock.lock()
+            isConfigFetching = false
+            configLock.unlock()
+        }
+
         do {
             let config = try await serviceClient.getConfig()
+
+            configLock.lock()
             cachedConfig = config
             lastConfigFetch = Date()
+            configLock.unlock()
+
             return config
         } catch {
             Logger.shared.error("获取配置失败: \(error)")
-            return cachedConfig ?? AppConfig()
+
+            configLock.lock()
+            let cached = cachedConfig
+            configLock.unlock()
+
+            return cached ?? AppConfig()
         }
     }
 
@@ -368,5 +538,10 @@ extension AppDelegate: MenuBarDelegate {
 
     func menuBarDidRequestToggleAutoSync() {
         toggleAutoSync()
+    }
+
+    func menuBarDidRequestOpenTab(_ tab: MainView.MainTab) {
+        Logger.shared.info("用户请求打开标签: \(tab.rawValue)")
+        mainWindowController?.showTab(tab)
     }
 }
