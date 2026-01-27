@@ -638,4 +638,80 @@ sudo launchctl bootstrap system /Library/LaunchDaemons/com.ttttt.dmsa.service.pl
 
 ---
 
+### SERVICE_FLOW 文档体系
+
+**相关会话:** 50877371
+**日期:** 2026-01-27
+**状态:** ✅ 完成
+
+**功能描述:**
+创建完整的 SERVICE_FLOW 文档体系，包含 Service 端和 App 端所有流程的详细设计文档，采用最佳架构设计原则。
+
+**实现思路:**
+- 将原有单一大文档拆分为 17 个独立主题文件
+- 新增 App 端完整交互流程文档 (20_App启动与交互流程.md)
+- 使用 Mermaid 图表描述所有流程
+- 不依赖现有代码，按最佳实践设计
+
+**完成任务:**
+1. ✅ 创建 SERVICE_FLOW 文件夹
+2. ✅ 拆分主流程文档为 17 个文件 (01-17)
+3. ✅ 创建索引文件 (00_README.md)
+4. ✅ 补充 VFS 文件操作处理流程 (create/write/read/unlink/rename/mkdir/rmdir 等)
+5. ✅ 创建 App 启动与交互流程完整文档 (20_App启动与交互流程.md，约 950 行)
+6. ✅ 修复 Mermaid 语法错误
+
+**创建文件 (19 个):**
+```
+SERVICE_FLOW/
+├── 00_README.md                    # 索引和快速导航
+├── 01_服务状态定义.md              # ServiceState, ComponentState
+├── 02_配置管理.md                  # 配置加载、验证、冲突解决
+├── 03_启动流程总览.md              # 5 个启动阶段概览
+├── 04_XPC通信与通知.md             # 通知缓存、连接管理
+├── 05_状态管理器.md                # ServiceStateManager
+├── 06_XPC优先启动.md               # XPC 优先启动原因
+├── 07_VFS预挂载机制.md             # FUSE 预挂载、文件操作处理
+├── 08_索引构建流程.md              # 版本管理、索引构建
+├── 09_文件同步流程.md              # 同步策略、脏文件管理
+├── 10_冲突处理流程.md              # 冲突检测、解决策略
+├── 11_热数据淘汰流程.md            # LRU 淘汰、安全检查
+├── 12_完整启动时序.md              # Sequence Diagram
+├── 13_App端交互流程.md             # App UI 状态映射
+├── 14_分布式通知.md                # 通知事件、触发条件
+├── 15_错误处理.md                  # 错误分类、恢复接口
+├── 16_日志规范.md                  # 日志格式、示例
+├── 17_检查清单.md                  # 启动检查清单
+└── 20_App启动与交互流程.md         # App 完整设计 (15 章节)
+```
+
+**20_App启动与交互流程.md 核心内容:**
+- 架构概览 (4 层架构)
+- App 生命周期
+- 详细启动流程 (5 阶段)
+- 首次启动向导 (5 步骤)
+- XPC 连接管理
+- 状态同步机制
+- UI 状态机
+- 用户交互流程 (同步、淘汰、冲突处理)
+- 配置管理交互
+- 磁盘管理交互
+- 错误处理与恢复
+- 通知处理
+- 前后台切换
+- 退出流程
+
+**关键技术概念:**
+- Copy-on-Write (COW) 机制
+- isDirty 脏文件标记
+- DeletePending 延迟删除
+- XPC 连接状态机 (disconnected/connecting/connected/interrupted/failed)
+- UI 状态机 (initializing/connecting/starting/ready/syncing/evicting/error)
+- 首次启动向导流程
+
+**问题与解决:**
+- Mermaid 语法: 方括号内嵌套引号需改用外层引号包裹
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*

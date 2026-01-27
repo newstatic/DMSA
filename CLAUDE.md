@@ -345,6 +345,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | eae6e63e | 2026-01-26 | 代码签名修复 | 修复 Service Team ID、macFUSE Library Validation |
 | 2a099f6b | 2026-01-26 | C FUSE Wrapper | libfuse C 实现，修复权限和保护问题 |
 | e4bd3c09 | 2026-01-27 | MD 文档清理 | 删除 13 个过时文档，保留 4 个核心文档 |
+| 50877371 | 2026-01-27 | SERVICE_FLOW 文档体系 | 创建 19 个流程文档，完整架构设计 |
 
 ---
 
