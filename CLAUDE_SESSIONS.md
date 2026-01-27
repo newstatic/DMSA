@@ -853,4 +853,59 @@ SERVICE_FLOW/00_README.md - 添加文档索引
 
 ---
 
+### App 修改计划 - 代码审查与文档生成
+
+**相关会话:** 4f263311
+**日期:** 2026-01-27
+**状态:** ✅ 完成
+
+**功能描述:**
+根据 `20_App启动与交互流程.md` 和 `22_UI修改计划.md` 执行代码审查，生成 App 修改计划文档。
+
+**实现思路:**
+- 对比设计规范与当前代码实现
+- 识别架构差距和缺失组件
+- 制定分阶段修改计划
+
+**完成任务:**
+1. ✅ 读取并分析 20_App启动与交互流程.md
+2. ✅ 读取并分析 22_UI修改计划.md
+3. ✅ 审查 AppDelegate.swift, ServiceClient.swift, MainView.swift, MenuBarManager.swift
+4. ✅ 生成 23_App修改计划.md
+
+**代码审查发现:**
+
+| 设计规范要求 | 当前实现 | 状态 |
+|-------------|---------|------|
+| AppCoordinator 协调器 | 直接在 AppDelegate 处理 | **待实现** |
+| StateManager 状态管理 | AppUIState (简化版) | **需增强** |
+| NotificationHandler | 在 ServiceClient 处理 | **需分离** |
+| 后台/前台切换处理 | 缺失 | **待实现** |
+| 错误处理与恢复 | 基础弹窗 | **需完善** |
+| menuBarDidRequestOpenTab | MenuBarDelegate 已添加但 AppDelegate 未实现 | **紧急修复** |
+
+**生成的修改计划 (23_App修改计划.md):**
+
+| 阶段 | 内容 | 优先级 |
+|------|------|--------|
+| Phase 0 | 紧急修复 (menuBarDidRequestOpenTab) | P0 |
+| Phase 1 | 状态管理增强 (StateManager) | P1 |
+| Phase 2 | 通知处理分离 (NotificationHandler) | P2 |
+| Phase 3 | 生命周期完善 (后台/前台切换) | P2 |
+| Phase 4 | 错误处理增强 (ErrorHandler) | P3 |
+| Phase 5 | 连接状态机增强 (可选) | P4 |
+
+**新建文件:**
+```
+SERVICE_FLOW/23_App修改计划.md
+```
+
+**关键发现:**
+1. AppDelegate 未实现 `menuBarDidRequestOpenTab` 导致菜单栏导航功能失效
+2. AppUIState 与 Service 状态不同步，缺少 connectionState、serviceState 等关键字段
+3. 通知处理散落在 ServiceClient 中，应抽取为独立 NotificationHandler
+4. 缺少后台/前台切换处理和退出确认流程
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*

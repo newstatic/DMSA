@@ -3,35 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DMSA UI Prototype</title>
+    <title>DMSA UI Prototype v2.0</title>
     <style>
         /* ========================================
-           设计系统 - 颜色
+           Design System - Colors
            ======================================== */
         :root {
-            /* 语义颜色 - 浅色模式 */
+            /* Semantic Colors - Light Mode */
             --color-primary: #007AFF;
             --color-success: #34C759;
             --color-warning: #FF9500;
             --color-error: #FF3B30;
             --color-neutral: #8E8E93;
+            --color-purple: #AF52DE;
 
-            /* 文本颜色 */
+            /* Text Colors */
             --text-primary: rgba(0, 0, 0, 0.85);
             --text-secondary: rgba(0, 0, 0, 0.55);
             --text-tertiary: rgba(0, 0, 0, 0.30);
 
-            /* 背景颜色 */
+            /* Background Colors */
             --bg-window: #F5F5F7;
+            --bg-sidebar: #F0F0F2;
             --bg-control: #FFFFFF;
-            --bg-selected: rgba(0, 122, 255, 0.1);
+            --bg-selected: rgba(0, 122, 255, 0.12);
             --bg-hover: rgba(0, 0, 0, 0.04);
+            --bg-quaternary: rgba(0, 0, 0, 0.03);
 
-            /* 边框 */
+            /* Border */
             --border-color: rgba(0, 0, 0, 0.1);
             --separator-color: rgba(0, 0, 0, 0.08);
 
-            /* 间距 */
+            /* Spacing */
             --spacing-xxs: 2px;
             --spacing-xs: 4px;
             --spacing-sm: 8px;
@@ -40,19 +43,20 @@
             --spacing-xl: 24px;
             --spacing-xxl: 32px;
 
-            /* 圆角 */
+            /* Border Radius */
             --radius-sm: 4px;
             --radius-md: 6px;
             --radius-lg: 8px;
-            --radius-xl: 12px;
+            --radius-xl: 10px;
+            --radius-xxl: 12px;
 
-            /* 阴影 */
+            /* Shadows */
             --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
             --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
             --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.2);
         }
 
-        /* 深色模式 */
+        /* Dark Mode */
         @media (prefers-color-scheme: dark) {
             :root {
                 --color-primary: #0A84FF;
@@ -60,15 +64,18 @@
                 --color-warning: #FF9F0A;
                 --color-error: #FF453A;
                 --color-neutral: #636366;
+                --color-purple: #BF5AF2;
 
                 --text-primary: rgba(255, 255, 255, 0.85);
                 --text-secondary: rgba(255, 255, 255, 0.55);
                 --text-tertiary: rgba(255, 255, 255, 0.30);
 
                 --bg-window: #1C1C1E;
+                --bg-sidebar: #252528;
                 --bg-control: #2C2C2E;
                 --bg-selected: rgba(10, 132, 255, 0.2);
                 --bg-hover: rgba(255, 255, 255, 0.06);
+                --bg-quaternary: rgba(255, 255, 255, 0.05);
 
                 --border-color: rgba(255, 255, 255, 0.1);
                 --separator-color: rgba(255, 255, 255, 0.08);
@@ -76,7 +83,7 @@
         }
 
         /* ========================================
-           排版系统
+           Typography
            ======================================== */
         * {
             margin: 0;
@@ -92,66 +99,21 @@
             background: var(--bg-window);
         }
 
-        .text-large-title {
-            font-size: 26px;
-            font-weight: 700;
-            line-height: 32px;
-        }
-
-        .text-title1 {
-            font-size: 22px;
-            font-weight: 600;
-            line-height: 28px;
-        }
-
-        .text-title2 {
-            font-size: 17px;
-            font-weight: 600;
-            line-height: 22px;
-        }
-
-        .text-title3 {
-            font-size: 15px;
-            font-weight: 600;
-            line-height: 20px;
-        }
-
-        .text-body {
-            font-size: 13px;
-            font-weight: 400;
-            line-height: 18px;
-        }
-
-        .text-callout {
-            font-size: 12px;
-            font-weight: 400;
-            line-height: 16px;
-        }
-
-        .text-caption {
-            font-size: 11px;
-            font-weight: 400;
-            line-height: 14px;
-        }
-
-        .text-mono {
-            font-family: 'SF Mono', Monaco, monospace;
-            font-size: 12px;
-        }
-
-        .text-secondary {
-            color: var(--text-secondary);
-        }
-
-        .text-tertiary {
-            color: var(--text-tertiary);
-        }
+        .text-large-title { font-size: 26px; font-weight: 700; line-height: 32px; }
+        .text-title1 { font-size: 22px; font-weight: 600; line-height: 28px; }
+        .text-title2 { font-size: 17px; font-weight: 600; line-height: 22px; }
+        .text-title3 { font-size: 15px; font-weight: 600; line-height: 20px; }
+        .text-body { font-size: 13px; font-weight: 400; line-height: 18px; }
+        .text-callout { font-size: 12px; font-weight: 400; line-height: 16px; }
+        .text-caption { font-size: 11px; font-weight: 400; line-height: 14px; }
+        .text-secondary { color: var(--text-secondary); }
+        .text-tertiary { color: var(--text-tertiary); }
 
         /* ========================================
-           布局容器
+           Prototype Container
            ======================================== */
         .prototype-container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: var(--spacing-xl);
         }
@@ -191,246 +153,896 @@
         }
 
         /* ========================================
-           状态栏图标
+           Main Window
            ======================================== */
-        .status-bar-demo {
+        .main-window {
+            width: 900px;
+            height: 600px;
+            background: var(--bg-window);
+            border-radius: var(--radius-xxl);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
             display: flex;
-            gap: var(--spacing-xl);
-            padding: var(--spacing-lg);
-            background: #2C2C2E;
-            border-radius: var(--radius-md);
-        }
-
-        .status-icon-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: var(--spacing-sm);
-        }
-
-        .status-icon {
-            width: 22px;
-            height: 22px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-        }
-
-        .status-icon.gray { color: #8E8E93; }
-        .status-icon.yellow { color: #FF9F0A; }
-        .status-icon.green { color: #30D158; }
-        .status-icon.blue { color: #0A84FF; }
-        .status-icon.red { color: #FF453A; }
-
-        .status-icon.animate-rotate {
-            animation: rotate 2s linear infinite;
-        }
-
-        .status-icon.animate-pulse {
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .status-label {
-            font-size: 10px;
-            color: rgba(255, 255, 255, 0.6);
-            text-align: center;
         }
 
         /* ========================================
-           菜单栏
+           Left Sidebar Navigation
            ======================================== */
-        .menu-bar {
-            width: 280px;
-            background: var(--bg-control);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-lg);
-            overflow: hidden;
+        .sidebar {
+            width: 220px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--separator-color);
+            display: flex;
+            flex-direction: column;
         }
 
-        .menu-header {
-            padding: var(--spacing-md) var(--spacing-lg);
+        .sidebar-header {
+            padding: var(--spacing-lg);
             display: flex;
             align-items: center;
             gap: var(--spacing-md);
             border-bottom: 1px solid var(--separator-color);
         }
 
-        .menu-header-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: var(--radius-md);
-            background: var(--color-success);
+        .sidebar-header-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-lg);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
             font-size: 18px;
         }
 
-        .menu-header-content {
+        .sidebar-header-icon.ready {
+            background: rgba(52, 199, 89, 0.15);
+            color: var(--color-success);
+        }
+
+        .sidebar-header-icon.syncing {
+            background: rgba(0, 122, 255, 0.15);
+            color: var(--color-primary);
+        }
+
+        .sidebar-header-icon.error {
+            background: rgba(255, 59, 48, 0.15);
+            color: var(--color-error);
+        }
+
+        .sidebar-header-content {
             flex: 1;
         }
 
-        .menu-header-title {
+        .sidebar-header-title {
+            font-size: 15px;
             font-weight: 600;
-            font-size: 13px;
         }
 
-        .menu-header-subtitle {
+        .sidebar-header-status {
             font-size: 11px;
             color: var(--text-secondary);
             margin-top: 2px;
         }
 
-        .menu-progress {
-            height: 4px;
-            background: var(--separator-color);
-            margin-top: var(--spacing-sm);
-            border-radius: 2px;
-            overflow: hidden;
-            display: none;
-        }
-
-        .menu-progress.visible {
-            display: block;
-        }
-
-        .menu-progress-fill {
-            height: 100%;
-            background: var(--color-primary);
-            width: 65%;
-            border-radius: 2px;
-        }
-
-        .menu-separator {
-            height: 1px;
-            background: var(--separator-color);
-            margin: var(--spacing-xs) 0;
-        }
-
-        .menu-item {
-            display: flex;
-            align-items: center;
-            padding: var(--spacing-sm) var(--spacing-lg);
-            gap: var(--spacing-sm);
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-
-        .menu-item:hover {
-            background: var(--bg-hover);
-        }
-
-        .menu-item.disabled {
-            opacity: 0.5;
-            pointer-events: none;
-        }
-
-        .menu-item-icon {
-            width: 20px;
-            text-align: center;
-            color: var(--text-secondary);
-            font-size: 14px;
-        }
-
-        .menu-item-title {
+        .sidebar-nav {
             flex: 1;
-            font-size: 13px;
+            padding: var(--spacing-md) var(--spacing-sm);
         }
 
-        .menu-item-shortcut {
-            font-size: 12px;
-            color: var(--text-tertiary);
-        }
-
-        .menu-item-badge {
-            background: var(--color-error);
-            color: white;
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 10px;
-            font-weight: 600;
-        }
-
-        /* ========================================
-           设置窗口
-           ======================================== */
-        .settings-window {
-            width: 500px;
-            background: var(--bg-window);
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-lg);
-            overflow: hidden;
-        }
-
-        .settings-toolbar {
+        .nav-item {
             display: flex;
-            justify-content: center;
-            gap: var(--spacing-xs);
-            padding: var(--spacing-md);
-            background: var(--bg-control);
-            border-bottom: 1px solid var(--separator-color);
-        }
-
-        .settings-tab {
-            display: flex;
-            flex-direction: column;
             align-items: center;
-            gap: var(--spacing-xxs);
+            gap: var(--spacing-sm);
             padding: var(--spacing-sm) var(--spacing-md);
             border-radius: var(--radius-md);
             cursor: pointer;
             transition: background 0.15s;
-            min-width: 70px;
+            margin-bottom: var(--spacing-xxs);
         }
 
-        .settings-tab:hover {
-            background: var(--bg-hover);
+        .nav-item:hover {
+            background: var(--bg-quaternary);
         }
 
-        .settings-tab.active {
+        .nav-item.active {
             background: var(--bg-selected);
         }
 
-        .settings-tab-icon {
-            font-size: 20px;
+        .nav-item-icon {
+            width: 18px;
+            font-size: 14px;
+            text-align: center;
             color: var(--text-secondary);
         }
 
-        .settings-tab.active .settings-tab-icon {
+        .nav-item.active .nav-item-icon {
             color: var(--color-primary);
         }
 
-        .settings-tab-label {
+        .nav-item-title {
+            flex: 1;
+            font-size: 13px;
+        }
+
+        .nav-item.active .nav-item-title {
+            font-weight: 500;
+        }
+
+        .nav-item-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 9px;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        .nav-item-badge.blue {
+            background: rgba(0, 122, 255, 0.15);
+            color: var(--color-primary);
+        }
+
+        .nav-item-badge.orange {
+            background: rgba(255, 149, 0, 0.15);
+            color: var(--color-warning);
+        }
+
+        .nav-item-badge.red {
+            background: rgba(255, 59, 48, 0.15);
+            color: var(--color-error);
+        }
+
+        .nav-separator {
+            height: 1px;
+            background: var(--separator-color);
+            margin: var(--spacing-sm) var(--spacing-md);
+        }
+
+        /* ========================================
+           Content Area
+           ======================================== */
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-xl) var(--spacing-xxl);
+        }
+
+        .content-header {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .content-title {
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .content-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* ========================================
+           Dashboard Page
+           ======================================== */
+        .status-banner {
+            background: var(--bg-control);
+            border-radius: var(--radius-xxl);
+            padding: var(--spacing-xl);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .status-ring {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            position: relative;
+        }
+
+        .status-ring::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 4px solid var(--separator-color);
+        }
+
+        .status-ring.ready::before {
+            border-color: var(--color-success);
+        }
+
+        .status-ring.syncing::before {
+            border-color: var(--color-primary);
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        .status-ring.ready { color: var(--color-success); }
+        .status-ring.syncing { color: var(--color-primary); }
+        .status-ring.error { color: var(--color-error); }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .status-info {
+            flex: 1;
+        }
+
+        .status-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .status-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .status-chips {
+            display: flex;
+            gap: var(--spacing-lg);
+        }
+
+        .stat-chip {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .stat-chip-icon {
+            font-size: 14px;
+        }
+
+        .stat-chip-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Section Header */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .section-action {
+            font-size: 12px;
+            color: var(--color-primary);
+            cursor: pointer;
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .action-card {
+            width: 140px;
+            height: 100px;
+            background: var(--bg-control);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-lg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-sm);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .action-card:hover {
+            background: var(--bg-selected);
+        }
+
+        .action-card-icon {
+            font-size: 24px;
+            color: var(--color-primary);
+        }
+
+        .action-card-title {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .action-card-shortcut {
+            font-size: 10px;
+            color: var(--text-tertiary);
+        }
+
+        /* Storage Cards */
+        .storage-cards {
+            display: flex;
+            gap: var(--spacing-lg);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .storage-card {
+            flex: 1;
+            background: var(--bg-control);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-lg);
+        }
+
+        .storage-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .storage-card-icon {
+            font-size: 20px;
+        }
+
+        .storage-card-icon.blue { color: var(--color-primary); }
+        .storage-card-icon.green { color: var(--color-success); }
+
+        .storage-card-percent {
+            font-size: 17px;
+            font-weight: 600;
+        }
+
+        .storage-bar {
+            height: 8px;
+            background: var(--separator-color);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .storage-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+
+        .storage-bar-fill.blue { background: var(--color-primary); }
+        .storage-bar-fill.green { background: var(--color-success); }
+
+        .storage-card-label {
             font-size: 11px;
             color: var(--text-secondary);
         }
 
-        .settings-tab.active .settings-tab-label {
+        /* Activity List */
+        .activity-list {
+            background: var(--bg-control);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-bottom: 1px solid var(--separator-color);
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .activity-icon.success {
+            background: rgba(52, 199, 89, 0.15);
+            color: var(--color-success);
+        }
+
+        .activity-icon.warning {
+            background: rgba(255, 149, 0, 0.15);
+            color: var(--color-warning);
+        }
+
+        .activity-icon.info {
+            background: rgba(0, 122, 255, 0.15);
             color: var(--color-primary);
         }
 
-        .settings-content {
-            padding: var(--spacing-xl);
+        .activity-content {
+            flex: 1;
         }
 
-        .settings-section {
+        .activity-title {
+            font-size: 13px;
+        }
+
+        .activity-subtitle {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .activity-time {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        /* ========================================
+           Sync Page
+           ======================================== */
+        .sync-status-card {
+            background: var(--bg-control);
+            border-radius: var(--radius-xxl);
+            padding: var(--spacing-xl);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xl);
             margin-bottom: var(--spacing-xl);
         }
 
-        .settings-section:last-child {
-            margin-bottom: 0;
+        .sync-ring {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            position: relative;
+        }
+
+        .sync-ring::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 5px solid var(--separator-color);
+        }
+
+        .sync-ring.active::before {
+            border-color: var(--color-primary);
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        .sync-ring.idle { color: var(--color-neutral); }
+        .sync-ring.active { color: var(--color-primary); }
+        .sync-ring.complete { color: var(--color-success); }
+
+        .sync-info {
+            flex: 1;
+        }
+
+        .sync-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .sync-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .sync-actions {
+            display: flex;
+            gap: var(--spacing-md);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .stat-card {
+            background: var(--bg-control);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-lg);
+        }
+
+        .stat-card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .stat-card-icon {
+            font-size: 16px;
+            margin-right: auto;
+        }
+
+        .stat-card-icon.blue { color: var(--color-primary); }
+        .stat-card-icon.green { color: var(--color-success); }
+        .stat-card-icon.orange { color: var(--color-warning); }
+        .stat-card-icon.purple { color: var(--color-purple); }
+
+        .stat-card-value {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .stat-card-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        /* Current File */
+        .current-file-card {
+            background: var(--bg-control);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-lg);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .file-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--color-primary);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .file-path {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .file-size {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .file-progress {
+            font-size: 12px;
+            color: var(--color-primary);
+            font-weight: 500;
+        }
+
+        /* ========================================
+           Conflicts Page
+           ======================================== */
+        .conflicts-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .conflicts-count {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .search-field {
+            width: 250px;
+            height: 32px;
+            padding: 0 var(--spacing-md);
+            padding-left: 32px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            background: var(--bg-control) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238E8E93' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center;
+            color: var(--text-primary);
+        }
+
+        /* Conflict Card */
+        .conflict-card {
+            background: var(--bg-control);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .conflict-file-row {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .conflict-file-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--color-warning);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .conflict-file-info {
+            flex: 1;
+        }
+
+        .conflict-file-name {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .conflict-file-path {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .version-compare {
+            display: flex;
+            gap: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .version-card {
+            flex: 1;
+            background: var(--bg-quaternary);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-md);
+        }
+
+        .version-header {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            margin-bottom: var(--spacing-sm);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .version-header.local { color: var(--color-primary); }
+        .version-header.external { color: var(--color-warning); }
+
+        .version-detail {
+            font-size: 12px;
+        }
+
+        .version-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .version-arrow {
+            display: flex;
+            align-items: center;
+            color: var(--text-tertiary);
+            font-size: 14px;
+        }
+
+        .conflict-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+
+        /* ========================================
+           Disks Page - Master Detail
+           ======================================== */
+        .disks-layout {
+            display: flex;
+            gap: 0;
+            background: var(--bg-control);
+            border-radius: var(--radius-xxl);
+            overflow: hidden;
+            height: 400px;
+        }
+
+        .disks-list {
+            width: 240px;
+            background: var(--bg-window);
+            border-right: 1px solid var(--separator-color);
+        }
+
+        .disks-list-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--spacing-lg);
+            border-bottom: 1px solid var(--separator-color);
+        }
+
+        .disks-list-title {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .disks-add-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+
+        .disks-add-btn:hover {
+            background: var(--bg-hover);
+            color: var(--color-primary);
+        }
+
+        .disks-items {
+            padding: var(--spacing-sm);
+        }
+
+        .disk-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            margin-bottom: var(--spacing-xxs);
+        }
+
+        .disk-item:hover {
+            background: var(--bg-quaternary);
+        }
+
+        .disk-item.selected {
+            background: var(--bg-selected);
+        }
+
+        .disk-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-neutral);
+        }
+
+        .disk-dot.online {
+            background: var(--color-success);
+        }
+
+        .disk-icon {
+            font-size: 18px;
+            color: var(--text-secondary);
+        }
+
+        .disk-item.selected .disk-icon,
+        .disk-dot.online + .disk-icon {
+            color: var(--color-primary);
+        }
+
+        .disk-info {
+            flex: 1;
+        }
+
+        .disk-name {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .disk-status {
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        .disk-detail {
+            flex: 1;
+            padding: var(--spacing-xl);
+            overflow-y: auto;
+        }
+
+        .disk-detail-header {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-lg);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .disk-detail-icon {
+            font-size: 48px;
+            color: var(--color-primary);
+        }
+
+        .disk-detail-title {
+            font-size: 26px;
+            font-weight: 700;
+        }
+
+        .disk-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xxs);
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-top: var(--spacing-xs);
+        }
+
+        .disk-badge.online {
+            background: rgba(52, 199, 89, 0.15);
+            color: var(--color-success);
+        }
+
+        .disk-badge.offline {
+            background: rgba(142, 142, 147, 0.15);
+            color: var(--color-neutral);
+        }
+
+        .disk-section {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .disk-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .disk-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-sm);
+        }
+
+        .disk-info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            padding: var(--spacing-xs) 0;
+        }
+
+        .disk-info-label {
+            color: var(--text-secondary);
+        }
+
+        .disk-info-value {
+            font-weight: 500;
+        }
+
+        /* ========================================
+           Settings Page
+           ======================================== */
+        .settings-section {
+            margin-bottom: var(--spacing-xl);
         }
 
         .settings-section-title {
@@ -439,24 +1051,37 @@
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
         }
 
-        .settings-group {
+        .settings-card {
             background: var(--bg-control);
-            border-radius: var(--radius-lg);
+            border-radius: var(--radius-xl);
             overflow: hidden;
         }
 
         .settings-row {
             display: flex;
             align-items: center;
-            padding: var(--spacing-md) var(--spacing-lg);
             gap: var(--spacing-md);
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-bottom: 1px solid var(--separator-color);
         }
 
-        .settings-row:not(:last-child) {
-            border-bottom: 1px solid var(--separator-color);
+        .settings-row:last-child {
+            border-bottom: none;
+        }
+
+        .settings-row-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            background: var(--bg-quaternary);
+            color: var(--text-secondary);
         }
 
         .settings-row-content {
@@ -473,7 +1098,7 @@
             margin-top: 2px;
         }
 
-        /* 开关控件 */
+        /* Toggle */
         .toggle {
             width: 42px;
             height: 24px;
@@ -504,49 +1129,7 @@
             transform: translateX(18px);
         }
 
-        /* 滑块控件 */
-        .slider-container {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-md);
-        }
-
-        .slider {
-            flex: 1;
-            height: 4px;
-            background: var(--separator-color);
-            border-radius: 2px;
-            position: relative;
-        }
-
-        .slider-fill {
-            height: 100%;
-            background: var(--color-primary);
-            border-radius: 2px;
-            width: 50%;
-        }
-
-        .slider-thumb {
-            width: 18px;
-            height: 18px;
-            background: white;
-            border-radius: 50%;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--border-color);
-        }
-
-        .slider-value {
-            font-size: 12px;
-            color: var(--text-secondary);
-            min-width: 50px;
-            text-align: right;
-        }
-
-        /* 下拉框 */
+        /* Dropdown */
         .dropdown {
             height: 28px;
             padding: 0 var(--spacing-sm);
@@ -563,171 +1146,7 @@
         }
 
         /* ========================================
-           同步详情窗口
-           ======================================== */
-        .sync-window {
-            width: 450px;
-            background: var(--bg-control);
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-lg);
-            overflow: hidden;
-        }
-
-        .sync-header {
-            padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-md);
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-md);
-        }
-
-        .sync-header-icon {
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            color: var(--color-primary);
-        }
-
-        .sync-header-icon.animate {
-            animation: rotate 1s linear infinite;
-        }
-
-        .sync-header-content h3 {
-            font-size: 17px;
-            font-weight: 600;
-        }
-
-        .sync-header-content p {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 2px;
-        }
-
-        .sync-progress {
-            padding: 0 var(--spacing-xl) var(--spacing-lg);
-        }
-
-        .sync-progress-bar {
-            height: 6px;
-            background: var(--separator-color);
-            border-radius: 3px;
-            overflow: hidden;
-        }
-
-        .sync-progress-fill {
-            height: 100%;
-            background: var(--color-primary);
-            border-radius: 3px;
-            width: 65%;
-            transition: width 0.3s;
-        }
-
-        .sync-progress-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: var(--spacing-sm);
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-
-        .sync-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: var(--spacing-sm) var(--spacing-xl);
-            padding: 0 var(--spacing-xl) var(--spacing-lg);
-        }
-
-        .sync-stat {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-sm);
-        }
-
-        .sync-stat-icon {
-            width: 16px;
-            color: var(--text-tertiary);
-            font-size: 12px;
-        }
-
-        .sync-stat-label {
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-
-        .sync-stat-value {
-            font-size: 12px;
-            font-weight: 500;
-            margin-left: auto;
-        }
-
-        .sync-current-file {
-            padding: 0 var(--spacing-xl) var(--spacing-lg);
-        }
-
-        .sync-current-file-header {
-            font-size: 11px;
-            color: var(--text-secondary);
-            margin-bottom: var(--spacing-sm);
-        }
-
-        .sync-file-item {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-sm);
-            padding: var(--spacing-sm) var(--spacing-md);
-            background: var(--bg-window);
-            border-radius: var(--radius-md);
-        }
-
-        .sync-file-icon {
-            width: 24px;
-            height: 24px;
-            background: var(--color-primary);
-            border-radius: var(--radius-sm);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 12px;
-        }
-
-        .sync-file-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .sync-file-name {
-            font-size: 12px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .sync-file-path {
-            font-size: 10px;
-            color: var(--text-tertiary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .sync-file-size {
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-
-        .sync-actions {
-            padding: var(--spacing-lg) var(--spacing-xl);
-            display: flex;
-            justify-content: center;
-            gap: var(--spacing-md);
-            border-top: 1px solid var(--separator-color);
-        }
-
-        /* ========================================
-           按钮
+           Buttons
            ======================================== */
         .btn {
             display: inline-flex;
@@ -778,439 +1197,155 @@
         }
 
         /* ========================================
-           磁盘管理窗口
+           Menu Bar (for reference)
            ======================================== */
-        .disk-window {
-            width: 550px;
-            background: var(--bg-window);
-            border-radius: var(--radius-xl);
+        .menu-bar {
+            width: 280px;
+            background: var(--bg-control);
+            border-radius: var(--radius-lg);
             box-shadow: var(--shadow-lg);
             overflow: hidden;
-            display: flex;
         }
 
-        .disk-sidebar {
-            width: 180px;
-            background: var(--bg-control);
-            border-right: 1px solid var(--separator-color);
-        }
-
-        .disk-sidebar-header {
+        .menu-header {
+            padding: var(--spacing-md) var(--spacing-lg);
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            padding: var(--spacing-md);
+            gap: var(--spacing-md);
             border-bottom: 1px solid var(--separator-color);
         }
 
-        .disk-sidebar-title {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-        }
-
-        .disk-sidebar-add {
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            border-radius: var(--radius-sm);
-            color: var(--text-secondary);
-        }
-
-        .disk-sidebar-add:hover {
-            background: var(--bg-hover);
-            color: var(--color-primary);
-        }
-
-        .disk-list {
-            padding: var(--spacing-sm);
-        }
-
-        .disk-item {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-sm);
-            padding: var(--spacing-sm);
+        .menu-header-icon {
+            width: 32px;
+            height: 32px;
             border-radius: var(--radius-md);
-            cursor: pointer;
-        }
-
-        .disk-item:hover {
-            background: var(--bg-hover);
-        }
-
-        .disk-item.selected {
-            background: var(--bg-selected);
-        }
-
-        .disk-item-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--color-neutral);
-        }
-
-        .disk-item-indicator.online {
             background: var(--color-success);
-        }
-
-        .disk-item-icon {
-            font-size: 16px;
-            color: var(--text-secondary);
-        }
-
-        .disk-item.selected .disk-item-icon,
-        .disk-item-indicator.online + .disk-item-icon {
-            color: var(--color-primary);
-        }
-
-        .disk-item-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .disk-item-name {
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .disk-item-status {
-            font-size: 10px;
-            color: var(--text-tertiary);
-        }
-
-        .disk-detail {
-            flex: 1;
-            padding: var(--spacing-xl);
-        }
-
-        .disk-detail-header {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-lg);
-            margin-bottom: var(--spacing-xl);
-        }
-
-        .disk-detail-icon {
-            width: 48px;
-            height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 32px;
-            color: var(--color-primary);
-        }
-
-        .disk-detail-title {
-            font-size: 22px;
-            font-weight: 600;
-        }
-
-        .disk-detail-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--spacing-xxs);
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 11px;
-            font-weight: 500;
-            margin-top: var(--spacing-xs);
-        }
-
-        .disk-detail-badge.online {
-            background: rgba(52, 199, 89, 0.15);
-            color: var(--color-success);
-        }
-
-        .disk-detail-badge.offline {
-            background: rgba(142, 142, 147, 0.15);
-            color: var(--color-neutral);
-        }
-
-        .disk-info-section {
-            margin-bottom: var(--spacing-xl);
-        }
-
-        .disk-info-title {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            margin-bottom: var(--spacing-sm);
-        }
-
-        .disk-info-grid {
-            display: grid;
-            gap: var(--spacing-sm);
-        }
-
-        .disk-info-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-        }
-
-        .disk-info-label {
-            color: var(--text-secondary);
-        }
-
-        .disk-info-value {
-            font-weight: 500;
-        }
-
-        .disk-storage-bar {
-            height: 8px;
-            background: var(--separator-color);
-            border-radius: 4px;
-            overflow: hidden;
-            display: flex;
-            margin-bottom: var(--spacing-sm);
-        }
-
-        .disk-storage-segment {
-            height: 100%;
-        }
-
-        .disk-storage-segment.sync {
-            background: var(--color-primary);
-            width: 35%;
-        }
-
-        .disk-storage-segment.other {
-            background: var(--color-neutral);
-            width: 25%;
-        }
-
-        .disk-storage-legend {
-            display: flex;
-            gap: var(--spacing-lg);
-            font-size: 11px;
-        }
-
-        .disk-storage-legend-item {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
-        }
-
-        .disk-storage-legend-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 2px;
-        }
-
-        .disk-storage-legend-dot.sync {
-            background: var(--color-primary);
-        }
-
-        .disk-storage-legend-dot.other {
-            background: var(--color-neutral);
-        }
-
-        .disk-storage-legend-dot.free {
-            background: var(--separator-color);
-        }
-
-        .disk-actions {
-            display: flex;
-            gap: var(--spacing-md);
-        }
-
-        /* ========================================
-           冲突列表
-           ======================================== */
-        .conflict-window {
-            width: 600px;
-            background: var(--bg-control);
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-lg);
-            overflow: hidden;
-        }
-
-        .conflict-toolbar {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-md);
-            padding: var(--spacing-md) var(--spacing-lg);
-            border-bottom: 1px solid var(--separator-color);
-        }
-
-        .conflict-toolbar-btn {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
-            padding: var(--spacing-xs) var(--spacing-sm);
-            border-radius: var(--radius-sm);
-            font-size: 12px;
-            cursor: pointer;
-            border: none;
-            background: transparent;
-            color: var(--text-primary);
-        }
-
-        .conflict-toolbar-btn:hover {
-            background: var(--bg-hover);
-        }
-
-        .conflict-search {
-            flex: 1;
-            display: flex;
-            justify-content: flex-end;
-        }
-
-        .conflict-search input {
-            width: 200px;
-            height: 28px;
-            padding: 0 var(--spacing-sm);
-            padding-left: 28px;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            font-size: 12px;
-            background: var(--bg-window) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238E8E93' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E") no-repeat 8px center;
-        }
-
-        .conflict-table {
-            width: 100%;
-        }
-
-        .conflict-table-header {
-            display: flex;
-            padding: var(--spacing-sm) var(--spacing-lg);
-            background: var(--bg-window);
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-        }
-
-        .conflict-col-file {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .conflict-col-date {
-            width: 120px;
-            text-align: right;
-        }
-
-        .conflict-col-action {
-            width: 80px;
-            text-align: center;
-        }
-
-        .conflict-row {
-            display: flex;
-            align-items: center;
-            padding: var(--spacing-md) var(--spacing-lg);
-            border-bottom: 1px solid var(--separator-color);
-        }
-
-        .conflict-row:hover {
-            background: var(--bg-hover);
-        }
-
-        .conflict-file {
-            flex: 1;
-            min-width: 0;
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-sm);
-        }
-
-        .conflict-file-icon {
-            width: 24px;
-            height: 24px;
-            background: var(--color-warning);
-            border-radius: var(--radius-sm);
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 12px;
-            flex-shrink: 0;
+            font-size: 18px;
         }
 
-        .conflict-file-info {
-            min-width: 0;
+        .menu-header-content {
+            flex: 1;
         }
 
-        .conflict-file-name {
-            font-size: 13px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .conflict-file-path {
-            font-size: 10px;
-            color: var(--text-tertiary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .conflict-date {
-            width: 120px;
-            font-size: 11px;
-            color: var(--text-secondary);
-            text-align: right;
-        }
-
-        .conflict-action {
-            width: 80px;
-            text-align: center;
-        }
-
-        .conflict-action .btn {
-            height: 24px;
-            min-width: 60px;
-            font-size: 11px;
-            padding: 0 var(--spacing-sm);
-        }
-
-        .conflict-empty {
-            padding: var(--spacing-xxl);
-            text-align: center;
-        }
-
-        .conflict-empty-icon {
-            font-size: 48px;
-            color: var(--color-success);
-            margin-bottom: var(--spacing-md);
-        }
-
-        .conflict-empty-title {
-            font-size: 15px;
+        .menu-header-title {
             font-weight: 600;
-            margin-bottom: var(--spacing-xs);
+            font-size: 13px;
         }
 
-        .conflict-empty-message {
-            font-size: 12px;
+        .menu-header-subtitle {
+            font-size: 11px;
             color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .menu-separator {
+            height: 1px;
+            background: var(--separator-color);
+            margin: var(--spacing-xs) 0;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            gap: var(--spacing-sm);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .menu-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .menu-item-icon {
+            width: 20px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .menu-item-title {
+            flex: 1;
+            font-size: 13px;
+        }
+
+        .menu-item-shortcut {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .menu-item-badge {
+            background: var(--color-error);
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
         }
 
         /* ========================================
-           弹窗
+           Status Bar Icons
            ======================================== */
-        .dialog-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.3);
+        .status-bar-demo {
+            display: flex;
+            gap: var(--spacing-xl);
+            padding: var(--spacing-lg);
+            background: #2C2C2E;
+            border-radius: var(--radius-md);
+        }
+
+        .status-icon-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .status-icon {
+            width: 22px;
+            height: 22px;
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
+            font-size: 16px;
         }
 
+        .status-icon.gray { color: #8E8E93; }
+        .status-icon.yellow { color: #FF9F0A; }
+        .status-icon.green { color: #30D158; }
+        .status-icon.blue { color: #0A84FF; }
+        .status-icon.red { color: #FF453A; }
+
+        .status-icon.animate-rotate {
+            animation: spin 2s linear infinite;
+        }
+
+        .status-icon.animate-pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.6);
+            text-align: center;
+        }
+
+        /* ========================================
+           Dialogs
+           ======================================== */
         .dialog {
             width: 300px;
             background: var(--bg-control);
-            border-radius: var(--radius-xl);
+            border-radius: var(--radius-xxl);
             box-shadow: var(--shadow-lg);
             padding: var(--spacing-xl);
             text-align: center;
@@ -1226,17 +1361,9 @@
             font-size: 32px;
         }
 
-        .dialog-icon.warning {
-            color: var(--color-warning);
-        }
-
-        .dialog-icon.error {
-            color: var(--color-error);
-        }
-
-        .dialog-icon.info {
-            color: var(--color-primary);
-        }
+        .dialog-icon.warning { color: var(--color-warning); }
+        .dialog-icon.error { color: var(--color-error); }
+        .dialog-icon.info { color: var(--color-primary); }
 
         .dialog-title {
             font-size: 17px;
@@ -1258,7 +1385,7 @@
         }
 
         /* ========================================
-           通知
+           Notifications
            ======================================== */
         .notification {
             width: 340px;
@@ -1326,242 +1453,293 @@
 </head>
 <body>
     <div class="prototype-container">
-        <h1 class="text-large-title" style="margin-bottom: var(--spacing-xxl);">DMSA UI Prototype</h1>
+        <h1 class="text-large-title" style="margin-bottom: var(--spacing-xxl);">DMSA UI Prototype v2.0</h1>
+        <p class="text-secondary" style="margin-bottom: var(--spacing-xxl);">Single Window + Left Sidebar Navigation Design</p>
 
-        <!-- 状态栏图标 -->
+        <!-- Main Window with Dashboard -->
         <section class="prototype-section">
-            <h2 class="text-title2">3. 状态栏图标</h2>
+            <h2 class="text-title2">5-7. Main Window - Dashboard</h2>
             <div class="prototype-item">
-                <div class="prototype-label">Status Bar Icons</div>
-                <div class="status-bar-demo">
-                    <div class="status-icon-item">
-                        <div class="status-icon gray animate-pulse">&#9676;</div>
-                        <div class="status-label">初始化</div>
-                    </div>
-                    <div class="status-icon-item">
-                        <div class="status-icon gray animate-rotate">&#8635;</div>
-                        <div class="status-label">连接中</div>
-                    </div>
-                    <div class="status-icon-item">
-                        <div class="status-icon yellow animate-pulse">&#9203;</div>
-                        <div class="status-label">启动中</div>
-                    </div>
-                    <div class="status-icon-item">
-                        <div class="status-icon green">&#10004;</div>
-                        <div class="status-label">就绪</div>
-                    </div>
-                    <div class="status-icon-item">
-                        <div class="status-icon blue animate-rotate">&#8635;</div>
-                        <div class="status-label">同步中</div>
-                    </div>
-                    <div class="status-icon-item">
-                        <div class="status-icon blue animate-pulse">&#128465;</div>
-                        <div class="status-label">清理中</div>
-                    </div>
-                    <div class="status-icon-item">
-                        <div class="status-icon red animate-pulse">&#9888;</div>
-                        <div class="status-label">错误</div>
-                    </div>
-                    <div class="status-icon-item">
-                        <div class="status-icon red">&#10005;</div>
-                        <div class="status-label">不可用</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- 菜单栏 -->
-        <section class="prototype-section">
-            <h2 class="text-title2">4. 菜单栏</h2>
-            <div class="prototype-row">
-                <!-- 正常状态 -->
-                <div class="prototype-item">
-                    <div class="prototype-label">Ready State</div>
-                    <div class="menu-bar">
-                        <div class="menu-header">
-                            <div class="menu-header-icon">&#10004;</div>
-                            <div class="menu-header-content">
-                                <div class="menu-header-title">运行中</div>
-                                <div class="menu-header-subtitle">12,345 个文件 &middot; 25.6 GB 本地缓存</div>
+                <div class="prototype-label">Main Window - Dashboard Page</div>
+                <div class="main-window">
+                    <!-- Sidebar -->
+                    <div class="sidebar">
+                        <div class="sidebar-header">
+                            <div class="sidebar-header-icon ready">&#10004;</div>
+                            <div class="sidebar-header-content">
+                                <div class="sidebar-header-title">DMSA</div>
+                                <div class="sidebar-header-status">Running</div>
                             </div>
                         </div>
-                        <div class="menu-separator"></div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#8635;</span>
-                            <span class="menu-item-title">立即同步</span>
-                            <span class="menu-item-shortcut">&#8984;S</span>
-                        </div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#9888;</span>
-                            <span class="menu-item-title">查看冲突</span>
-                            <span class="menu-item-badge">3</span>
-                            <span class="menu-item-shortcut">&#8984;K</span>
-                        </div>
-                        <div class="menu-separator"></div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#128190;</span>
-                            <span class="menu-item-title">磁盘管理</span>
-                            <span class="menu-item-shortcut">&#8984;D</span>
-                        </div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#9881;</span>
-                            <span class="menu-item-title">设置...</span>
-                            <span class="menu-item-shortcut">&#8984;,</span>
-                        </div>
-                        <div class="menu-separator"></div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#128196;</span>
-                            <span class="menu-item-title">查看日志</span>
-                        </div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#9432;</span>
-                            <span class="menu-item-title">关于 DMSA</span>
-                        </div>
-                        <div class="menu-separator"></div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#9211;</span>
-                            <span class="menu-item-title">退出</span>
-                            <span class="menu-item-shortcut">&#8984;Q</span>
+                        <div class="sidebar-nav">
+                            <div class="nav-item active">
+                                <span class="nav-item-icon">&#128200;</span>
+                                <span class="nav-item-title">Dashboard</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#8635;</span>
+                                <span class="nav-item-title">Sync</span>
+                                <span class="nav-item-badge blue">Active</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#9888;</span>
+                                <span class="nav-item-title">Conflicts</span>
+                                <span class="nav-item-badge orange">3</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128190;</span>
+                                <span class="nav-item-title">Disks</span>
+                            </div>
+                            <div class="nav-separator"></div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#9881;</span>
+                                <span class="nav-item-title">Settings</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128196;</span>
+                                <span class="nav-item-title">Logs</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- 同步状态 -->
-                <div class="prototype-item">
-                    <div class="prototype-label">Syncing State</div>
-                    <div class="menu-bar">
-                        <div class="menu-header">
-                            <div class="menu-header-icon" style="background: var(--color-primary);">&#8635;</div>
-                            <div class="menu-header-content">
-                                <div class="menu-header-title">同步中...</div>
-                                <div class="menu-header-subtitle">document.pdf &middot; 65%</div>
-                                <div class="menu-progress visible">
-                                    <div class="menu-progress-fill"></div>
+                    <!-- Content -->
+                    <div class="content">
+                        <!-- Status Banner -->
+                        <div class="status-banner">
+                            <div class="status-ring ready">&#10004;</div>
+                            <div class="status-info">
+                                <div class="status-title">All Clear</div>
+                                <div class="status-subtitle">All files synced</div>
+                                <div class="status-chips">
+                                    <div class="stat-chip">
+                                        <span class="stat-chip-icon">&#128196;</span>
+                                        <span class="stat-chip-value">12,345</span> files
+                                    </div>
+                                    <div class="stat-chip">
+                                        <span class="stat-chip-icon">&#128190;</span>
+                                        <span class="stat-chip-value">1/2</span> disks
+                                    </div>
+                                    <div class="stat-chip">
+                                        <span class="stat-chip-icon">&#9200;</span>
+                                        Last sync <span class="stat-chip-value">5 min ago</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="menu-separator"></div>
-                        <div class="menu-item disabled">
-                            <span class="menu-item-icon">&#8635;</span>
-                            <span class="menu-item-title">立即同步</span>
-                            <span class="menu-item-shortcut">&#8984;S</span>
+
+                        <!-- Quick Actions -->
+                        <div class="section-header">
+                            <span class="section-title">Quick Actions</span>
                         </div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#9888;</span>
-                            <span class="menu-item-title">查看冲突</span>
-                            <span class="menu-item-shortcut">&#8984;K</span>
+                        <div class="quick-actions">
+                            <div class="action-card">
+                                <span class="action-card-icon">&#8635;</span>
+                                <span class="action-card-title">Sync Now</span>
+                                <span class="action-card-shortcut">Cmd+S</span>
+                            </div>
+                            <div class="action-card">
+                                <span class="action-card-icon">&#128190;</span>
+                                <span class="action-card-title">Add Disk</span>
+                            </div>
+                            <div class="action-card">
+                                <span class="action-card-icon">&#128193;</span>
+                                <span class="action-card-title">Open Downloads</span>
+                            </div>
                         </div>
-                        <div class="menu-separator"></div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#128190;</span>
-                            <span class="menu-item-title">磁盘管理</span>
-                            <span class="menu-item-shortcut">&#8984;D</span>
+
+                        <!-- Storage -->
+                        <div class="section-header">
+                            <span class="section-title">Storage</span>
                         </div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#9881;</span>
-                            <span class="menu-item-title">设置...</span>
-                            <span class="menu-item-shortcut">&#8984;,</span>
+                        <div class="storage-cards">
+                            <div class="storage-card">
+                                <div class="storage-card-header">
+                                    <span class="storage-card-icon blue">&#128190;</span>
+                                    <span class="storage-card-percent">42%</span>
+                                </div>
+                                <div class="storage-bar">
+                                    <div class="storage-bar-fill blue" style="width: 42%;"></div>
+                                </div>
+                                <div class="storage-card-label">Local Cache: 25.6 GB / 60 GB</div>
+                            </div>
+                            <div class="storage-card">
+                                <div class="storage-card-header">
+                                    <span class="storage-card-icon green">&#128191;</span>
+                                    <span class="storage-card-percent">35%</span>
+                                </div>
+                                <div class="storage-bar">
+                                    <div class="storage-bar-fill green" style="width: 35%;"></div>
+                                </div>
+                                <div class="storage-card-label">External: 256 GB / 1 TB</div>
+                            </div>
                         </div>
-                        <div class="menu-separator"></div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#128196;</span>
-                            <span class="menu-item-title">查看日志</span>
+
+                        <!-- Recent Activity -->
+                        <div class="section-header">
+                            <span class="section-title">Recent Activity</span>
+                            <span class="section-action">View All</span>
                         </div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#9432;</span>
-                            <span class="menu-item-title">关于 DMSA</span>
-                        </div>
-                        <div class="menu-separator"></div>
-                        <div class="menu-item">
-                            <span class="menu-item-icon">&#9211;</span>
-                            <span class="menu-item-title">退出</span>
-                            <span class="menu-item-shortcut">&#8984;Q</span>
+                        <div class="activity-list">
+                            <div class="activity-item">
+                                <div class="activity-icon success">&#10004;</div>
+                                <div class="activity-content">
+                                    <div class="activity-title">Sync completed</div>
+                                    <div class="activity-subtitle">2,000 files to BACKUP</div>
+                                </div>
+                                <div class="activity-time">5 min ago</div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon warning">&#9888;</div>
+                                <div class="activity-content">
+                                    <div class="activity-title">Conflict detected</div>
+                                    <div class="activity-subtitle">report_2024.docx</div>
+                                </div>
+                                <div class="activity-time">15 min ago</div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon info">&#128190;</div>
+                                <div class="activity-content">
+                                    <div class="activity-title">Disk connected</div>
+                                    <div class="activity-subtitle">BACKUP mounted</div>
+                                </div>
+                                <div class="activity-time">1 hour ago</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- 设置窗口 -->
+        <!-- Main Window with Sync Page -->
         <section class="prototype-section">
-            <h2 class="text-title2">5. 设置窗口</h2>
+            <h2 class="text-title2">8. Main Window - Sync Page</h2>
             <div class="prototype-item">
-                <div class="prototype-label">Settings Window - General Tab</div>
-                <div class="settings-window">
-                    <div class="settings-toolbar">
-                        <div class="settings-tab active">
-                            <span class="settings-tab-icon">&#9881;</span>
-                            <span class="settings-tab-label">通用</span>
+                <div class="prototype-label">Sync Page - Active</div>
+                <div class="main-window">
+                    <!-- Sidebar -->
+                    <div class="sidebar">
+                        <div class="sidebar-header">
+                            <div class="sidebar-header-icon syncing" style="animation: spin 1s linear infinite;">&#8635;</div>
+                            <div class="sidebar-header-content">
+                                <div class="sidebar-header-title">DMSA</div>
+                                <div class="sidebar-header-status">Syncing...</div>
+                            </div>
                         </div>
-                        <div class="settings-tab">
-                            <span class="settings-tab-icon">&#8635;</span>
-                            <span class="settings-tab-label">同步</span>
-                        </div>
-                        <div class="settings-tab">
-                            <span class="settings-tab-icon">&#128190;</span>
-                            <span class="settings-tab-label">存储</span>
-                        </div>
-                        <div class="settings-tab">
-                            <span class="settings-tab-icon">&#128191;</span>
-                            <span class="settings-tab-label">磁盘</span>
-                        </div>
-                        <div class="settings-tab">
-                            <span class="settings-tab-icon">&#128295;</span>
-                            <span class="settings-tab-label">高级</span>
+                        <div class="sidebar-nav">
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128200;</span>
+                                <span class="nav-item-title">Dashboard</span>
+                            </div>
+                            <div class="nav-item active">
+                                <span class="nav-item-icon">&#8635;</span>
+                                <span class="nav-item-title">Sync</span>
+                                <span class="nav-item-badge blue">65%</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#9888;</span>
+                                <span class="nav-item-title">Conflicts</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128190;</span>
+                                <span class="nav-item-title">Disks</span>
+                            </div>
+                            <div class="nav-separator"></div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#9881;</span>
+                                <span class="nav-item-title">Settings</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128196;</span>
+                                <span class="nav-item-title">Logs</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="settings-content">
-                        <div class="settings-section">
-                            <div class="settings-section-title">启动</div>
-                            <div class="settings-group">
-                                <div class="settings-row">
-                                    <div class="settings-row-content">
-                                        <div class="settings-row-title">登录时启动</div>
-                                        <div class="settings-row-description">开机后自动启动 DMSA</div>
-                                    </div>
-                                    <div class="toggle active" onclick="this.classList.toggle('active')">
-                                        <div class="toggle-thumb"></div>
-                                    </div>
-                                </div>
-                                <div class="settings-row">
-                                    <div class="settings-row-content">
-                                        <div class="settings-row-title">在 Dock 中显示</div>
-                                        <div class="settings-row-description">关闭后仅在菜单栏显示</div>
-                                    </div>
-                                    <div class="toggle" onclick="this.classList.toggle('active')">
-                                        <div class="toggle-thumb"></div>
-                                    </div>
+                    <!-- Content -->
+                    <div class="content">
+                        <!-- Sync Status Card -->
+                        <div class="sync-status-card">
+                            <div class="sync-ring active">&#8635;</div>
+                            <div class="sync-info">
+                                <div class="sync-title">Syncing</div>
+                                <div class="sync-subtitle">1,234 / 2,000 files</div>
+                                <div class="sync-actions">
+                                    <button class="btn btn-secondary">
+                                        <span class="btn-icon">&#9208;</span>
+                                        Pause
+                                    </button>
+                                    <button class="btn btn-destructive">
+                                        <span class="btn-icon">&#10005;</span>
+                                        Cancel
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                        <div class="settings-section">
-                            <div class="settings-section-title">通知</div>
-                            <div class="settings-group">
-                                <div class="settings-row">
-                                    <div class="settings-row-content">
-                                        <div class="settings-row-title">启用通知</div>
-                                        <div class="settings-row-description">同步完成、错误等事件发送通知</div>
-                                    </div>
-                                    <div class="toggle active" onclick="this.classList.toggle('active')">
-                                        <div class="toggle-thumb"></div>
-                                    </div>
+
+                        <!-- Stats Grid -->
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-card-header">
+                                    <span class="stat-card-icon blue">&#128196;</span>
                                 </div>
+                                <div class="stat-card-value">1,234</div>
+                                <div class="stat-card-label">Processed / 2,000</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-card-header">
+                                    <span class="stat-card-icon green">&#8645;</span>
+                                </div>
+                                <div class="stat-card-value">2.5 GB</div>
+                                <div class="stat-card-label">Transferred</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-card-header">
+                                    <span class="stat-card-icon orange">&#9201;</span>
+                                </div>
+                                <div class="stat-card-value">45 MB/s</div>
+                                <div class="stat-card-label">Speed</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-card-header">
+                                    <span class="stat-card-icon purple">&#9200;</span>
+                                </div>
+                                <div class="stat-card-value">5 min</div>
+                                <div class="stat-card-label">Remaining</div>
                             </div>
                         </div>
-                        <div class="settings-section">
-                            <div class="settings-section-title">日志</div>
-                            <div class="settings-group">
-                                <div class="settings-row">
-                                    <div class="settings-row-content">
-                                        <div class="settings-row-title">日志级别</div>
-                                    </div>
-                                    <select class="dropdown">
-                                        <option>调试</option>
-                                        <option selected>信息</option>
-                                        <option>警告</option>
-                                        <option>仅错误</option>
-                                    </select>
+
+                        <!-- Current File -->
+                        <div class="section-header">
+                            <span class="section-title">Current File</span>
+                        </div>
+                        <div class="current-file-card">
+                            <div class="file-icon">PDF</div>
+                            <div class="file-info">
+                                <div class="file-name">important_document.pdf</div>
+                                <div class="file-path">~/Downloads/Documents/</div>
+                            </div>
+                            <div class="file-size">12.5 MB</div>
+                            <div class="file-progress">78%</div>
+                        </div>
+
+                        <!-- Sync History -->
+                        <div class="section-header">
+                            <span class="section-title">History</span>
+                        </div>
+                        <div class="activity-list">
+                            <div class="activity-item">
+                                <div class="activity-icon success">&#10004;</div>
+                                <div class="activity-content">
+                                    <div class="activity-title">Sync completed</div>
+                                    <div class="activity-subtitle">1,500 files - 2.1 GB</div>
                                 </div>
+                                <div class="activity-time">Yesterday</div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon success">&#10004;</div>
+                                <div class="activity-content">
+                                    <div class="activity-title">Sync completed</div>
+                                    <div class="activity-subtitle">800 files - 1.2 GB</div>
+                                </div>
+                                <div class="activity-time">2 days ago</div>
                             </div>
                         </div>
                     </div>
@@ -1569,187 +1747,119 @@
             </div>
         </section>
 
-        <!-- 同步详情窗口 -->
+        <!-- Main Window with Conflicts Page -->
         <section class="prototype-section">
-            <h2 class="text-title2">6. 同步详情窗口</h2>
-            <div class="prototype-row">
-                <div class="prototype-item">
-                    <div class="prototype-label">Syncing</div>
-                    <div class="sync-window">
-                        <div class="sync-header">
-                            <div class="sync-header-icon animate">&#8635;</div>
-                            <div class="sync-header-content">
-                                <h3>同步中</h3>
-                                <p>1,234 / 2,000 文件</p>
+            <h2 class="text-title2">9. Main Window - Conflicts Page</h2>
+            <div class="prototype-item">
+                <div class="prototype-label">Conflicts Page</div>
+                <div class="main-window">
+                    <!-- Sidebar -->
+                    <div class="sidebar">
+                        <div class="sidebar-header">
+                            <div class="sidebar-header-icon ready">&#10004;</div>
+                            <div class="sidebar-header-content">
+                                <div class="sidebar-header-title">DMSA</div>
+                                <div class="sidebar-header-status">Running</div>
                             </div>
                         </div>
-                        <div class="sync-progress">
-                            <div class="sync-progress-bar">
-                                <div class="sync-progress-fill"></div>
+                        <div class="sidebar-nav">
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128200;</span>
+                                <span class="nav-item-title">Dashboard</span>
                             </div>
-                            <div class="sync-progress-labels">
-                                <span>65%</span>
-                                <span>剩余 5 分钟</span>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#8635;</span>
+                                <span class="nav-item-title">Sync</span>
                             </div>
-                        </div>
-                        <div class="sync-stats">
-                            <div class="sync-stat">
-                                <span class="sync-stat-icon">&#128196;</span>
-                                <span class="sync-stat-label">已处理</span>
-                                <span class="sync-stat-value">1,234 / 2,000</span>
+                            <div class="nav-item active">
+                                <span class="nav-item-icon">&#9888;</span>
+                                <span class="nav-item-title">Conflicts</span>
+                                <span class="nav-item-badge orange">3</span>
                             </div>
-                            <div class="sync-stat">
-                                <span class="sync-stat-icon">&#8645;</span>
-                                <span class="sync-stat-label">已传输</span>
-                                <span class="sync-stat-value">2.5 GB</span>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128190;</span>
+                                <span class="nav-item-title">Disks</span>
                             </div>
-                            <div class="sync-stat">
-                                <span class="sync-stat-icon">&#9201;</span>
-                                <span class="sync-stat-label">传输速度</span>
-                                <span class="sync-stat-value">45 MB/s</span>
+                            <div class="nav-separator"></div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#9881;</span>
+                                <span class="nav-item-title">Settings</span>
                             </div>
-                            <div class="sync-stat">
-                                <span class="sync-stat-icon">&#9200;</span>
-                                <span class="sync-stat-label">剩余时间</span>
-                                <span class="sync-stat-value">5 分钟</span>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128196;</span>
+                                <span class="nav-item-title">Logs</span>
                             </div>
                         </div>
-                        <div class="sync-current-file">
-                            <div class="sync-current-file-header">当前文件</div>
-                            <div class="sync-file-item">
-                                <div class="sync-file-icon">PDF</div>
-                                <div class="sync-file-info">
-                                    <div class="sync-file-name">important_document.pdf</div>
-                                    <div class="sync-file-path">~/Downloads/Documents/</div>
-                                </div>
-                                <div class="sync-file-size">12.5 MB</div>
-                            </div>
+                    </div>
+                    <!-- Content -->
+                    <div class="content">
+                        <div class="content-header">
+                            <div class="content-title">File Conflicts</div>
+                            <div class="content-subtitle">3 files need resolution</div>
                         </div>
-                        <div class="sync-actions">
+
+                        <div class="conflicts-header">
                             <button class="btn btn-secondary">
-                                <span class="btn-icon">&#9208;</span>
-                                暂停
+                                <span class="btn-icon">&#10004;</span>
+                                Resolve All &#9662;
                             </button>
-                            <button class="btn btn-secondary">
-                                <span class="btn-icon">&#10005;</span>
-                                取消
-                            </button>
+                            <input type="text" class="search-field" placeholder="Search conflicts...">
                         </div>
-                    </div>
-                </div>
 
-                <div class="prototype-item">
-                    <div class="prototype-label">Completed</div>
-                    <div class="sync-window">
-                        <div class="sync-header">
-                            <div class="sync-header-icon" style="color: var(--color-success);">&#10004;</div>
-                            <div class="sync-header-content">
-                                <h3>同步完成</h3>
-                                <p>已同步 2,000 个文件</p>
-                            </div>
-                        </div>
-                        <div class="sync-progress">
-                            <div class="sync-progress-bar">
-                                <div class="sync-progress-fill" style="width: 100%; background: var(--color-success);"></div>
-                            </div>
-                            <div class="sync-progress-labels">
-                                <span>100%</span>
-                                <span>完成</span>
-                            </div>
-                        </div>
-                        <div class="sync-stats">
-                            <div class="sync-stat">
-                                <span class="sync-stat-icon">&#128196;</span>
-                                <span class="sync-stat-label">已处理</span>
-                                <span class="sync-stat-value">2,000 / 2,000</span>
-                            </div>
-                            <div class="sync-stat">
-                                <span class="sync-stat-icon">&#8645;</span>
-                                <span class="sync-stat-label">已传输</span>
-                                <span class="sync-stat-value">3.8 GB</span>
-                            </div>
-                            <div class="sync-stat">
-                                <span class="sync-stat-icon">&#9201;</span>
-                                <span class="sync-stat-label">平均速度</span>
-                                <span class="sync-stat-value">42 MB/s</span>
-                            </div>
-                            <div class="sync-stat">
-                                <span class="sync-stat-icon">&#9200;</span>
-                                <span class="sync-stat-label">总耗时</span>
-                                <span class="sync-stat-value">8 分钟</span>
-                            </div>
-                        </div>
-                        <div class="sync-actions">
-                            <button class="btn btn-primary">关闭</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- 冲突列表 -->
-        <section class="prototype-section">
-            <h2 class="text-title2">7. 冲突解决界面</h2>
-            <div class="prototype-item">
-                <div class="prototype-label">Conflict List</div>
-                <div class="conflict-window">
-                    <div class="conflict-toolbar">
-                        <button class="conflict-toolbar-btn">
-                            <span>&#10004;</span>
-                            全部解决
-                            <span style="font-size: 10px;">&#9662;</span>
-                        </button>
-                        <div class="conflict-search">
-                            <input type="text" placeholder="搜索冲突文件...">
-                        </div>
-                    </div>
-                    <div class="conflict-table">
-                        <div class="conflict-table-header">
-                            <div class="conflict-col-file">文件</div>
-                            <div class="conflict-col-date">本地修改</div>
-                            <div class="conflict-col-date">外部修改</div>
-                            <div class="conflict-col-action"></div>
-                        </div>
-                        <div class="conflict-row">
-                            <div class="conflict-file">
+                        <!-- Conflict Cards -->
+                        <div class="conflict-card">
+                            <div class="conflict-file-row">
                                 <div class="conflict-file-icon">&#9888;</div>
                                 <div class="conflict-file-info">
                                     <div class="conflict-file-name">report_2024.docx</div>
                                     <div class="conflict-file-path">Documents/Reports/</div>
                                 </div>
                             </div>
-                            <div class="conflict-date">今天 14:30</div>
-                            <div class="conflict-date">今天 12:15</div>
-                            <div class="conflict-action">
-                                <button class="btn btn-primary">解决</button>
+                            <div class="version-compare">
+                                <div class="version-card">
+                                    <div class="version-header local">&#128187; Local Version</div>
+                                    <div class="version-detail">2.4 MB</div>
+                                    <div class="version-time">Today 14:30</div>
+                                </div>
+                                <div class="version-arrow">&#8596;</div>
+                                <div class="version-card">
+                                    <div class="version-header external">&#128190; External Version</div>
+                                    <div class="version-detail">2.1 MB</div>
+                                    <div class="version-time">Today 12:15</div>
+                                </div>
+                            </div>
+                            <div class="conflict-actions">
+                                <button class="btn btn-secondary">Keep Local</button>
+                                <button class="btn btn-secondary">Keep External</button>
+                                <button class="btn btn-secondary">Keep Both</button>
                             </div>
                         </div>
-                        <div class="conflict-row">
-                            <div class="conflict-file">
+
+                        <div class="conflict-card">
+                            <div class="conflict-file-row">
                                 <div class="conflict-file-icon">&#9888;</div>
                                 <div class="conflict-file-info">
                                     <div class="conflict-file-name">budget_sheet.xlsx</div>
                                     <div class="conflict-file-path">Documents/Finance/</div>
                                 </div>
                             </div>
-                            <div class="conflict-date">昨天 18:45</div>
-                            <div class="conflict-date">昨天 16:20</div>
-                            <div class="conflict-action">
-                                <button class="btn btn-primary">解决</button>
-                            </div>
-                        </div>
-                        <div class="conflict-row">
-                            <div class="conflict-file">
-                                <div class="conflict-file-icon">&#9888;</div>
-                                <div class="conflict-file-info">
-                                    <div class="conflict-file-name">presentation.pptx</div>
-                                    <div class="conflict-file-path">Documents/Presentations/</div>
+                            <div class="version-compare">
+                                <div class="version-card">
+                                    <div class="version-header local">&#128187; Local Version</div>
+                                    <div class="version-detail">1.8 MB</div>
+                                    <div class="version-time">Yesterday 18:45</div>
+                                </div>
+                                <div class="version-arrow">&#8596;</div>
+                                <div class="version-card">
+                                    <div class="version-header external">&#128190; External Version</div>
+                                    <div class="version-detail">1.6 MB</div>
+                                    <div class="version-time">Yesterday 16:20</div>
                                 </div>
                             </div>
-                            <div class="conflict-date">1月25日</div>
-                            <div class="conflict-date">1月24日</div>
-                            <div class="conflict-action">
-                                <button class="btn btn-primary">解决</button>
+                            <div class="conflict-actions">
+                                <button class="btn btn-secondary">Keep Local</button>
+                                <button class="btn btn-secondary">Keep External</button>
+                                <button class="btn btn-secondary">Keep Both</button>
                             </div>
                         </div>
                     </div>
@@ -1757,151 +1867,394 @@
             </div>
         </section>
 
-        <!-- 磁盘管理 -->
+        <!-- Main Window with Disks Page -->
         <section class="prototype-section">
-            <h2 class="text-title2">8. 磁盘管理界面</h2>
+            <h2 class="text-title2">10. Main Window - Disks Page</h2>
             <div class="prototype-item">
-                <div class="prototype-label">Disk Management</div>
-                <div class="disk-window">
-                    <div class="disk-sidebar">
-                        <div class="disk-sidebar-header">
-                            <span class="disk-sidebar-title">磁盘</span>
-                            <div class="disk-sidebar-add">+</div>
-                        </div>
-                        <div class="disk-list">
-                            <div class="disk-item selected">
-                                <div class="disk-item-indicator online"></div>
-                                <span class="disk-item-icon">&#128190;</span>
-                                <div class="disk-item-info">
-                                    <div class="disk-item-name">BACKUP</div>
-                                    <div class="disk-item-status">/Volumes/BACKUP</div>
-                                </div>
+                <div class="prototype-label">Disks Page - Master Detail</div>
+                <div class="main-window">
+                    <!-- Sidebar -->
+                    <div class="sidebar">
+                        <div class="sidebar-header">
+                            <div class="sidebar-header-icon ready">&#10004;</div>
+                            <div class="sidebar-header-content">
+                                <div class="sidebar-header-title">DMSA</div>
+                                <div class="sidebar-header-status">Running</div>
                             </div>
-                            <div class="disk-item">
-                                <div class="disk-item-indicator"></div>
-                                <span class="disk-item-icon">&#128190;</span>
-                                <div class="disk-item-info">
-                                    <div class="disk-item-name">PORTABLE</div>
-                                    <div class="disk-item-status">未连接</div>
-                                </div>
+                        </div>
+                        <div class="sidebar-nav">
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128200;</span>
+                                <span class="nav-item-title">Dashboard</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#8635;</span>
+                                <span class="nav-item-title">Sync</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#9888;</span>
+                                <span class="nav-item-title">Conflicts</span>
+                            </div>
+                            <div class="nav-item active">
+                                <span class="nav-item-icon">&#128190;</span>
+                                <span class="nav-item-title">Disks</span>
+                            </div>
+                            <div class="nav-separator"></div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#9881;</span>
+                                <span class="nav-item-title">Settings</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128196;</span>
+                                <span class="nav-item-title">Logs</span>
                             </div>
                         </div>
                     </div>
-                    <div class="disk-detail">
-                        <div class="disk-detail-header">
-                            <div class="disk-detail-icon">&#128190;</div>
-                            <div>
-                                <div class="disk-detail-title">BACKUP</div>
-                                <div class="disk-detail-badge online">
-                                    <span>&#9679;</span> 已连接
+                    <!-- Content - Disks Layout -->
+                    <div class="content" style="padding: var(--spacing-xl);">
+                        <div class="disks-layout">
+                            <!-- Disks List -->
+                            <div class="disks-list">
+                                <div class="disks-list-header">
+                                    <span class="disks-list-title">Disks</span>
+                                    <div class="disks-add-btn">+</div>
+                                </div>
+                                <div class="disks-items">
+                                    <div class="disk-item selected">
+                                        <div class="disk-dot online"></div>
+                                        <span class="disk-icon">&#128190;</span>
+                                        <div class="disk-info">
+                                            <div class="disk-name">BACKUP</div>
+                                            <div class="disk-status">Connected</div>
+                                        </div>
+                                    </div>
+                                    <div class="disk-item">
+                                        <div class="disk-dot"></div>
+                                        <span class="disk-icon">&#128190;</span>
+                                        <div class="disk-info">
+                                            <div class="disk-name">PORTABLE</div>
+                                            <div class="disk-status">Disconnected</div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="disk-info-section">
-                            <div class="disk-info-title">磁盘信息</div>
-                            <div class="disk-info-grid">
-                                <div class="disk-info-row">
-                                    <span class="disk-info-label">挂载路径</span>
-                                    <span class="disk-info-value">/Volumes/BACKUP</span>
+                            <!-- Disk Detail -->
+                            <div class="disk-detail">
+                                <div class="disk-detail-header">
+                                    <span class="disk-detail-icon">&#128190;</span>
+                                    <div>
+                                        <div class="disk-detail-title">BACKUP</div>
+                                        <div class="disk-badge online">&#9679; Connected</div>
+                                    </div>
                                 </div>
-                                <div class="disk-info-row">
-                                    <span class="disk-info-label">同步目录</span>
-                                    <span class="disk-info-value">/Downloads</span>
+                                <div class="disk-section">
+                                    <div class="disk-section-title">Storage</div>
+                                    <div class="storage-bar" style="height: 24px; border-radius: 6px; margin-bottom: var(--spacing-md);">
+                                        <div style="display: flex; height: 100%;">
+                                            <div style="width: 35%; background: var(--color-primary); border-radius: 6px 0 0 6px;"></div>
+                                            <div style="width: 25%; background: var(--color-neutral);"></div>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; gap: var(--spacing-lg); font-size: 11px;">
+                                        <span><span style="display: inline-block; width: 8px; height: 8px; background: var(--color-primary); border-radius: 2px; margin-right: 4px;"></span>Sync 256.8 GB</span>
+                                        <span><span style="display: inline-block; width: 8px; height: 8px; background: var(--color-neutral); border-radius: 2px; margin-right: 4px;"></span>Other 180 GB</span>
+                                        <span><span style="display: inline-block; width: 8px; height: 8px; background: var(--separator-color); border-radius: 2px; margin-right: 4px;"></span>Free 563 GB</span>
+                                    </div>
                                 </div>
-                                <div class="disk-info-row">
-                                    <span class="disk-info-label">目标目录</span>
-                                    <span class="disk-info-value">~/Downloads</span>
+                                <div class="disk-section">
+                                    <div class="disk-section-title">Info</div>
+                                    <div class="disk-info-grid">
+                                        <div class="disk-info-row">
+                                            <span class="disk-info-label">Sync Dir</span>
+                                            <span class="disk-info-value">/Downloads</span>
+                                        </div>
+                                        <div class="disk-info-row">
+                                            <span class="disk-info-label">Target Dir</span>
+                                            <span class="disk-info-value">~/Downloads</span>
+                                        </div>
+                                        <div class="disk-info-row">
+                                            <span class="disk-info-label">Files</span>
+                                            <span class="disk-info-value">12,345</span>
+                                        </div>
+                                        <div class="disk-info-row">
+                                            <span class="disk-info-label">Last Sync</span>
+                                            <span class="disk-info-value">Today 14:30</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="disk-info-row">
-                                    <span class="disk-info-label">文件数量</span>
-                                    <span class="disk-info-value">12,345 个文件</span>
-                                </div>
-                                <div class="disk-info-row">
-                                    <span class="disk-info-label">总大小</span>
-                                    <span class="disk-info-value">256.8 GB</span>
-                                </div>
-                                <div class="disk-info-row">
-                                    <span class="disk-info-label">上次同步</span>
-                                    <span class="disk-info-value">今天 14:30</span>
+                                <div style="display: flex; gap: var(--spacing-md);">
+                                    <button class="btn btn-primary">
+                                        <span class="btn-icon">&#8635;</span>
+                                        Sync Now
+                                    </button>
+                                    <button class="btn btn-secondary">Edit</button>
+                                    <button class="btn btn-destructive" style="margin-left: auto;">Remove</button>
                                 </div>
                             </div>
-                        </div>
-                        <div class="disk-info-section">
-                            <div class="disk-info-title">存储空间</div>
-                            <div class="disk-storage-bar">
-                                <div class="disk-storage-segment sync"></div>
-                                <div class="disk-storage-segment other"></div>
-                            </div>
-                            <div class="disk-storage-legend">
-                                <div class="disk-storage-legend-item">
-                                    <div class="disk-storage-legend-dot sync"></div>
-                                    <span>同步文件 256.8 GB</span>
-                                </div>
-                                <div class="disk-storage-legend-item">
-                                    <div class="disk-storage-legend-dot other"></div>
-                                    <span>其他文件 180 GB</span>
-                                </div>
-                                <div class="disk-storage-legend-item">
-                                    <div class="disk-storage-legend-dot free"></div>
-                                    <span>可用 563.2 GB</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="disk-actions">
-                            <button class="btn btn-secondary">
-                                <span class="btn-icon">&#8635;</span>
-                                立即同步
-                            </button>
-                            <button class="btn btn-secondary">
-                                <span class="btn-icon">&#9998;</span>
-                                编辑配置
-                            </button>
-                            <button class="btn btn-destructive">移除</button>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- 弹窗与通知 -->
+        <!-- Main Window with Settings Page -->
         <section class="prototype-section">
-            <h2 class="text-title2">9. 弹窗与通知</h2>
+            <h2 class="text-title2">11. Main Window - Settings Page</h2>
+            <div class="prototype-item">
+                <div class="prototype-label">Settings Page</div>
+                <div class="main-window">
+                    <!-- Sidebar -->
+                    <div class="sidebar">
+                        <div class="sidebar-header">
+                            <div class="sidebar-header-icon ready">&#10004;</div>
+                            <div class="sidebar-header-content">
+                                <div class="sidebar-header-title">DMSA</div>
+                                <div class="sidebar-header-status">Running</div>
+                            </div>
+                        </div>
+                        <div class="sidebar-nav">
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128200;</span>
+                                <span class="nav-item-title">Dashboard</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#8635;</span>
+                                <span class="nav-item-title">Sync</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#9888;</span>
+                                <span class="nav-item-title">Conflicts</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128190;</span>
+                                <span class="nav-item-title">Disks</span>
+                            </div>
+                            <div class="nav-separator"></div>
+                            <div class="nav-item active">
+                                <span class="nav-item-icon">&#9881;</span>
+                                <span class="nav-item-title">Settings</span>
+                            </div>
+                            <div class="nav-item">
+                                <span class="nav-item-icon">&#128196;</span>
+                                <span class="nav-item-title">Logs</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Content -->
+                    <div class="content" style="max-width: 600px;">
+                        <div class="content-header">
+                            <div class="content-title">Settings</div>
+                        </div>
+
+                        <div class="settings-section">
+                            <div class="settings-section-title">General</div>
+                            <div class="settings-card">
+                                <div class="settings-row">
+                                    <div class="settings-row-icon">&#9211;</div>
+                                    <div class="settings-row-content">
+                                        <div class="settings-row-title">Launch at Login</div>
+                                        <div class="settings-row-description">Start DMSA automatically</div>
+                                    </div>
+                                    <div class="toggle active" onclick="this.classList.toggle('active')">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                                <div class="settings-row">
+                                    <div class="settings-row-icon">&#128276;</div>
+                                    <div class="settings-row-content">
+                                        <div class="settings-row-title">Enable Notifications</div>
+                                        <div class="settings-row-description">Sync, conflicts, and error alerts</div>
+                                    </div>
+                                    <div class="toggle active" onclick="this.classList.toggle('active')">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <div class="settings-section-title">Sync</div>
+                            <div class="settings-card">
+                                <div class="settings-row">
+                                    <div class="settings-row-icon">&#9200;</div>
+                                    <div class="settings-row-content">
+                                        <div class="settings-row-title">Auto Sync Interval</div>
+                                    </div>
+                                    <select class="dropdown">
+                                        <option>1 min</option>
+                                        <option selected>5 min</option>
+                                        <option>15 min</option>
+                                        <option>30 min</option>
+                                    </select>
+                                </div>
+                                <div class="settings-row">
+                                    <div class="settings-row-icon">&#9889;</div>
+                                    <div class="settings-row-content">
+                                        <div class="settings-row-title">Sync on Disk Connect</div>
+                                        <div class="settings-row-description">Auto sync when disk is connected</div>
+                                    </div>
+                                    <div class="toggle active" onclick="this.classList.toggle('active')">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                                <div class="settings-row">
+                                    <div class="settings-row-icon">&#8644;</div>
+                                    <div class="settings-row-content">
+                                        <div class="settings-row-title">Conflict Strategy</div>
+                                    </div>
+                                    <select class="dropdown">
+                                        <option selected>Ask Every Time</option>
+                                        <option>Keep Local</option>
+                                        <option>Keep External</option>
+                                        <option>Keep Both</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <div class="settings-section-title">Storage</div>
+                            <div class="settings-card">
+                                <div class="settings-row">
+                                    <div class="settings-row-icon">&#128465;</div>
+                                    <div class="settings-row-content">
+                                        <div class="settings-row-title">Auto Cleanup</div>
+                                        <div class="settings-row-description">Clear old cache when low on space</div>
+                                    </div>
+                                    <div class="toggle active" onclick="this.classList.toggle('active')">
+                                        <div class="toggle-thumb"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Status Bar Icons -->
+        <section class="prototype-section">
+            <h2 class="text-title2">3. Status Bar Icons</h2>
+            <div class="prototype-item">
+                <div class="prototype-label">Status Bar Icons</div>
+                <div class="status-bar-demo">
+                    <div class="status-icon-item">
+                        <div class="status-icon gray animate-pulse">&#9676;</div>
+                        <div class="status-label">Initializing</div>
+                    </div>
+                    <div class="status-icon-item">
+                        <div class="status-icon gray animate-rotate">&#8635;</div>
+                        <div class="status-label">Connecting</div>
+                    </div>
+                    <div class="status-icon-item">
+                        <div class="status-icon yellow animate-pulse">&#9203;</div>
+                        <div class="status-label">Starting</div>
+                    </div>
+                    <div class="status-icon-item">
+                        <div class="status-icon green">&#10004;</div>
+                        <div class="status-label">Ready</div>
+                    </div>
+                    <div class="status-icon-item">
+                        <div class="status-icon blue animate-rotate">&#8635;</div>
+                        <div class="status-label">Syncing</div>
+                    </div>
+                    <div class="status-icon-item">
+                        <div class="status-icon blue animate-pulse">&#128465;</div>
+                        <div class="status-label">Cleaning</div>
+                    </div>
+                    <div class="status-icon-item">
+                        <div class="status-icon red animate-pulse">&#9888;</div>
+                        <div class="status-label">Error</div>
+                    </div>
+                    <div class="status-icon-item">
+                        <div class="status-icon red">&#10005;</div>
+                        <div class="status-label">Unavailable</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Menu Bar -->
+        <section class="prototype-section">
+            <h2 class="text-title2">4. Menu Bar (Quick Access)</h2>
             <div class="prototype-row">
-                <!-- 确认对话框 -->
+                <div class="prototype-item">
+                    <div class="prototype-label">Menu Bar - Ready</div>
+                    <div class="menu-bar">
+                        <div class="menu-header">
+                            <div class="menu-header-icon">&#10004;</div>
+                            <div class="menu-header-content">
+                                <div class="menu-header-title">Running</div>
+                                <div class="menu-header-subtitle">12,345 files - 25.6 GB cache</div>
+                            </div>
+                        </div>
+                        <div class="menu-separator"></div>
+                        <div class="menu-item">
+                            <span class="menu-item-icon">&#128200;</span>
+                            <span class="menu-item-title">Open DMSA</span>
+                            <span class="menu-item-shortcut">Cmd+O</span>
+                        </div>
+                        <div class="menu-item">
+                            <span class="menu-item-icon">&#8635;</span>
+                            <span class="menu-item-title">Sync Now</span>
+                            <span class="menu-item-shortcut">Cmd+S</span>
+                        </div>
+                        <div class="menu-item">
+                            <span class="menu-item-icon">&#9888;</span>
+                            <span class="menu-item-title">Conflicts</span>
+                            <span class="menu-item-badge">3</span>
+                        </div>
+                        <div class="menu-separator"></div>
+                        <div class="menu-item">
+                            <span class="menu-item-icon">&#9881;</span>
+                            <span class="menu-item-title">Settings...</span>
+                            <span class="menu-item-shortcut">Cmd+,</span>
+                        </div>
+                        <div class="menu-separator"></div>
+                        <div class="menu-item">
+                            <span class="menu-item-icon">&#9211;</span>
+                            <span class="menu-item-title">Quit</span>
+                            <span class="menu-item-shortcut">Cmd+Q</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dialogs and Notifications -->
+        <section class="prototype-section">
+            <h2 class="text-title2">12. Dialogs & Notifications</h2>
+            <div class="prototype-row">
                 <div class="prototype-item">
                     <div class="prototype-label">Confirmation Dialog</div>
                     <div style="padding: var(--spacing-xl); background: rgba(0,0,0,0.1);">
                         <div class="dialog">
                             <div class="dialog-icon warning">&#9888;</div>
-                            <div class="dialog-title">重建索引?</div>
-                            <div class="dialog-message">这将扫描所有同步目录并重建文件索引。此操作可能需要几分钟。</div>
+                            <div class="dialog-title">Rebuild Index?</div>
+                            <div class="dialog-message">This will scan all sync directories and rebuild the file index. This may take a few minutes.</div>
                             <div class="dialog-actions">
-                                <button class="btn btn-secondary">取消</button>
-                                <button class="btn btn-primary">重建</button>
+                                <button class="btn btn-secondary">Cancel</button>
+                                <button class="btn btn-primary">Rebuild</button>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- 危险操作对话框 -->
                 <div class="prototype-item">
                     <div class="prototype-label">Destructive Dialog</div>
                     <div style="padding: var(--spacing-xl); background: rgba(0,0,0,0.1);">
                         <div class="dialog">
                             <div class="dialog-icon error">&#128465;</div>
-                            <div class="dialog-title">清理所有缓存?</div>
-                            <div class="dialog-message">这将删除所有本地缓存文件。外置磁盘上的原始文件不受影响。</div>
+                            <div class="dialog-title">Clear All Cache?</div>
+                            <div class="dialog-message">This will delete all local cache files. Original files on external disk are not affected.</div>
                             <div class="dialog-actions">
-                                <button class="btn btn-secondary">取消</button>
-                                <button class="btn btn-destructive">清理</button>
+                                <button class="btn btn-secondary">Cancel</button>
+                                <button class="btn btn-destructive">Clear</button>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
             <div class="prototype-row" style="margin-top: var(--spacing-lg);">
-                <!-- 成功通知 -->
                 <div class="prototype-item">
                     <div class="prototype-label">Success Notification</div>
                     <div style="padding: var(--spacing-lg);">
@@ -1909,15 +2262,13 @@
                             <div class="notification-icon success">&#10004;</div>
                             <div class="notification-content">
                                 <div class="notification-app">DMSA</div>
-                                <div class="notification-title">同步完成</div>
-                                <div class="notification-body">已同步 2,000 个文件到 BACKUP</div>
+                                <div class="notification-title">Sync Complete</div>
+                                <div class="notification-body">Synced 2,000 files to BACKUP</div>
                             </div>
-                            <div class="notification-time">刚刚</div>
+                            <div class="notification-time">Now</div>
                         </div>
                     </div>
                 </div>
-
-                <!-- 警告通知 -->
                 <div class="prototype-item">
                     <div class="prototype-label">Warning Notification</div>
                     <div style="padding: var(--spacing-lg);">
@@ -1925,15 +2276,13 @@
                             <div class="notification-icon warning">&#9888;</div>
                             <div class="notification-content">
                                 <div class="notification-app">DMSA</div>
-                                <div class="notification-title">检测到文件冲突</div>
-                                <div class="notification-body">report_2024.docx 在本地和外部磁盘上都有修改</div>
+                                <div class="notification-title">Conflict Detected</div>
+                                <div class="notification-body">report_2024.docx modified on both</div>
                             </div>
-                            <div class="notification-time">5分钟前</div>
+                            <div class="notification-time">5m ago</div>
                         </div>
                     </div>
                 </div>
-
-                <!-- 错误通知 -->
                 <div class="prototype-item">
                     <div class="prototype-label">Error Notification</div>
                     <div style="padding: var(--spacing-lg);">
@@ -1941,19 +2290,19 @@
                             <div class="notification-icon error">&#10005;</div>
                             <div class="notification-content">
                                 <div class="notification-app">DMSA</div>
-                                <div class="notification-title">磁盘已断开</div>
-                                <div class="notification-body">BACKUP 已断开连接</div>
+                                <div class="notification-title">Disk Disconnected</div>
+                                <div class="notification-body">BACKUP has been disconnected</div>
                             </div>
-                            <div class="notification-time">10分钟前</div>
+                            <div class="notification-time">10m ago</div>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- 按钮组件 -->
+        <!-- Button Styles -->
         <section class="prototype-section">
-            <h2 class="text-title2">12. 组件规范 - 按钮</h2>
+            <h2 class="text-title2">15. Component Specs - Buttons</h2>
             <div class="prototype-item">
                 <div class="prototype-label">Button Styles</div>
                 <div style="padding: var(--spacing-xl); display: flex; gap: var(--spacing-lg); flex-wrap: wrap; align-items: center;">
@@ -1969,9 +2318,9 @@
             </div>
         </section>
 
-        <!-- 表单控件 -->
+        <!-- Form Controls -->
         <section class="prototype-section">
-            <h2 class="text-title2">12. 组件规范 - 表单控件</h2>
+            <h2 class="text-title2">15. Component Specs - Form Controls</h2>
             <div class="prototype-item">
                 <div class="prototype-label">Form Controls</div>
                 <div style="padding: var(--spacing-xl); display: flex; flex-direction: column; gap: var(--spacing-xl); max-width: 400px;">
@@ -1987,16 +2336,6 @@
                         </div>
                     </div>
                     <div>
-                        <div class="text-caption text-secondary" style="margin-bottom: var(--spacing-xs);">Slider</div>
-                        <div class="slider-container">
-                            <div class="slider">
-                                <div class="slider-fill"></div>
-                                <div class="slider-thumb"></div>
-                            </div>
-                            <span class="slider-value">50%</span>
-                        </div>
-                    </div>
-                    <div>
                         <div class="text-caption text-secondary" style="margin-bottom: var(--spacing-xs);">Dropdown</div>
                         <select class="dropdown" style="width: 200px;">
                             <option>Option 1</option>
@@ -2005,17 +2344,8 @@
                         </select>
                     </div>
                     <div>
-                        <div class="text-caption text-secondary" style="margin-bottom: var(--spacing-xs);">Text Input</div>
-                        <input type="text" placeholder="Enter text..." style="
-                            width: 200px;
-                            height: 28px;
-                            padding: 0 var(--spacing-sm);
-                            border: 1px solid var(--border-color);
-                            border-radius: var(--radius-sm);
-                            font-size: 13px;
-                            background: var(--bg-control);
-                            color: var(--text-primary);
-                        ">
+                        <div class="text-caption text-secondary" style="margin-bottom: var(--spacing-xs);">Search Field</div>
+                        <input type="text" class="search-field" placeholder="Search...">
                     </div>
                 </div>
             </div>

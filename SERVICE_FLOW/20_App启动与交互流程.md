@@ -1,6 +1,8 @@
 # DMSA.app 启动与交互流程
 
-> 版本: 1.0 | 更新日期: 2026-01-27
+> 版本: 1.1 | 更新日期: 2026-01-27
+>
+> **v1.1 变更**: 移除首次启动向导，简化启动流程
 >
 > 返回 [目录](00_README.md)
 
@@ -11,18 +13,17 @@
 1. [架构概述](#一架构概述)
 2. [App 生命周期](#二app-生命周期)
 3. [启动流程详解](#三启动流程详解)
-4. [首次启动流程](#四首次启动流程)
-5. [XPC 连接管理](#五xpc-连接管理)
-6. [状态同步机制](#六状态同步机制)
-7. [UI 状态机](#七ui-状态机)
-8. [用户交互流程](#八用户交互流程)
-9. [配置管理交互](#九配置管理交互)
-10. [磁盘管理交互](#十磁盘管理交互)
-11. [同步操作交互](#十一同步操作交互)
-12. [错误处理与恢复](#十二错误处理与恢复)
-13. [通知处理流程](#十三通知处理流程)
-14. [后台与前台切换](#十四后台与前台切换)
-15. [退出流程](#十五退出流程)
+4. [XPC 连接管理](#四xpc-连接管理)
+5. [状态同步机制](#五状态同步机制)
+6. [UI 状态机](#六ui-状态机)
+7. [用户交互流程](#七用户交互流程)
+8. [配置管理交互](#八配置管理交互)
+9. [磁盘管理交互](#九磁盘管理交互)
+10. [同步操作交互](#十同步操作交互)
+11. [错误处理与恢复](#十一错误处理与恢复)
+12. [通知处理流程](#十二通知处理流程)
+13. [后台与前台切换](#十三后台与前台切换)
+14. [退出流程](#十四退出流程)
 
 ---
 
@@ -318,116 +319,9 @@ class AppCoordinator {
 
 ---
 
-## 四、首次启动流程
+## 四、XPC 连接管理
 
-### 4.1 首次启动检测
-
-```mermaid
-flowchart TD
-    A[App 启动] --> B{检查 UserDefaults}
-
-    B -->|hasLaunchedBefore = false| C[首次启动]
-    B -->|hasLaunchedBefore = true| D[正常启动]
-
-    C --> E{检查 Service 状态}
-
-    E -->|Service 未安装| F[引导安装 Service]
-    E -->|Service 已安装但未运行| G[引导启动 Service]
-    E -->|Service 运行中| H{检查配置}
-
-    H -->|无 syncPairs| I[引导配置向导]
-    H -->|有 syncPairs| J[检查磁盘状态]
-
-    J -->|磁盘未连接| K[显示磁盘连接提示]
-    J -->|磁盘已连接| L[完成首次启动]
-
-    F --> M[安装完成后重新检查]
-    G --> M
-    I --> L
-    K --> L
-    M --> E
-
-    L --> N["设置 hasLaunchedBefore = true"]
-    N --> O[进入正常运行]
-
-    D --> O
-```
-
-### 4.2 首次启动向导
-
-```mermaid
-flowchart TD
-    subgraph WelcomeStep["步骤 1: 欢迎"]
-        W1["显示欢迎界面"]
-        W2["介绍 App 功能"]
-        W3["下一步按钮"]
-    end
-
-    subgraph PermissionStep["步骤 2: 权限"]
-        P1["检查完全磁盘访问权限"]
-        P2["引导授权"]
-        P3["验证权限"]
-    end
-
-    subgraph ServiceStep["步骤 3: Service"]
-        S1["检查 DMSAService"]
-        S2["检查 macFUSE"]
-        S3["引导安装缺失组件"]
-    end
-
-    subgraph ConfigStep["步骤 4: 配置"]
-        C1["选择外置磁盘"]
-        C2["配置同步目录"]
-        C3["设置同步选项"]
-    end
-
-    subgraph CompleteStep["步骤 5: 完成"]
-        F1["显示配置摘要"]
-        F2["开始首次索引"]
-        F3["完成向导"]
-    end
-
-    WelcomeStep --> PermissionStep --> ServiceStep --> ConfigStep --> CompleteStep
-```
-
-### 4.3 首次启动状态结构
-
-```swift
-struct FirstLaunchState {
-    var currentStep: FirstLaunchStep
-    var completedSteps: Set<FirstLaunchStep>
-    var errors: [FirstLaunchStep: Error]
-
-    enum FirstLaunchStep: Int, CaseIterable {
-        case welcome = 0
-        case permissions = 1
-        case serviceCheck = 2
-        case configuration = 3
-        case complete = 4
-    }
-
-    var canProceed: Bool {
-        switch currentStep {
-        case .welcome:
-            return true
-        case .permissions:
-            return hasFullDiskAccess
-        case .serviceCheck:
-            return isServiceRunning && isMacFUSEInstalled
-        case .configuration:
-            return hasValidConfiguration
-        case .complete:
-            return true
-        }
-    }
-}
-```
-
----
-
-## 五、XPC 连接管理
-
-### 5.1 连接状态机
+### 4.1 连接状态机
 
 ```mermaid
 stateDiagram-v2
@@ -452,7 +346,7 @@ stateDiagram-v2
     note right of Failed: 等待重试
 ```
 
-### 5.2 连接管理流程
+### 4.2 连接管理流程
 
 ```mermaid
 flowchart TD
@@ -479,7 +373,7 @@ flowchart TD
     O --> C
 ```
 
-### 5.3 连接恢复机制
+### 4.3 连接恢复机制
 
 ```mermaid
 sequenceDiagram
@@ -515,7 +409,7 @@ sequenceDiagram
     end
 ```
 
-### 5.4 XPC 连接代码结构
+### 4.4 XPC 连接代码结构
 
 ```swift
 actor XPCConnectionManager {
@@ -592,9 +486,9 @@ actor XPCConnectionManager {
 
 ---
 
-## 六、状态同步机制
+## 五、状态同步机制
 
-### 6.1 状态同步流程
+### 5.1 状态同步流程
 
 ```mermaid
 flowchart TD
@@ -619,7 +513,7 @@ flowchart TD
     I --> J[启动重连定时器]
 ```
 
-### 6.2 状态数据结构
+### 5.2 状态数据结构
 
 ```swift
 // App 端状态管理
@@ -662,7 +556,7 @@ struct AppStatistics {
 }
 ```
 
-### 6.3 状态更新流程
+### 5.3 状态更新流程
 
 ```mermaid
 sequenceDiagram
@@ -701,9 +595,9 @@ sequenceDiagram
 
 ---
 
-## 七、UI 状态机
+## 六、UI 状态机
 
-### 7.1 UI 状态定义
+### 6.1 UI 状态定义
 
 ```mermaid
 stateDiagram-v2
@@ -734,7 +628,7 @@ stateDiagram-v2
     ServiceUnavailable --> Connecting: 重试连接
 ```
 
-### 7.2 UI 状态与显示映射
+### 6.2 UI 状态与显示映射
 
 ```swift
 enum UIState {
@@ -794,7 +688,7 @@ enum UIState {
 }
 ```
 
-### 7.3 菜单栏状态更新
+### 6.3 菜单栏状态更新
 
 ```mermaid
 flowchart TD
@@ -825,9 +719,9 @@ flowchart TD
 
 ---
 
-## 八、用户交互流程
+## 七、用户交互流程
 
-### 8.1 菜单栏交互
+### 7.1 菜单栏交互
 
 ```mermaid
 flowchart TD
@@ -855,7 +749,7 @@ flowchart TD
     M12 -->|点击| A7["确认退出流程"]
 ```
 
-### 8.2 立即同步交互
+### 7.2 立即同步交互
 
 ```mermaid
 sequenceDiagram
@@ -891,7 +785,7 @@ sequenceDiagram
     end
 ```
 
-### 8.3 查看冲突交互
+### 7.3 查看冲突交互
 
 ```mermaid
 flowchart TD
@@ -926,9 +820,9 @@ flowchart TD
 
 ---
 
-## 九、配置管理交互
+## 八、配置管理交互
 
-### 9.1 设置窗口结构
+### 8.1 设置窗口结构
 
 ```mermaid
 flowchart TB
@@ -965,7 +859,7 @@ flowchart TB
     end
 ```
 
-### 9.2 配置修改流程
+### 8.2 配置修改流程
 
 ```mermaid
 sequenceDiagram
@@ -1000,7 +894,7 @@ sequenceDiagram
     end
 ```
 
-### 9.3 配置验证规则
+### 8.3 配置验证规则
 
 ```swift
 struct ConfigValidator {
@@ -1031,9 +925,9 @@ struct ConfigValidator {
 
 ---
 
-## 十、磁盘管理交互
+## 九、磁盘管理交互
 
-### 10.1 磁盘状态监控
+### 9.1 磁盘状态监控
 
 ```mermaid
 flowchart TD
@@ -1061,7 +955,7 @@ flowchart TD
     N --> K
 ```
 
-### 10.2 添加磁盘流程
+### 9.2 添加磁盘流程
 
 ```mermaid
 sequenceDiagram
@@ -1105,7 +999,7 @@ sequenceDiagram
     end
 ```
 
-### 10.3 磁盘状态显示
+### 9.3 磁盘状态显示
 
 ```swift
 struct DiskStatusView {
@@ -1146,9 +1040,9 @@ struct DiskStatusView {
 
 ---
 
-## 十一、同步操作交互
+## 十、同步操作交互
 
-### 11.1 同步进度显示
+### 10.1 同步进度显示
 
 ```mermaid
 flowchart TD
@@ -1173,7 +1067,7 @@ flowchart TD
     I --> O[发送错误通知]
 ```
 
-### 11.2 同步详情窗口
+### 10.2 同步详情窗口
 
 ```mermaid
 flowchart TB
@@ -1211,7 +1105,7 @@ flowchart TB
     end
 ```
 
-### 11.3 同步操作代码
+### 10.3 同步操作代码
 
 ```swift
 class SyncManager {
@@ -1246,9 +1140,9 @@ class SyncManager {
 
 ---
 
-## 十二、错误处理与恢复
+## 十一、错误处理与恢复
 
-### 12.1 错误分类
+### 11.1 错误分类
 
 ```mermaid
 flowchart TB
@@ -1274,7 +1168,7 @@ flowchart TB
     E5 --> H2
 ```
 
-### 12.2 错误恢复流程
+### 11.2 错误恢复流程
 
 ```mermaid
 flowchart TD
@@ -1309,7 +1203,7 @@ flowchart TD
     S -->|否| T["功能受限运行"]
 ```
 
-### 12.3 错误通知
+### 11.3 错误通知
 
 ```swift
 class ErrorHandler {
@@ -1360,9 +1254,9 @@ class ErrorHandler {
 
 ---
 
-## 十三、通知处理流程
+## 十二、通知处理流程
 
-### 13.1 通知类型与处理
+### 12.1 通知类型与处理
 
 ```mermaid
 flowchart TD
@@ -1400,7 +1294,7 @@ flowchart TD
     Q -->|是| R[发送 UserNotification]
 ```
 
-### 13.2 通知处理代码
+### 12.2 通知处理代码
 
 ```swift
 class NotificationHandler {
@@ -1471,9 +1365,9 @@ class NotificationHandler {
 
 ---
 
-## 十四、后台与前台切换
+## 十三、后台与前台切换
 
-### 14.1 后台行为
+### 13.1 后台行为
 
 ```mermaid
 flowchart TD
@@ -1492,7 +1386,7 @@ flowchart TD
     H --> I[后台运行中]
 ```
 
-### 14.2 前台恢复
+### 13.2 前台恢复
 
 ```mermaid
 flowchart TD
@@ -1516,7 +1410,7 @@ flowchart TD
     J --> K[前台运行中]
 ```
 
-### 14.3 后台/前台代码
+### 13.3 后台/前台代码
 
 ```swift
 extension AppDelegate {
@@ -1548,9 +1442,9 @@ extension AppDelegate {
 
 ---
 
-## 十五、退出流程
+## 十四、退出流程
 
-### 15.1 退出确认
+### 14.1 退出确认
 
 ```mermaid
 flowchart TD
@@ -1573,7 +1467,7 @@ flowchart TD
     K --> D
 ```
 
-### 15.2 退出清理流程
+### 14.2 退出清理流程
 
 ```mermaid
 sequenceDiagram
@@ -1603,7 +1497,7 @@ sequenceDiagram
     AD->>AD: NSApplication.terminate
 ```
 
-### 15.3 退出代码
+### 14.3 退出代码
 
 ```swift
 extension AppDelegate {
@@ -1689,4 +1583,4 @@ extension AppDelegate {
 
 ---
 
-*文档版本: 1.0 | 最后更新: 2026-01-27*
+*文档版本: 1.1 | 最后更新: 2026-01-27*

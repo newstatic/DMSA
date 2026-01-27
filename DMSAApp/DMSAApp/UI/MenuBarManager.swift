@@ -6,6 +6,7 @@ protocol MenuBarDelegate: AnyObject {
     func menuBarDidRequestSync()
     func menuBarDidRequestSettings()
     func menuBarDidRequestToggleAutoSync()
+    func menuBarDidRequestOpenTab(_ tab: MainView.MainTab)
 }
 
 /// Sync state enumeration
@@ -190,6 +191,38 @@ final class MenuBarManager {
     }
 
     private func addFooterSection(to menu: NSMenu) {
+        // Open Dashboard
+        let dashboardItem = NSMenuItem(
+            title: "menu.openDashboard".localized,
+            action: #selector(handleOpenDashboard),
+            keyEquivalent: "d"
+        )
+        dashboardItem.target = self
+        menu.addItem(dashboardItem)
+
+        // Open Disks
+        let disksItem = NSMenuItem(
+            title: "menu.openDisks".localized,
+            action: #selector(handleOpenDisks),
+            keyEquivalent: ""
+        )
+        disksItem.target = self
+        menu.addItem(disksItem)
+
+        // View Conflicts (if any)
+        let conflictCount = AppUIState.shared.conflictCount
+        if conflictCount > 0 {
+            let conflictsItem = NSMenuItem(
+                title: String(format: "menu.viewConflicts".localized, conflictCount),
+                action: #selector(handleOpenConflicts),
+                keyEquivalent: ""
+            )
+            conflictsItem.target = self
+            menu.addItem(conflictsItem)
+        }
+
+        menu.addItem(NSMenuItem.separator())
+
         // Settings (opens main window)
         let settingsItem = NSMenuItem(
             title: L10n.Menu.settings,
@@ -303,5 +336,42 @@ final class MenuBarManager {
     @objc private func handleQuit() {
         Logger.shared.info("User quit application")
         NSApplication.shared.terminate(nil)
+    }
+
+    @objc private func handleOpenDashboard() {
+        Logger.shared.info("User opened dashboard from menu bar")
+        delegate?.menuBarDidRequestOpenTab(.dashboard)
+    }
+
+    @objc private func handleOpenDisks() {
+        Logger.shared.info("User opened disks from menu bar")
+        delegate?.menuBarDidRequestOpenTab(.disks)
+    }
+
+    @objc private func handleOpenConflicts() {
+        Logger.shared.info("User opened conflicts from menu bar")
+        delegate?.menuBarDidRequestOpenTab(.conflicts)
+    }
+
+    // MARK: - Sync with AppUIState
+
+    /// Updates menu bar to reflect current app state
+    func syncWithAppState() {
+        let appState = AppUIState.shared
+
+        // Update sync state based on AppUIState
+        if appState.isSyncing {
+            syncState = .syncing
+        } else {
+            switch appState.syncStatus {
+            case .error(let message):
+                syncState = .error(message)
+            default:
+                syncState = .idle
+            }
+        }
+
+        updateIcon()
+        updateMenu()
     }
 }

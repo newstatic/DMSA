@@ -1,123 +1,360 @@
 import SwiftUI
 
-/// 主窗口视图 - 单窗口应用结构
+// MARK: - App State for UI Binding
+
+/// 应用全局状态 (用于 UI 绑定)
+class AppUIState: ObservableObject {
+    static let shared = AppUIState()
+
+    @Published var syncStatus: SyncUIStatus = .ready
+    @Published var conflictCount: Int = 0
+    @Published var isSyncing: Bool = false
+    @Published var syncProgress: Double = 0
+    @Published var lastSyncTime: Date?
+    @Published var connectedDiskCount: Int = 0
+    @Published var totalDiskCount: Int = 0
+    @Published var totalFiles: Int = 0
+
+    enum SyncUIStatus {
+        case ready
+        case syncing
+        case paused
+        case error(String)
+        case serviceUnavailable
+
+        var icon: String {
+            switch self {
+            case .ready: return "checkmark.circle.fill"
+            case .syncing: return "arrow.clockwise"
+            case .paused: return "pause.circle.fill"
+            case .error: return "exclamationmark.triangle.fill"
+            case .serviceUnavailable: return "xmark.circle.fill"
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .ready: return .green
+            case .syncing: return .blue
+            case .paused: return .orange
+            case .error: return .red
+            case .serviceUnavailable: return .gray
+            }
+        }
+
+        var text: String {
+            switch self {
+            case .ready: return "sidebar.status.ready".localized
+            case .syncing: return "sidebar.status.syncing".localized
+            case .paused: return "sidebar.status.paused".localized
+            case .error(let msg): return msg
+            case .serviceUnavailable: return "sidebar.status.unavailable".localized
+            }
+        }
+    }
+}
+
+// MARK: - Main View
+
+/// 主窗口视图 - 单窗口 + 左侧导航
 struct MainView: View {
     @ObservedObject var configManager: ConfigManager
     @ObservedObject private var localizationManager = LocalizationManager.shared
-    @State private var selectedTab: MainTab? = .dashboard
+    @StateObject private var appState = AppUIState.shared
+    @State private var selectedTab: MainTab = .dashboard
+
+    // MARK: - Navigation Tabs (6 items as per design spec)
 
     enum MainTab: String, CaseIterable, Identifiable {
-        case dashboard        // 首页
-        case general          // 常规
-        case disks            // 硬盘
-        case syncPairs        // 同步对
-        case filters          // 过滤
-        case notifications    // 通知设置
-        case notificationHistory  // 通知记录
-        case logs             // 日志
-        case history          // 同步历史
-        case statistics       // 统计
-        case advanced         // 高级
+        case dashboard    // 仪表盘
+        case sync         // 同步
+        case conflicts    // 冲突
+        case disks        // 磁盘
+        case settings     // 设置
+        case logs         // 日志
 
         var id: String { rawValue }
 
         var title: String {
             switch self {
-            case .dashboard: return "dashboard.title".localized
-            case .general: return L10n.Settings.general
-            case .disks: return L10n.Settings.disks
-            case .syncPairs: return L10n.Settings.syncPairs
-            case .filters: return L10n.Settings.filters
-            case .notifications: return L10n.Settings.notifications
-            case .notificationHistory: return "settings.notificationHistory".localized
-            case .logs: return "settings.logs".localized
-            case .history: return "settings.history".localized
-            case .statistics: return L10n.Settings.statistics
-            case .advanced: return L10n.Settings.advanced
+            case .dashboard: return "nav.dashboard".localized
+            case .sync: return "nav.sync".localized
+            case .conflicts: return "nav.conflicts".localized
+            case .disks: return "nav.disks".localized
+            case .settings: return "nav.settings".localized
+            case .logs: return "nav.logs".localized
             }
         }
 
         var icon: String {
             switch self {
-            case .dashboard: return "house.fill"
-            case .general: return "gearshape"
+            case .dashboard: return "gauge.with.dots.needle.33percent"
+            case .sync: return "arrow.triangle.2.circlepath"
+            case .conflicts: return "exclamationmark.2"
             case .disks: return "externaldrive"
-            case .syncPairs: return "folder"
-            case .filters: return "line.3.horizontal.decrease.circle"
-            case .notifications: return "bell"
-            case .notificationHistory: return "bell.badge"
+            case .settings: return "gear"
             case .logs: return "doc.text"
-            case .history: return "clock.arrow.circlepath"
-            case .statistics: return "chart.bar.xaxis"
-            case .advanced: return "slider.horizontal.3"
             }
         }
 
-        var isSeparatorBefore: Bool {
+        var shortcut: KeyEquivalent? {
             switch self {
-            case .notificationHistory, .advanced: return true
-            default: return false
+            case .dashboard: return "1"
+            case .sync: return "2"
+            case .conflicts: return "3"
+            case .disks: return "4"
+            case .settings: return ","
+            case .logs: return nil
             }
         }
+
+        /// 主导航组 (仪表盘、同步、冲突、磁盘)
+        static var mainGroup: [MainTab] {
+            [.dashboard, .sync, .conflicts, .disks]
+        }
+
+        /// 次要导航组 (设置、日志)
+        static var secondaryGroup: [MainTab] {
+            [.settings, .logs]
+        }
     }
+
+    // MARK: - Body
 
     var body: some View {
-        NavigationView {
-            // Sidebar
-            List(selection: $selectedTab) {
-                ForEach(MainTab.allCases) { tab in
-                    if tab.isSeparatorBefore {
-                        Divider()
-                            .padding(.vertical, 4)
+        NavigationSplitView {
+            // MARK: Sidebar
+            VStack(spacing: 0) {
+                // Sidebar Header - Status Display
+                SidebarHeaderView(appState: appState)
+
+                Divider()
+                    .padding(.horizontal, 12)
+
+                // Navigation List
+                List(selection: $selectedTab) {
+                    // Main navigation group
+                    Section {
+                        ForEach(MainTab.mainGroup) { tab in
+                            NavigationItemView(
+                                tab: tab,
+                                isSelected: selectedTab == tab,
+                                badge: badgeForTab(tab)
+                            )
+                            .tag(tab)
+                        }
                     }
 
-                    NavigationLink(
-                        destination: destinationView(for: tab),
-                        tag: tab,
-                        selection: $selectedTab
-                    ) {
-                        Label(tab.title, systemImage: tab.icon)
+                    // Secondary navigation group
+                    Section {
+                        ForEach(MainTab.secondaryGroup) { tab in
+                            NavigationItemView(
+                                tab: tab,
+                                isSelected: selectedTab == tab,
+                                badge: nil
+                            )
+                            .tag(tab)
+                        }
                     }
-                    .tag(tab)
                 }
+                .listStyle(.sidebar)
             }
-            .listStyle(.sidebar)
-            .frame(minWidth: 180)
+            .frame(minWidth: 200, idealWidth: 220, maxWidth: 280)
+            .background(Color(NSColor.windowBackgroundColor))
 
-            // Default content
-            DashboardView(config: $configManager.config)
+        } detail: {
+            // MARK: Content Area
+            contentView(for: selectedTab)
         }
-        .frame(minWidth: 750, minHeight: 500)
-        .frame(idealWidth: 850, idealHeight: 600)
-        // Force view refresh when language changes
+        .frame(minWidth: 720, minHeight: 480)
+        .frame(idealWidth: 900, idealHeight: 600)
         .id(localizationManager.currentLanguage)
+        .onReceive(NotificationCenter.default.publisher(for: .selectMainTab)) { notification in
+            if let tab = notification.userInfo?["tab"] as? MainTab {
+                selectedTab = tab
+            }
+        }
+        // Keyboard shortcuts
+        .background(keyboardShortcuts)
     }
 
+    // MARK: - Badge for Tab
+
+    private func badgeForTab(_ tab: MainTab) -> NavigationBadge? {
+        switch tab {
+        case .sync:
+            if appState.isSyncing {
+                return NavigationBadge(text: "nav.badge.syncing".localized, color: .blue)
+            }
+            return nil
+        case .conflicts:
+            if appState.conflictCount > 0 {
+                return NavigationBadge(text: "\(appState.conflictCount)", color: .orange)
+            }
+            return nil
+        default:
+            return nil
+        }
+    }
+
+    // MARK: - Content View
+
     @ViewBuilder
-    private func destinationView(for tab: MainTab) -> some View {
+    private func contentView(for tab: MainTab) -> some View {
         switch tab {
         case .dashboard:
             DashboardView(config: $configManager.config)
-        case .general:
-            GeneralSettingsView(config: $configManager.config)
+        case .sync:
+            SyncPage(config: $configManager.config)
+        case .conflicts:
+            ConflictsPage(config: $configManager.config)
         case .disks:
-            DiskSettingsView(config: $configManager.config)
-        case .syncPairs:
-            SyncPairSettingsView(config: $configManager.config)
-        case .filters:
-            FilterSettingsView(config: $configManager.config)
-        case .notifications:
-            NotificationSettingsView(config: $configManager.config)
-        case .notificationHistory:
-            NotificationHistoryView()
+            DisksPage(config: $configManager.config)
+        case .settings:
+            SettingsPage(config: $configManager.config, configManager: configManager)
         case .logs:
             LogView()
-        case .history:
-            HistoryContentView()
-        case .statistics:
-            StatisticsView(config: $configManager.config)
-        case .advanced:
-            AdvancedSettingsView(config: $configManager.config, configManager: configManager)
+        }
+    }
+
+    // MARK: - Keyboard Shortcuts
+
+    @ViewBuilder
+    private var keyboardShortcuts: some View {
+        Group {
+            Button("") { selectedTab = .dashboard }
+                .keyboardShortcut("1", modifiers: .command)
+                .hidden()
+
+            Button("") { selectedTab = .sync }
+                .keyboardShortcut("2", modifiers: .command)
+                .hidden()
+
+            Button("") { selectedTab = .conflicts }
+                .keyboardShortcut("3", modifiers: .command)
+                .hidden()
+
+            Button("") { selectedTab = .disks }
+                .keyboardShortcut("4", modifiers: .command)
+                .hidden()
+
+            Button("") { selectedTab = .settings }
+                .keyboardShortcut(",", modifiers: .command)
+                .hidden()
+        }
+    }
+}
+
+// MARK: - Navigation Badge
+
+struct NavigationBadge: Equatable {
+    let text: String
+    let color: Color
+}
+
+// MARK: - Navigation Item View
+
+struct NavigationItemView: View {
+    let tab: MainView.MainTab
+    let isSelected: Bool
+    let badge: NavigationBadge?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: tab.icon)
+                .font(.system(size: 16))
+                .foregroundColor(isSelected ? .accentColor : .secondary)
+                .frame(width: 20)
+
+            Text(tab.title)
+                .font(.body)
+                .fontWeight(isSelected ? .medium : .regular)
+
+            Spacer()
+
+            if let badge = badge {
+                Text(badge.text)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(badge.color.opacity(0.2))
+                    .foregroundColor(badge.color)
+                    .cornerRadius(9)
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Sidebar Header View
+
+struct SidebarHeaderView: View {
+    @ObservedObject var appState: AppUIState
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Status indicator
+            StatusIndicatorView(
+                icon: appState.syncStatus.icon,
+                color: appState.syncStatus.color,
+                isAnimating: appState.isSyncing
+            )
+            .frame(width: 36, height: 36)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("DMSA")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+
+                Text(appState.syncStatus.text)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+}
+
+// MARK: - Status Indicator View
+
+struct StatusIndicatorView: View {
+    let icon: String
+    let color: Color
+    let isAnimating: Bool
+
+    @State private var rotation: Double = 0
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(color.opacity(0.15))
+
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(color)
+                .rotationEffect(.degrees(isAnimating ? rotation : 0))
+        }
+        .onAppear {
+            if isAnimating {
+                withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
+                    rotation = 360
+                }
+            }
+        }
+        .onChange(of: isAnimating) { newValue in
+            if newValue {
+                withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
+                    rotation = 360
+                }
+            } else {
+                rotation = 0
+            }
         }
     }
 }
@@ -145,8 +382,8 @@ class MainWindowController {
         let newWindow = NSWindow(contentViewController: hostingController)
         newWindow.title = L10n.App.name
         newWindow.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        newWindow.setContentSize(NSSize(width: 850, height: 600))
-        newWindow.minSize = NSSize(width: 750, height: 500)
+        newWindow.setContentSize(NSSize(width: 900, height: 600))
+        newWindow.minSize = NSSize(width: 720, height: 480)
         newWindow.center()
         newWindow.isReleasedWhenClosed = false
 
@@ -157,7 +394,6 @@ class MainWindowController {
 
     func showTab(_ tab: MainView.MainTab) {
         showWindow()
-        // 可以通过 NotificationCenter 发送选择标签页的通知
         NotificationCenter.default.post(
             name: .selectMainTab,
             object: nil,
@@ -183,7 +419,7 @@ extension Notification.Name {
 struct MainView_Previews: PreviewProvider {
     static var previews: some View {
         MainView(configManager: ConfigManager.shared)
-            .frame(width: 850, height: 600)
+            .frame(width: 900, height: 600)
     }
 }
 #endif

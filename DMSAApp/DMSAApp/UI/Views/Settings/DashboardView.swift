@@ -1,74 +1,53 @@
 import SwiftUI
 
-/// Dashboard view - the main home page showing status and sync controls
+// MARK: - Dashboard View
+
+/// 仪表盘视图 - 主页面，显示状态概览和快速操作
 struct DashboardView: View {
     @Binding var config: AppConfig
-    @State private var selectedTimeRange: TimeRange = .last7Days
-    @State private var statistics: [SyncStatistics] = []
-    @State private var recentHistory: [SyncHistory] = []
-    @State private var isLoading = false
-
-    // Sync state
-    @State private var isSyncing = false
-    @State private var syncProgress: Double = 0
-    @State private var syncStatusMessage: String = ""
-    @State private var isPaused = false
-    @State private var currentSyncPhaseText: String = "空闲"
-
-    // 进度监听器
+    @StateObject private var appState = AppUIState.shared
     @StateObject private var progressListener = SyncProgressListener()
 
+    // Services
     private let serviceClient = ServiceClient.shared
     private let diskManager = DiskManager.shared
 
-    enum TimeRange: String, CaseIterable, Identifiable {
-        case today = "today"
-        case last7Days = "7days"
-        case last30Days = "30days"
+    // Local state
+    @State private var recentActivities: [ActivityItem] = []
+    @State private var recentHistory: [SyncHistory] = []
+    @State private var isLoading = false
 
-        var id: String { rawValue }
+    // Sync control state
+    @State private var isSyncing = false
+    @State private var syncProgress: Double = 0
+    @State private var isPaused = false
 
-        var title: String {
-            switch self {
-            case .today: return "dashboard.today".localized
-            case .last7Days: return L10n.History.last7Days
-            case .last30Days: return L10n.History.last30Days
-            }
-        }
-
-        var days: Int {
-            switch self {
-            case .today: return 1
-            case .last7Days: return 7
-            case .last30Days: return 30
-            }
-        }
-    }
+    // MARK: - Body
 
     var body: some View {
-        SettingsContentView(title: "dashboard.title".localized) {
+        ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // Sync control section
-                syncControlSection
+                // Status Banner
+                statusBannerSection
 
-                // Disk status section
-                diskStatusSection
+                // Quick Actions
+                quickActionsSection
 
-                // Quick stats section
-                quickStatsSection
+                // Storage Overview
+                storageOverviewSection
 
-                // Recent activity section
+                // Recent Activity
                 recentActivitySection
             }
+            .padding(32)
+            .frame(maxWidth: 800)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             loadData()
             setupProgressListener()
         }
-        .onDisappear {
-            // 清理监听器
-        }
-        .onChange(of: selectedTimeRange) { _ in loadData() }
         .onChange(of: progressListener.currentProgress) { progress in
             if let progress = progress {
                 updateFromProgress(progress)
@@ -81,169 +60,123 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Sync Control Section
+    // MARK: - Status Banner Section
 
-    private var syncControlSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "dashboard.syncControl".localized)
+    private var statusBannerSection: some View {
+        HStack(spacing: 20) {
+            // Status Ring
+            StatusRing(
+                size: 80,
+                icon: statusIcon,
+                color: statusColor,
+                progress: isSyncing ? syncProgress : 1.0,
+                isAnimating: isSyncing && !isPaused
+            )
 
-            HStack(spacing: 20) {
-                // Sync status indicator
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(syncStatusColor)
-                            .frame(width: 12, height: 12)
+            // Status Text
+            VStack(alignment: .leading, spacing: 4) {
+                Text(statusTitle)
+                    .font(.title)
+                    .fontWeight(.semibold)
 
-                        Text(syncStatusText)
-                            .font(.headline)
-                    }
-
-                    if isSyncing {
-                        ProgressView(value: syncProgress)
-                            .progressViewStyle(.linear)
-                            .frame(width: 200)
-
-                        Text(syncStatusMessage)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .frame(minWidth: 250, alignment: .leading)
+                Text(statusSubtitle)
+                    .font(.body)
+                    .foregroundColor(.secondary)
 
                 Spacer()
+                    .frame(height: 8)
 
-                // Control buttons
-                HStack(spacing: 12) {
-                    if isSyncing {
-                        // Pause button
-                        Button {
-                            pauseSync()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                                Text(isPaused ? "dashboard.resume".localized : "dashboard.pause".localized)
-                            }
-                        }
-                        .buttonStyle(.bordered)
+                // Stat chips
+                HStack(spacing: 16) {
+                    StatChip(
+                        icon: "doc",
+                        value: "\(appState.totalFiles)",
+                        label: "dashboard.chip.files".localized
+                    )
 
-                        // Stop button
-                        Button(role: .destructive) {
-                            stopSync()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "stop.fill")
-                                Text("dashboard.stop".localized)
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                    } else {
-                        // Start sync button
-                        Button {
-                            startSync()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                                Text("dashboard.startSync".localized)
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(!canStartSync)
-                    }
-                }
-            }
-            .padding()
-            .background(Color(.windowBackgroundColor))
-            .cornerRadius(12)
-        }
-    }
+                    StatChip(
+                        icon: "externaldrive",
+                        value: "\(connectedDiskCount)/\(config.disks.count)",
+                        label: "dashboard.chip.disks".localized
+                    )
 
-    // MARK: - Disk Status Section
-
-    private var diskStatusSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "dashboard.diskStatus".localized)
-
-            if config.disks.isEmpty {
-                HStack {
-                    Image(systemName: "externaldrive.badge.questionmark")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                    Text("dashboard.noDisksConfigured".localized)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .center)
-                .background(Color(.windowBackgroundColor))
-                .cornerRadius(8)
-            } else {
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 12) {
-                    ForEach(config.disks) { disk in
-                        DiskStatusCard(
-                            disk: disk,
-                            isConnected: diskManager.isDiskConnected(disk.id),
-                            diskInfo: getDiskInfo(for: disk)
+                    if let lastSync = lastSyncTime {
+                        StatChip(
+                            icon: "clock",
+                            value: formatRelativeTime(lastSync),
+                            label: "dashboard.chip.lastSync".localized
                         )
                     }
                 }
             }
+
+            Spacer()
+        }
+        .padding(.vertical, 20)
+        .padding(.horizontal, 24)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(12)
+    }
+
+    // MARK: - Quick Actions Section
+
+    private var quickActionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "dashboard.quickActions".localized)
+
+            HStack(spacing: 12) {
+                ActionCard(
+                    icon: "arrow.clockwise",
+                    title: "dashboard.action.syncNow".localized,
+                    shortcut: "⌘S",
+                    isEnabled: canStartSync,
+                    action: startSync
+                )
+
+                ActionCard(
+                    icon: "externaldrive.badge.plus",
+                    title: "dashboard.action.addDisk".localized,
+                    action: navigateToDisks
+                )
+
+                ActionCard(
+                    icon: "folder",
+                    title: "dashboard.action.openDownloads".localized,
+                    action: openDownloadsFolder
+                )
+            }
         }
     }
 
-    // MARK: - Quick Stats Section
+    // MARK: - Storage Overview Section
 
-    private var quickStatsSection: some View {
+    private var storageOverviewSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                SectionHeader(title: "dashboard.quickStats".localized)
+            SectionHeader(title: "dashboard.storage".localized)
 
-                Spacer()
-
-                Picker("", selection: $selectedTimeRange) {
-                    ForEach(TimeRange.allCases) { range in
-                        Text(range.title).tag(range)
-                    }
+            HStack(spacing: 16) {
+                // Local cache storage
+                if let localInfo = getLocalStorageInfo() {
+                    StorageCard(
+                        title: "dashboard.storage.localCache".localized,
+                        icon: "internaldrive",
+                        used: localInfo.used,
+                        total: localInfo.total,
+                        color: .blue
+                    )
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 250)
-            }
 
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
-                StatCard(
-                    title: "dashboard.totalSyncs".localized,
-                    value: "\(totalSyncs)",
-                    icon: "arrow.triangle.2.circlepath",
-                    color: .blue
-                )
-
-                StatCard(
-                    title: "dashboard.successRate".localized,
-                    value: String(format: "%.0f%%", successRate),
-                    icon: "checkmark.circle.fill",
-                    color: successRate >= 90 ? .green : (successRate >= 70 ? .orange : .red)
-                )
-
-                StatCard(
-                    title: "dashboard.filesTransferred".localized,
-                    value: "\(totalFiles)",
-                    icon: "doc.fill",
-                    color: .purple
-                )
-
-                StatCard(
-                    title: "dashboard.dataTransferred".localized,
-                    value: totalBytesFormatted,
-                    icon: "arrow.up.arrow.down",
-                    color: .orange
-                )
+                // External disk storage (show first connected disk)
+                if let disk = firstConnectedDisk,
+                   let diskInfo = diskManager.getDiskInfo(at: disk.mountPath) {
+                    StorageCard(
+                        title: disk.name,
+                        icon: "externaldrive",
+                        used: diskInfo.used,
+                        total: diskInfo.total,
+                        color: .green
+                    )
+                }
             }
         }
     }
@@ -252,35 +185,14 @@ struct DashboardView: View {
 
     private var recentActivitySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                SectionHeader(title: "dashboard.recentActivity".localized)
-
-                Spacer()
-
-                Button {
-                    loadData()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(.borderless)
-                .disabled(isLoading)
-            }
+            SectionHeader(
+                title: "dashboard.recentActivity".localized,
+                actionTitle: "dashboard.viewAll".localized,
+                action: navigateToLogs
+            )
 
             if recentHistory.isEmpty {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 8) {
-                        Image(systemName: "clock.arrow.circlepath")
-                            .font(.system(size: 32))
-                            .foregroundColor(.secondary)
-                        Text("dashboard.noRecentActivity".localized)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(24)
-                    Spacer()
-                }
-                .background(Color(.windowBackgroundColor))
-                .cornerRadius(8)
+                EmptyActivityView()
             } else {
                 VStack(spacing: 0) {
                     ForEach(recentHistory.prefix(5)) { history in
@@ -288,10 +200,11 @@ struct DashboardView: View {
 
                         if history.id != recentHistory.prefix(5).last?.id {
                             Divider()
+                                .padding(.leading, 52)
                         }
                     }
                 }
-                .background(Color(.windowBackgroundColor))
+                .background(Color(NSColor.controlBackgroundColor))
                 .cornerRadius(8)
             }
         }
@@ -299,139 +212,142 @@ struct DashboardView: View {
 
     // MARK: - Computed Properties
 
-    private var canStartSync: Bool {
-        diskManager.isAnyExternalConnected && !config.syncPairs.isEmpty
+    private var statusIcon: String {
+        if isSyncing {
+            return isPaused ? "pause.circle.fill" : "arrow.clockwise"
+        }
+        if appState.conflictCount > 0 {
+            return "exclamationmark.triangle.fill"
+        }
+        if !diskManager.isAnyExternalConnected {
+            return "xmark.circle.fill"
+        }
+        return "checkmark.circle.fill"
     }
 
-    private var syncStatusColor: Color {
+    private var statusColor: Color {
         if isSyncing {
             return isPaused ? .orange : .blue
         }
-        return diskManager.isAnyExternalConnected ? .green : .gray
+        if appState.conflictCount > 0 {
+            return .orange
+        }
+        if !diskManager.isAnyExternalConnected {
+            return .gray
+        }
+        return .green
     }
 
-    private var syncStatusText: String {
+    private var statusTitle: String {
         if isSyncing {
-            return isPaused ? "dashboard.status.paused".localized : "dashboard.status.syncing".localized
+            return isPaused
+                ? "dashboard.status.paused".localized
+                : "dashboard.status.syncing".localized
+        }
+        if appState.conflictCount > 0 {
+            return "dashboard.status.hasConflicts".localized
         }
         if !diskManager.isAnyExternalConnected {
             return "dashboard.status.noDisk".localized
         }
-        return "dashboard.status.ready".localized
+        return "dashboard.status.allGood".localized
     }
 
-    private var totalSyncs: Int {
-        statistics.reduce(0) { $0 + $1.totalSyncs }
+    private var statusSubtitle: String {
+        if isSyncing {
+            let progress = Int(syncProgress * 100)
+            return String(format: "dashboard.status.progress".localized, progress)
+        }
+        if appState.conflictCount > 0 {
+            return String(format: "dashboard.status.conflictsCount".localized, appState.conflictCount)
+        }
+        if !diskManager.isAnyExternalConnected {
+            return "dashboard.status.connectDisk".localized
+        }
+        return "dashboard.status.allSynced".localized
     }
 
-    private var successfulSyncs: Int {
-        statistics.reduce(0) { $0 + $1.successfulSyncs }
+    private var canStartSync: Bool {
+        diskManager.isAnyExternalConnected && !config.syncPairs.isEmpty && !isSyncing
     }
 
-    private var successRate: Double {
-        guard totalSyncs > 0 else { return 100 }
-        return Double(successfulSyncs) / Double(totalSyncs) * 100
+    private var firstConnectedDisk: DiskConfig? {
+        config.disks.first { diskManager.isDiskConnected($0.id) }
     }
 
-    private var totalFiles: Int {
-        statistics.reduce(0) { $0 + $1.totalFilesTransferred }
+    private var connectedDiskCount: Int {
+        config.disks.filter { diskManager.isDiskConnected($0.id) }.count
     }
 
-    private var totalBytes: Int64 {
-        statistics.reduce(0) { $0 + $1.totalBytesTransferred }
-    }
-
-    private var totalBytesFormatted: String {
-        ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
+    private var lastSyncTime: Date? {
+        recentHistory.first?.startedAt
     }
 
     // MARK: - Actions
 
     private func startSync() {
-        guard diskManager.isAnyExternalConnected else {
-            Logger.shared.warn("没有已连接的硬盘")
-            return
-        }
+        guard canStartSync else { return }
 
         isSyncing = true
         isPaused = false
         syncProgress = 0
-        syncStatusMessage = "dashboard.status.starting".localized
 
         Task {
             do {
-                // 1. 先上发当前配置到 Service
                 try await serviceClient.updateConfig(config)
-                Logger.shared.info("配置已上发到 Service")
-
-                // 2. 开始同步（Service 会实时下发进度）
                 try await serviceClient.syncAll()
-
-                // 注意：同步完成后的 UI 更新由 progressListener 处理
             } catch {
                 await MainActor.run {
                     isSyncing = false
-                    Logger.shared.error("同步失败: \(error.localizedDescription)")
                 }
+                Logger.shared.error("Sync failed: \(error.localizedDescription)")
             }
         }
     }
 
-    private func pauseSync() {
-        Task {
-            if isPaused {
-                try? await serviceClient.resumeSync()
-                await MainActor.run { isPaused = false }
-            } else {
-                try? await serviceClient.pauseSync()
-                await MainActor.run { isPaused = true }
-            }
-        }
+    private func navigateToDisks() {
+        NotificationCenter.default.post(
+            name: .selectMainTab,
+            object: nil,
+            userInfo: ["tab": MainView.MainTab.disks]
+        )
     }
 
-    private func stopSync() {
-        Task {
-            try? await serviceClient.cancelSync()
-            await MainActor.run {
-                isSyncing = false
-                isPaused = false
-            }
-        }
+    private func navigateToLogs() {
+        NotificationCenter.default.post(
+            name: .selectMainTab,
+            object: nil,
+            userInfo: ["tab": MainView.MainTab.logs]
+        )
+    }
+
+    private func openDownloadsFolder() {
+        let downloadsPath = NSString(string: "~/Downloads").expandingTildeInPath
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: downloadsPath)
     }
 
     private func loadData() {
         isLoading = true
 
         Task {
-            // 从 Service 获取同步历史
             let history = (try? await serviceClient.getSyncHistory(limit: 10)) ?? []
 
             await MainActor.run {
-                // 清空统计（统计数据由 Service 管理）
-                statistics = []
                 recentHistory = history
                 isLoading = false
             }
         }
     }
 
-    private func getDiskInfo(for disk: DiskConfig) -> (total: Int64, available: Int64, used: Int64)? {
-        return diskManager.getDiskInfo(at: disk.mountPath)
-    }
-
     private func setupProgressListener() {
-        // 通过 ServiceClient 设置进度监听
         serviceClient.progressDelegate = progressListener
     }
 
     private func updateFromProgress(_ progress: ServiceSyncProgressInfo) {
         isSyncing = progress.status == .inProgress
         syncProgress = progress.progress
-        syncStatusMessage = progress.currentFile ?? progress.phaseText
         isPaused = progress.isPaused
-        currentSyncPhaseText = progress.phaseText
 
-        // 如果同步完成，刷新数据
         if progress.status == .completed || progress.status == .failed {
             loadData()
         }
@@ -442,29 +358,50 @@ struct DashboardView: View {
         case .inProgress:
             isSyncing = true
             isPaused = false
-        case .completed:
+        case .completed, .failed, .cancelled:
             isSyncing = false
             isPaused = false
-            loadData()  // 刷新历史记录
-        case .failed:
-            isSyncing = false
-            isPaused = false
-            if let message = change.message {
-                syncStatusMessage = message
-            }
             loadData()
-        case .cancelled:
-            isSyncing = false
-            isPaused = false
         case .paused:
             isPaused = true
         default:
             break
         }
     }
+
+    // MARK: - Helper Methods
+
+    private func getLocalStorageInfo() -> (used: Int64, total: Int64)? {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser
+        do {
+            let attrs = try FileManager.default.attributesOfFileSystem(forPath: homeDir.path)
+            let total = (attrs[.systemSize] as? Int64) ?? 0
+            let free = (attrs[.systemFreeSize] as? Int64) ?? 0
+            return (total - free, total)
+        } catch {
+            return nil
+        }
+    }
+
+    private func formatRelativeTime(_ date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+
+        if interval < 60 {
+            return "dashboard.time.now".localized
+        } else if interval < 3600 {
+            let minutes = Int(interval / 60)
+            return "\(minutes)m"
+        } else if interval < 86400 {
+            let hours = Int(interval / 3600)
+            return "\(hours)h"
+        } else {
+            let days = Int(interval / 86400)
+            return "\(days)d"
+        }
+    }
 }
 
-// MARK: - 同步进度监听器
+// MARK: - Sync Progress Listener
 
 struct SyncStatusChange: Equatable {
     let syncPairId: String
@@ -472,7 +409,6 @@ struct SyncStatusChange: Equatable {
     let message: String?
 }
 
-/// 从服务端接收的同步进度简化数据
 struct ServiceSyncProgressInfo: Equatable {
     var syncPairId: String
     var status: SyncStatus
@@ -524,62 +460,7 @@ class SyncProgressListener: ObservableObject, SyncProgressDelegate {
     }
 
     func configDidUpdate() {
-        // 配置更新时可以触发刷新
-        Logger.shared.info("收到配置更新通知")
-    }
-}
-
-// MARK: - Disk Status Card
-
-struct DiskStatusCard: View {
-    let disk: DiskConfig
-    let isConnected: Bool
-    let diskInfo: (total: Int64, available: Int64, used: Int64)?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: isConnected ? "externaldrive.fill" : "externaldrive")
-                    .foregroundColor(isConnected ? .green : .gray)
-
-                Text(disk.name)
-                    .font(.headline)
-
-                Spacer()
-
-                Circle()
-                    .fill(isConnected ? .green : .gray)
-                    .frame(width: 8, height: 8)
-            }
-
-            if isConnected, let info = diskInfo {
-                StorageBar(
-                    used: info.used,
-                    total: info.total,
-                    showLabels: false
-                )
-                .frame(height: 8)
-
-                HStack {
-                    Text("\(ByteCountFormatter.string(fromByteCount: info.available, countStyle: .file)) " + "dashboard.available".localized)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Spacer()
-
-                    Text("\(ByteCountFormatter.string(fromByteCount: info.total, countStyle: .file))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            } else {
-                Text(isConnected ? "dashboard.loading".localized : "dashboard.notConnected".localized)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding()
-        .background(Color(.windowBackgroundColor))
-        .cornerRadius(8)
+        Logger.shared.info("Config update notification received")
     }
 }
 
@@ -597,12 +478,21 @@ struct RecentActivityRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: history.status == .completed ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundColor(history.status == .completed ? .green : .red)
+            // Status icon
+            ZStack {
+                Circle()
+                    .fill(statusColor.opacity(0.15))
+                    .frame(width: 28, height: 28)
+
+                Image(systemName: statusIcon)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(statusColor)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(history.syncPairId)
-                    .font(.subheadline)
+                    .font(.body)
+                    .lineLimit(1)
 
                 Text(formattedStartTime)
                     .font(.caption)
@@ -612,7 +502,7 @@ struct RecentActivityRow: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text("\(history.filesCount) " + "dashboard.files".localized)
+                Text("\(history.filesCount) files")
                     .font(.caption)
 
                 Text(ByteCountFormatter.string(fromByteCount: history.totalSize, countStyle: .file))
@@ -620,8 +510,87 @@ struct RecentActivityRow: View {
                     .foregroundColor(.secondary)
             }
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    private var statusIcon: String {
+        history.status == .completed ? "checkmark.circle.fill" : "xmark.circle.fill"
+    }
+
+    private var statusColor: Color {
+        history.status == .completed ? .green : .red
+    }
+}
+
+// MARK: - Settings Content View Wrapper
+
+struct SettingsContentView<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                content()
+            }
+            .padding(24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(NSColor.windowBackgroundColor))
+        .navigationTitle(title)
+    }
+}
+
+// MARK: - Disk Status Card (Legacy support)
+
+struct DiskStatusCard: View {
+    let disk: DiskConfig
+    let isConnected: Bool
+    let diskInfo: (total: Int64, available: Int64, used: Int64)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: isConnected ? "externaldrive.fill" : "externaldrive")
+                    .foregroundColor(isConnected ? .green : .gray)
+
+                Text(disk.name)
+                    .font(.headline)
+
+                Spacer()
+
+                StatusDot(color: isConnected ? .green : .gray)
+            }
+
+            if isConnected, let info = diskInfo {
+                StorageBar(
+                    used: info.used,
+                    total: info.total,
+                    showLabels: false
+                )
+                .frame(height: 8)
+
+                HStack {
+                    Text("\(ByteCountFormatter.string(fromByteCount: info.available, countStyle: .file)) available")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    Text("\(ByteCountFormatter.string(fromByteCount: info.total, countStyle: .file))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                Text(isConnected ? "Loading..." : "Not connected")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
     }
 }
 
@@ -631,7 +600,7 @@ struct RecentActivityRow: View {
 struct DashboardView_Previews: PreviewProvider {
     static var previews: some View {
         DashboardView(config: .constant(AppConfig()))
-            .frame(width: 600, height: 700)
+            .frame(width: 700, height: 700)
     }
 }
 #endif
