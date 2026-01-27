@@ -376,6 +376,19 @@ import Foundation
 
     /// 健康检查
     func healthCheck(withReply reply: @escaping (Bool, String?) -> Void)
+
+    // MARK: - ========== 状态管理操作 ==========
+
+    /// 获取服务完整状态
+    /// - Returns: Data (ServiceFullState JSON)
+    func getFullState(withReply reply: @escaping (Data) -> Void)
+
+    /// 获取当前全局状态
+    func getGlobalState(withReply reply: @escaping (Int, String) -> Void)
+
+    /// 检查是否可以执行指定操作
+    func canPerformOperation(_ operation: String,
+                             withReply reply: @escaping (Bool) -> Void)
 }
 
 // MARK: - XPC Interface 配置

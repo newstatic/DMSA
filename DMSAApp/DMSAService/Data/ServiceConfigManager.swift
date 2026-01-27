@@ -412,4 +412,162 @@ actor ServiceConfigManager {
     func healthCheck() -> Bool {
         return fileManager.fileExists(atPath: dataDirectory.path)
     }
+
+    // MARK: - 配置冲突检测
+    // 参考文档: SERVICE_FLOW/02_配置管理.md
+
+    /// 检测配置冲突
+    /// 返回冲突列表，如果为空则表示无冲突
+    func detectConflicts(appConfig: AppConfig) -> [ConfigConflict] {
+        var conflicts: [ConfigConflict] = []
+
+        // 1. 检测多个 syncPair 使用同一 EXTERNAL_DIR
+        conflicts.append(contentsOf: detectMultipleExternalDirs(appConfig.syncPairs, disks: appConfig.disks))
+
+        // 2. 检测 LOCAL_DIR 重叠
+        conflicts.append(contentsOf: detectOverlappingLocal(appConfig.syncPairs))
+
+        // 3. 检测引用的 disk 不存在
+        conflicts.append(contentsOf: detectDiskNotFound(appConfig.syncPairs, disks: appConfig.disks))
+
+        // 4. 检测循环同步
+        conflicts.append(contentsOf: detectCircularSync(appConfig.syncPairs, disks: appConfig.disks))
+
+        if !conflicts.isEmpty {
+            logger.warning("检测到 \(conflicts.count) 个配置冲突")
+            for conflict in conflicts {
+                logger.warning("  - [\(conflict.type.rawValue)] \(conflict.affectedItems.joined(separator: ", "))")
+            }
+        }
+
+        return conflicts
+    }
+
+    /// 检测多个 syncPair 使用同一 EXTERNAL_DIR
+    private func detectMultipleExternalDirs(_ syncPairs: [SyncPairConfig], disks: [DiskConfig]) -> [ConfigConflict] {
+        var conflicts: [ConfigConflict] = []
+        var externalDirMap: [String: [String]] = [:]  // [fullExternalDir: [syncPairIds]]
+
+        for pair in syncPairs where pair.enabled {
+            guard let disk = disks.first(where: { $0.id == pair.diskId }) else { continue }
+            let fullExternalDir = pair.fullExternalDir(diskMountPath: disk.mountPath)
+            externalDirMap[fullExternalDir, default: []].append(pair.id)
+        }
+
+        for (externalDir, pairIds) in externalDirMap where pairIds.count > 1 {
+            conflicts.append(ConfigConflict(
+                type: .multipleExternalDirs,
+                affectedItems: pairIds,
+                requiresUserAction: true
+            ))
+            logger.warning("冲突: 多个 SyncPair 使用同一 EXTERNAL_DIR: \(externalDir)")
+        }
+
+        return conflicts
+    }
+
+    /// 检测 LOCAL_DIR 重叠
+    private func detectOverlappingLocal(_ syncPairs: [SyncPairConfig]) -> [ConfigConflict] {
+        var conflicts: [ConfigConflict] = []
+        let enabledPairs = syncPairs.filter { $0.enabled }
+
+        for i in 0..<enabledPairs.count {
+            for j in (i + 1)..<enabledPairs.count {
+                let pair1 = enabledPairs[i]
+                let pair2 = enabledPairs[j]
+
+                let local1 = pair1.localDir
+                let local2 = pair2.localDir
+
+                // 检查是否重叠 (一个是另一个的子路径)
+                if local1.hasPrefix(local2 + "/") || local2.hasPrefix(local1 + "/") || local1 == local2 {
+                    conflicts.append(ConfigConflict(
+                        type: .overlappingLocal,
+                        affectedItems: [pair1.id, pair2.id],
+                        requiresUserAction: true
+                    ))
+                    logger.warning("冲突: LOCAL_DIR 重叠: \(local1) 与 \(local2)")
+                }
+            }
+        }
+
+        return conflicts
+    }
+
+    /// 检测引用的 disk 不存在
+    private func detectDiskNotFound(_ syncPairs: [SyncPairConfig], disks: [DiskConfig]) -> [ConfigConflict] {
+        var conflicts: [ConfigConflict] = []
+        let diskIds = Set(disks.map { $0.id })
+
+        for pair in syncPairs where pair.enabled {
+            if !diskIds.contains(pair.diskId) {
+                conflicts.append(ConfigConflict(
+                    type: .diskNotFound,
+                    affectedItems: [pair.id, pair.diskId],
+                    requiresUserAction: true
+                ))
+                logger.warning("冲突: SyncPair '\(pair.id)' 引用的 Disk '\(pair.diskId)' 不存在")
+            }
+        }
+
+        return conflicts
+    }
+
+    /// 检测循环同步
+    private func detectCircularSync(_ syncPairs: [SyncPairConfig], disks: [DiskConfig]) -> [ConfigConflict] {
+        var conflicts: [ConfigConflict] = []
+        let enabledPairs = syncPairs.filter { $0.enabled }
+
+        for i in 0..<enabledPairs.count {
+            for j in (i + 1)..<enabledPairs.count {
+                let pair1 = enabledPairs[i]
+                let pair2 = enabledPairs[j]
+
+                guard let disk1 = disks.first(where: { $0.id == pair1.diskId }),
+                      let disk2 = disks.first(where: { $0.id == pair2.diskId }) else { continue }
+
+                let external1 = pair1.fullExternalDir(diskMountPath: disk1.mountPath)
+                let external2 = pair2.fullExternalDir(diskMountPath: disk2.mountPath)
+                let local1 = pair1.localDir
+                let local2 = pair2.localDir
+
+                // 检查循环: pair1 的 EXTERNAL_DIR 在 pair2 的 LOCAL_DIR 下，或反之
+                if external1.hasPrefix(local2 + "/") || external2.hasPrefix(local1 + "/") {
+                    conflicts.append(ConfigConflict(
+                        type: .circularSync,
+                        affectedItems: [pair1.id, pair2.id],
+                        requiresUserAction: true
+                    ))
+                    logger.warning("冲突: 检测到循环同步: \(pair1.id) 与 \(pair2.id)")
+                }
+
+                // 检查循环: pair1 的 LOCAL_DIR 在 pair2 的 EXTERNAL_DIR 下，或反之
+                if local1.hasPrefix(external2 + "/") || local2.hasPrefix(external1 + "/") {
+                    conflicts.append(ConfigConflict(
+                        type: .circularSync,
+                        affectedItems: [pair1.id, pair2.id],
+                        requiresUserAction: true
+                    ))
+                    logger.warning("冲突: 检测到循环同步: \(pair1.id) 与 \(pair2.id)")
+                }
+            }
+        }
+
+        return conflicts
+    }
+
+    /// 验证配置并返回冲突状态
+    func validateConfig(appConfig: AppConfig) async -> ConfigStatus {
+        let conflicts = detectConflicts(appConfig: appConfig)
+
+        var status = ConfigStatus()
+        status.loaded = true
+        status.source = "app_config"
+        status.conflicts = conflicts.isEmpty ? nil : conflicts
+
+        // 设置配置状态
+        await ServiceStateManager.shared.setConfigStatus(status)
+
+        return status
+    }
 }

@@ -935,4 +935,39 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         await syncManager.updateConfig(config)
         logger.info("配置已重新加载")
     }
+
+    // MARK: - ========== 状态管理操作 ==========
+
+    func getFullState(withReply reply: @escaping (Data) -> Void) {
+        logXPCReceive("getFullState")
+        Task {
+            let fullState = await ServiceStateManager.shared.getFullState()
+            let data = (try? JSONEncoder().encode(fullState)) ?? Data()
+            logXPCReplyData("getFullState", data: data)
+            reply(data)
+        }
+    }
+
+    func getGlobalState(withReply reply: @escaping (Int, String) -> Void) {
+        logXPCReceive("getGlobalState")
+        Task {
+            let state = await ServiceStateManager.shared.getState()
+            logXPCReply("getGlobalState", success: true, result: "\(state.rawValue) (\(state.name))")
+            reply(state.rawValue, state.name)
+        }
+    }
+
+    func canPerformOperation(_ operation: String, withReply reply: @escaping (Bool) -> Void) {
+        logXPCReceive("canPerformOperation", params: ["operation": operation])
+        Task {
+            guard let op = ServiceOperation(rawValue: operation) else {
+                logXPCReply("canPerformOperation", success: false, error: "Unknown operation")
+                reply(false)
+                return
+            }
+            let canPerform = await ServiceStateManager.shared.canPerform(op)
+            logXPCReply("canPerformOperation", success: true, result: canPerform)
+            reply(canPerform)
+        }
+    }
 }

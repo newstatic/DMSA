@@ -94,6 +94,21 @@ void fuse_wrapper_set_external_offline(bool offline);
 void fuse_wrapper_set_readonly(bool readonly);
 
 /**
+ * 设置索引就绪状态
+ * 索引未就绪时，所有文件操作返回 EBUSY
+ *
+ * @param ready true 表示索引就绪，false 表示索引未就绪
+ */
+void fuse_wrapper_set_index_ready(bool ready);
+
+/**
+ * 获取索引就绪状态
+ *
+ * @return 1 已就绪，0 未就绪
+ */
+int fuse_wrapper_is_index_ready(void);
+
+/**
  * 获取错误描述
  *
  * @param error 错误码

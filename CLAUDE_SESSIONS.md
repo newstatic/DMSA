@@ -714,4 +714,83 @@ SERVICE_FLOW/
 
 ---
 
+### v4.9 服务端代码修改 (P0-P3 全部完成)
+
+**相关会话:** 50877371 (续)
+**日期:** 2026-01-27
+**状态:** ✅ 完成
+
+**功能描述:**
+基于 SERVICE_FLOW 文档体系对现有代码进行审查和修改，实现所有缺失功能。全部 P0-P3 任务已完成。
+
+**实现内容:**
+
+**阶段 1 - P0 核心状态管理:**
+- `ServiceState.swift` - 全局服务状态枚举 (9 种状态)
+- `ServiceFullState.swift` - 完整状态结构
+- `ServiceStateManager.swift` - 状态管理器 Actor + NotificationQueue
+- `DMSAServiceProtocol.swift` - 添加 getFullState/getGlobalState/canPerformOperation
+- `ServiceImplementation.swift` - 实现新增 XPC 方法
+
+**阶段 2 - P1 VFS 阻塞机制:**
+- `fuse_wrapper.h/c` - 添加 index_ready 标记，EBUSY 阻塞
+- `FUSEFileSystem.swift` - 添加 setIndexReady() Swift 封装
+- `VFSManager.swift` - 索引完成后开放 VFS 访问
+
+**阶段 3 - P2 通知与错误码:**
+- `Constants.swift` - 添加所有通知常量 (10 种)
+- `ServiceError.swift` - 统一错误码定义 (1xxx-6xxx)
+
+**阶段 4 - P3 优化项:**
+- `StartupChecker.swift` - 12 项启动检查 (5 预启动 + 7 运行时)
+- `ServiceConfigManager.swift` - 4 种配置冲突检测
+- `Logger.swift` - 标准格式日志支持
+- `main.swift` - 集成预启动检查 + LoggerStateCache
+
+**技术要点:**
+1. **状态管理**: Swift Actor 保证线程安全，通知队列在 XPC 就绪前缓存
+2. **VFS 阻塞**: FUSE 层使用 C 实现，pthread_mutex 保护 index_ready 状态
+3. **配置冲突检测**:
+   - MULTIPLE_EXTERNAL_DIRS - 多个 syncPair 使用同一 EXTERNAL_DIR
+   - OVERLAPPING_LOCAL - LOCAL_DIR 有重叠
+   - DISK_NOT_FOUND - 引用的 disk 不存在
+   - CIRCULAR_SYNC - 循环同步检测
+4. **日志格式**: `[时间戳] [级别] [全局状态] [组件] [组件状态] 消息`
+5. **启动检查**: 严重错误 (不可恢复) vs 可恢复错误，预启动失败直接退出
+
+**新建文件:**
+```
+DMSAShared/Models/ServiceState.swift
+DMSAShared/Models/ServiceFullState.swift
+DMSAShared/Models/ServiceError.swift
+DMSAService/State/ServiceStateManager.swift
+DMSAService/Utils/StartupChecker.swift
+SERVICE_FLOW/99_服务端代码修改计划.md
+```
+
+**修改文件:**
+```
+DMSAShared/Protocols/DMSAServiceProtocol.swift
+DMSAShared/Utils/Constants.swift
+DMSAShared/Utils/Logger.swift
+DMSAService/ServiceImplementation.swift
+DMSAService/main.swift
+DMSAService/VFS/fuse_wrapper.h
+DMSAService/VFS/fuse_wrapper.c
+DMSAService/VFS/FUSEFileSystem.swift
+DMSAService/VFS/VFSManager.swift
+DMSAService/Data/ServiceConfigManager.swift
+```
+
+**验收标准:**
+- ✅ App 可通过 XPC 调用 getFullState() 获取完整服务状态
+- ✅ 挂载后索引完成前，访问 VFS 返回 EBUSY
+- ✅ App 可接收所有 10 种通知类型
+- ✅ 错误码符合文档定义 (1xxx-6xxx)
+- ✅ 启动时执行 5 项预启动检查
+- ✅ 配置加载时检测 4 种冲突
+- ✅ Service 日志使用标准格式
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*

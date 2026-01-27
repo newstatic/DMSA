@@ -2,6 +2,7 @@ import Foundation
 import os.log
 
 /// 日志条目
+/// 参考文档: SERVICE_FLOW/16_日志规范.md
 public struct LogEntry: Identifiable, Equatable, Codable, Sendable {
     public let id: UUID
     public let timestamp: Date
@@ -10,6 +11,8 @@ public struct LogEntry: Identifiable, Equatable, Codable, Sendable {
     public let file: String
     public let line: Int
     public let message: String
+    public let globalState: String?
+    public let componentState: String?
 
     public init(
         id: UUID = UUID(),
@@ -18,7 +21,9 @@ public struct LogEntry: Identifiable, Equatable, Codable, Sendable {
         source: String,
         file: String,
         line: Int,
-        message: String
+        message: String,
+        globalState: String? = nil,
+        componentState: String? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -27,6 +32,8 @@ public struct LogEntry: Identifiable, Equatable, Codable, Sendable {
         self.file = file
         self.line = line
         self.message = message
+        self.globalState = globalState
+        self.componentState = componentState
     }
 
     public var formattedTimestamp: String {
@@ -35,8 +42,19 @@ public struct LogEntry: Identifiable, Equatable, Codable, Sendable {
         return formatter.string(from: timestamp)
     }
 
+    /// 旧格式 (兼容)
     public var formattedMessage: String {
         "[\(formattedTimestamp)] [\(source)] [\(level.rawValue)] [\(file):\(line)] \(message)"
+    }
+
+    /// 新格式 (符合 SERVICE_FLOW/16_日志规范.md)
+    /// 格式: [时间戳] [级别] [全局状态] [组件] [组件状态] 消息
+    public var standardFormattedMessage: String {
+        let levelStr = level.rawValue.padding(toLength: 5, withPad: " ", startingAt: 0)
+        let stateStr = (globalState ?? "--").padding(toLength: 11, withPad: " ", startingAt: 0)
+        let sourceStr = source.padding(toLength: 6, withPad: " ", startingAt: 0)
+        let compStateStr = (componentState ?? "--").padding(toLength: 7, withPad: " ", startingAt: 0)
+        return "[\(formattedTimestamp)] [\(levelStr)] [\(stateStr)] [\(sourceStr)] [\(compStateStr)] \(message)"
     }
 }
 
@@ -58,6 +76,7 @@ public enum LogLevel: String, Codable, CaseIterable, Sendable {
 }
 
 /// 日志管理器 (共享版本，支持多进程)
+/// 参考文档: SERVICE_FLOW/16_日志规范.md
 public final class Logger: @unchecked Sendable {
     public static let shared = Logger(source: "App")
 
@@ -66,12 +85,23 @@ public final class Logger: @unchecked Sendable {
         return Logger(source: service)
     }
 
+    /// 全局状态提供者 (用于标准格式日志)
+    /// Service 端设置为 ServiceStateManager.shared.getState
+    public static var globalStateProvider: (() -> String)? = nil
+
     private let source: String
     private let logFileURL: URL
     private let fileHandle: FileHandle?
     private let dateFormatter: DateFormatter
+    private let timeFormatter: DateFormatter
     private let queue = DispatchQueue(label: "com.ttttt.dmsa.logger", qos: .utility)
     private let osLog: OSLog
+
+    /// 是否使用标准格式 (Service 端启用)
+    private let useStandardFormat: Bool
+
+    /// 组件状态 (可动态更新)
+    public var componentState: String = "--"
 
     private init(source: String) {
         self.source = source
@@ -81,13 +111,15 @@ public final class Logger: @unchecked Sendable {
         try? FileManager.default.createDirectory(at: logsDir, withIntermediateDirectories: true)
 
         // 根据运行身份选择日志文件
-        // root 身份 (Service) -> serviceLog
-        // 普通用户 (App) -> appLog
+        // root 身份 (Service) -> serviceLog，使用标准格式
+        // 普通用户 (App) -> appLog，使用旧格式
         let isRunningAsRoot = getuid() == 0
         if isRunningAsRoot {
             logFileURL = Constants.Paths.serviceLog
+            useStandardFormat = true
         } else {
             logFileURL = Constants.Paths.appLog
+            useStandardFormat = false
         }
 
         if !FileManager.default.fileExists(atPath: logFileURL.path) {
@@ -99,14 +131,34 @@ public final class Logger: @unchecked Sendable {
         dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
 
+        timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "HH:mm:ss.SSS"
+
         osLog = OSLog(subsystem: Constants.bundleId, category: source)
+    }
+
+    /// 格式化日志消息
+    /// 标准格式: [时间戳] [级别] [全局状态] [组件] [组件状态] 消息
+    /// 旧格式:   [时间戳] [source] [级别] [文件:行] 消息
+    private func formatMessage(_ message: String, level: LogLevel, timestamp: Date, fileName: String, line: Int) -> String {
+        if useStandardFormat {
+            let timeStr = timeFormatter.string(from: timestamp)
+            let levelStr = level.rawValue.padding(toLength: 5, withPad: " ", startingAt: 0)
+            let globalState = Logger.globalStateProvider?() ?? "STARTING"
+            let stateStr = globalState.padding(toLength: 11, withPad: " ", startingAt: 0)
+            let sourceStr = source.padding(toLength: 7, withPad: " ", startingAt: 0)
+            let compStateStr = componentState.padding(toLength: 7, withPad: " ", startingAt: 0)
+            return "[\(timeStr)] [\(levelStr)] [\(stateStr)] [\(sourceStr)] [\(compStateStr)] \(message)\n"
+        } else {
+            let fullTimestamp = dateFormatter.string(from: timestamp)
+            return "[\(fullTimestamp)] [\(source)] [\(level.rawValue)] [\(fileName):\(line)] \(message)\n"
+        }
     }
 
     public func log(_ message: String, level: LogLevel = .info, file: String = #file, line: Int = #line) {
         let fileName = (file as NSString).lastPathComponent
         let timestamp = Date()
-        let formattedTimestamp = dateFormatter.string(from: timestamp)
-        let logMessage = "[\(formattedTimestamp)] [\(source)] [\(level.rawValue)] [\(fileName):\(line)] \(message)\n"
+        let logMessage = formatMessage(message, level: level, timestamp: timestamp, fileName: fileName, line: line)
 
         queue.async { [weak self] in
             guard let self = self else { return }
@@ -144,6 +196,11 @@ public final class Logger: @unchecked Sendable {
 
     public func error(_ message: String, file: String = #file, line: Int = #line) {
         log(message, level: .error, file: file, line: line)
+    }
+
+    /// 设置组件状态 (用于标准格式日志)
+    public func setComponentState(_ state: String) {
+        componentState = state
     }
 
     // MARK: - 日志文件操作

@@ -53,6 +53,7 @@ static struct {
     int is_mounted;             // 是否已挂载
     int external_offline;       // 外部是否离线
     int readonly;               // 是否只读模式
+    int index_ready;            // 索引是否就绪 (预挂载阻塞机制)
     uid_t owner_uid;            // 挂载点所有者 UID
     gid_t owner_gid;            // 挂载点所有者 GID
     struct fuse *fuse;          // FUSE 实例
@@ -65,6 +66,7 @@ static struct {
     .is_mounted = 0,
     .external_offline = 0,
     .readonly = 0,
+    .index_ready = 0,           // 初始为未就绪，阻塞所有访问
     .owner_uid = 0,
     .owner_gid = 0,
     .fuse = NULL,
@@ -75,6 +77,25 @@ static struct {
 // ============================================================
 // 辅助函数
 // ============================================================
+
+// 索引未就绪检查宏 - 阻塞非根目录的访问
+// 当索引未就绪时，返回 EBUSY (设备忙)，通知应用稍后重试
+#define CHECK_INDEX_READY_FOR_PATH(path) \
+    do { \
+        if (!g_state.index_ready && strcmp(path, "/") != 0) { \
+            LOG_DEBUG("索引未就绪，阻塞访问: %s", path); \
+            return -EBUSY; \
+        } \
+    } while (0)
+
+// 索引未就绪检查 - 用于根目录以外的所有操作
+#define CHECK_INDEX_READY() \
+    do { \
+        if (!g_state.index_ready) { \
+            LOG_DEBUG("索引未就绪，阻塞操作"); \
+            return -EBUSY; \
+        } \
+    } while (0)
 
 // 拼接路径
 static char* join_path(const char *base, const char *path) {
@@ -209,13 +230,14 @@ static int should_exclude(const char *name) {
 
 // getattr: 获取文件属性
 static int root_getattr_logged = 0;  // 避免日志刷屏
+static int index_not_ready_logged = 0;  // 避免索引未就绪日志刷屏
 
 static int dmsa_getattr(const char *path, struct stat *stbuf) {
     LOG_DEBUG("getattr: %s", path);
 
     memset(stbuf, 0, sizeof(struct stat));
 
-    // 根目录特殊处理
+    // 根目录特殊处理 - 即使索引未就绪也允许访问
     if (strcmp(path, "/") == 0) {
         stbuf->st_mode = S_IFDIR | 0755;
         stbuf->st_nlink = 2;
@@ -230,6 +252,15 @@ static int dmsa_getattr(const char *path, struct stat *stbuf) {
             root_getattr_logged = 1;
         }
         return 0;
+    }
+
+    // 索引未就绪时阻塞非根目录访问
+    if (!g_state.index_ready) {
+        if (!index_not_ready_logged) {
+            LOG_INFO("索引未就绪，阻塞文件访问 (返回 EBUSY)");
+            index_not_ready_logged = 1;
+        }
+        return -EBUSY;
     }
 
     char *actual_path = resolve_actual_path(path);
@@ -254,6 +285,19 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     (void) fi;
 
     LOG_DEBUG("readdir: %s", path);
+
+    // 索引未就绪时阻塞目录读取 (根目录除外)
+    // 注意: 根目录也需要阻塞，因为 Finder 会尝试列出内容
+    if (!g_state.index_ready) {
+        // 只允许访问根目录本身，但返回空列表
+        if (strcmp(path, "/") == 0) {
+            filler(buf, ".", NULL, 0);
+            filler(buf, "..", NULL, 0);
+            // 不返回任何文件，让 Finder 看到空目录
+            return 0;
+        }
+        return -EBUSY;
+    }
 
     // 添加 . 和 ..
     filler(buf, ".", NULL, 0);
@@ -343,6 +387,9 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 // open: 打开文件
 static int dmsa_open(const char *path, struct fuse_file_info *fi) {
     LOG_DEBUG("open: %s, flags=%d", path, fi->flags);
+
+    // 索引未就绪时阻塞文件打开
+    CHECK_INDEX_READY();
 
     char *actual_path = resolve_actual_path(path);
 
@@ -497,6 +544,9 @@ static int dmsa_release(const char *path, struct fuse_file_info *fi) {
 // create: 创建文件
 static int dmsa_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
     LOG_DEBUG("create: %s, mode=%o", path, mode);
+
+    // 索引未就绪时阻塞文件创建
+    CHECK_INDEX_READY();
 
     if (g_state.readonly) {
         return -EROFS;
@@ -1228,6 +1278,28 @@ void fuse_wrapper_set_readonly(bool readonly) {
     pthread_mutex_unlock(&g_state.lock);
 
     LOG_INFO("只读模式: %s", readonly ? "是" : "否");
+}
+
+void fuse_wrapper_set_index_ready(bool ready) {
+    pthread_mutex_lock(&g_state.lock);
+    int was_ready = g_state.index_ready;
+    g_state.index_ready = ready;
+    pthread_mutex_unlock(&g_state.lock);
+
+    // 重置日志标记，允许下次状态变化时打印
+    if (ready && !was_ready) {
+        index_not_ready_logged = 0;
+        LOG_INFO("★★★ 索引已就绪，VFS 开放访问 ★★★");
+    } else if (!ready && was_ready) {
+        LOG_INFO("索引标记为未就绪，VFS 阻塞访问");
+    }
+}
+
+int fuse_wrapper_is_index_ready(void) {
+    pthread_mutex_lock(&g_state.lock);
+    int result = g_state.index_ready;
+    pthread_mutex_unlock(&g_state.lock);
+    return result;
 }
 
 const char* fuse_wrapper_error_string(int error) {

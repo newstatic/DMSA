@@ -295,6 +295,18 @@ class FUSEFileSystem {
         fuse_wrapper_set_readonly(readOnly)
     }
 
+    /// 设置索引就绪状态
+    /// 索引未就绪时，所有文件操作返回 EBUSY
+    func setIndexReady(_ ready: Bool) {
+        fuse_wrapper_set_index_ready(ready)
+        logger.info("索引就绪状态设置为: \(ready)")
+    }
+
+    /// 获取索引就绪状态
+    func isIndexReady() -> Bool {
+        return fuse_wrapper_is_index_ready() != 0
+    }
+
     // MARK: - 文件系统操作 (供 C 回调使用)
 
     /// 获取本地路径

@@ -54,22 +54,57 @@ public enum Constants {
     }
 
     /// 通知名称 (服务间通信)
+    /// 参考文档: SERVICE_FLOW/14_分布式通知.md
     public enum Notifications {
-        public static let fileWritten = "com.ttttt.dmsa.notification.fileWritten"
-        public static let syncCompleted = "com.ttttt.dmsa.notification.syncCompleted"
-        public static let syncProgress = "com.ttttt.dmsa.notification.syncProgress"
-        public static let diskConnected = "com.ttttt.dmsa.notification.diskConnected"
-        public static let diskDisconnected = "com.ttttt.dmsa.notification.diskDisconnected"
+        // MARK: - 状态通知
+        /// 全局状态变更
+        public static let stateChanged = "com.ttttt.dmsa.notification.stateChanged"
+        /// XPC 监听器启动就绪
+        public static let xpcReady = "com.ttttt.dmsa.notification.xpcReady"
+        /// 服务完全就绪
+        public static let serviceReady = "com.ttttt.dmsa.notification.serviceReady"
+        /// 服务错误
+        public static let serviceError = "com.ttttt.dmsa.notification.serviceError"
+        /// 组件错误
+        public static let componentError = "com.ttttt.dmsa.notification.componentError"
+
+        // MARK: - 配置通知
+        /// 配置状态 (加载/修补)
+        public static let configStatus = "com.ttttt.dmsa.notification.configStatus"
+        /// 配置冲突
+        public static let configConflict = "com.ttttt.dmsa.notification.configConflict"
+        /// 配置变更 (旧版兼容)
         public static let configChanged = "com.ttttt.dmsa.notification.configChanged"
+        /// 配置已更新 (Service → App)
+        public static let configUpdated = "com.ttttt.dmsa.notification.configUpdated"
+
+        // MARK: - VFS 通知
+        /// VFS 挂载完成
         public static let vfsMounted = "com.ttttt.dmsa.notification.vfsMounted"
+        /// VFS 卸载完成
         public static let vfsUnmounted = "com.ttttt.dmsa.notification.vfsUnmounted"
 
-        /// 服务启动完成，下发配置
-        public static let serviceReady = "com.ttttt.dmsa.notification.serviceReady"
-        /// 配置已更新（Service → App）
-        public static let configUpdated = "com.ttttt.dmsa.notification.configUpdated"
-        /// 同步状态变更（开始/完成/失败）
+        // MARK: - 索引通知
+        /// 索引进度
+        public static let indexProgress = "com.ttttt.dmsa.notification.indexProgress"
+        /// 索引完成
+        public static let indexReady = "com.ttttt.dmsa.notification.indexReady"
+
+        // MARK: - 同步通知
+        /// 文件写入 (脏文件)
+        public static let fileWritten = "com.ttttt.dmsa.notification.fileWritten"
+        /// 同步进度
+        public static let syncProgress = "com.ttttt.dmsa.notification.syncProgress"
+        /// 同步完成
+        public static let syncCompleted = "com.ttttt.dmsa.notification.syncCompleted"
+        /// 同步状态变更
         public static let syncStatusChanged = "com.ttttt.dmsa.notification.syncStatusChanged"
+
+        // MARK: - 磁盘通知
+        /// 磁盘连接
+        public static let diskConnected = "com.ttttt.dmsa.notification.diskConnected"
+        /// 磁盘断开
+        public static let diskDisconnected = "com.ttttt.dmsa.notification.diskDisconnected"
     }
 
     /// 路径

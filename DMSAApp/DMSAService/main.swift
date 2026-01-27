@@ -51,7 +51,24 @@ _ = {
     }
 }()
 
-let logger = Logger.forService("DMSAService")
+// 设置日志全局状态提供者 (在创建 logger 之前)
+// 参考文档: SERVICE_FLOW/16_日志规范.md
+Logger.globalStateProvider = {
+    // 使用简化的同步获取方式
+    // 注意: 由于 ServiceStateManager 是 actor，这里使用缓存值避免死锁
+    return LoggerStateCache.currentState
+}
+
+// 日志状态缓存 (用于避免 actor 死锁)
+enum LoggerStateCache {
+    static var currentState: String = "STARTING"
+
+    static func update(_ state: String) {
+        currentState = state
+    }
+}
+
+let logger = Logger.forService("Main")
 
 logger.info("========================================")
 logger.info("DMSAService v\(Constants.appVersion) 启动")
@@ -117,6 +134,19 @@ func setupSignalHandlers() {
 
 // MARK: - 主流程
 
+// 0. 执行预启动检查 (检查 root 权限、环境变量、macFUSE 等)
+// 参考文档: SERVICE_FLOW/17_检查清单.md
+let preflightReport = StartupChecker.runPreflightChecks()
+
+// 检查是否有严重错误
+if !preflightReport.criticalFailures.isEmpty {
+    logger.error("预启动检查发现严重错误，服务无法启动")
+    for failure in preflightReport.criticalFailures {
+        logger.error("  - \(failure.name): \(failure.message)")
+    }
+    exit(1)
+}
+
 // 1. 设置目录
 setupDirectories()
 
@@ -130,6 +160,9 @@ let delegate = ServiceDelegate()
 let listener = NSXPCListener(machServiceName: Constants.XPCService.service)
 listener.delegate = delegate
 listener.resume()
+
+// 更新日志状态缓存
+LoggerStateCache.update("XPC_READY")
 
 logger.info("XPC 监听器已启动: \(Constants.XPCService.service)")
 

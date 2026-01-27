@@ -218,8 +218,31 @@ actor VFSManager {
 
         mountPoints[syncPairId] = mountPoint
 
+        // ============================================================
+        // 步骤 7: 构建文件索引 (此时 VFS 已挂载但阻塞访问)
+        // ============================================================
+        // 注意: FUSE 挂载后 index_ready 默认为 false
+        // 在索引完成前，所有文件访问会返回 EBUSY
+        logger.info("========== 构建文件索引 (步骤 7) ==========")
+        logger.info("VFS 已挂载，开始构建索引 (此时文件访问被阻塞)")
+
+        // 通知状态: 索引构建中
+        await ServiceStateManager.shared.setState(.indexing)
+
         // 构建文件索引并持久化
         await buildIndex(for: syncPairId)
+
+        // ============================================================
+        // 步骤 8: 标记索引就绪，开放 VFS 访问
+        // ============================================================
+        logger.info("========== 索引就绪，开放访问 (步骤 8) ==========")
+        fuseFS.setIndexReady(true)
+
+        // 通知状态: 就绪
+        await ServiceStateManager.shared.setState(.ready)
+
+        // 发送索引就绪通知
+        await ServiceStateManager.shared.sendIndexReadyNotification(syncPairId: syncPairId)
 
         // 保存挂载状态到配置
         var mountState = MountState(syncPairId: syncPairId, targetDir: targetDir, localDir: localDir)
