@@ -596,4 +596,46 @@ sudo launchctl bootstrap system /Library/LaunchDaemons/com.ttttt.dmsa.service.pl
 
 ---
 
+### MD 文档清理
+
+**相关会话:** e4bd3c09
+**日期:** 2026-01-27
+**状态:** ✅ 完成
+
+**功能描述:**
+清理项目中的 MD 文档，删除已完成的计划文档和过时的设计文档，精简项目结构。
+
+**完成任务:**
+1. ✅ 删除已完成的计划文档 (6 个)
+2. ✅ 删除过时的设计文档 (7 个)
+3. ✅ 更新 README.md 为 v4.8 精简版
+4. ✅ 更新 CLAUDE.md 版本和引用
+
+**删除文件 (13 个):**
+- `SERVICE_MERGE_PLAN.md` - 服务合并计划 (已完成)
+- `XCODE_PROJECT_UPDATE_GUIDE.md` - Xcode 迁移指南 (已完成)
+- `CODE_REVIEW_REPORT.md` - v4.1 代码评审 (已过时)
+- `ARCHITECTURE_REVIEW.md` - v4.3 架构评审 (已过时)
+- `MIGRATION_PLAN.md` - 迁移计划 (已完成)
+- `VFS_FIX_PLAN.md` - VFS 修复计划 (已完成)
+- `REQUIREMENTS.md` - v3.0 需求文档
+- `TECHNICAL.md` - v3.0 技术文档
+- `CONFIGURATIONS.md` - 配置文档
+- `FLOWCHARTS.md` - 流程图
+- `UI_DESIGN.md` - UI 设计文档
+- `VFS_DESIGN.md` - VFS 设计文档
+- `SYSTEM_ARCHITECTURE.md` - v4.0 架构设计
+
+**保留文件 (4 个):**
+- `CLAUDE.md` - 项目记忆文档 (v5.2)
+- `CLAUDE_SESSIONS.md` - 会话详细记录归档
+- `README.md` - 项目介绍 (v4.8)
+- `OBJECTBOX_SETUP.md` - ObjectBox 集成指南
+
+**变更统计:**
+- 文件数量: 17 → 4 (减少 76%)
+- 代码行数: -13,543 行
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*

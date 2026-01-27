@@ -2,7 +2,7 @@
 
 > 此文档供 Claude Code 跨会话持续参考，保持项目上下文记忆。
 > 详细会话记录见 `CLAUDE_SESSIONS.md`。
-> 版本: 5.1 | 更新日期: 2026-01-26
+> 版本: 5.2 | 更新日期: 2026-01-27
 
 ---
 
@@ -51,8 +51,8 @@
 | **项目路径** | `/Users/ttttt/Documents/xcodeProjects/DMSA` |
 | **Bundle ID** | `com.ttttt.dmsa` |
 | **最低系统版本** | macOS 11.0 |
-| **当前版本** | 4.6 |
-| **最后更新** | 2026-01-24 |
+| **当前版本** | 4.8 |
+| **最后更新** | 2026-01-27 |
 
 ---
 
@@ -72,7 +72,7 @@ VFS: macFUSE 5.1.3+ (C libfuse wrapper)
 
 ---
 
-## 核心架构 (v4.6 - 纯 UI 架构)
+## 核心架构 (v4.8 - 纯 UI 架构 + 分布式通知)
 
 ### 系统分层
 
@@ -160,9 +160,10 @@ DMSA/
 │       ├── Models/                 # 共享模型
 │       └── Utils/                  # 共享工具
 │
-├── CLAUDE.md                       # 本文档 (精简版)
+├── CLAUDE.md                       # 本文档 (项目记忆)
 ├── CLAUDE_SESSIONS.md              # 详细会话记录归档
-└── *.md                            # 其他文档
+├── README.md                       # 项目介绍
+└── OBJECTBOX_SETUP.md              # ObjectBox 集成指南
 ```
 
 ---
@@ -343,6 +344,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | 505f841a | 2026-01-24 | v4.5编译修复 | 修复类型错误、恢复ConfigManager、添加共享模型 |
 | eae6e63e | 2026-01-26 | 代码签名修复 | 修复 Service Team ID、macFUSE Library Validation |
 | 2a099f6b | 2026-01-26 | C FUSE Wrapper | libfuse C 实现，修复权限和保护问题 |
+| e4bd3c09 | 2026-01-27 | MD 文档清理 | 删除 13 个过时文档，保留 4 个核心文档 |
 
 ---
 
