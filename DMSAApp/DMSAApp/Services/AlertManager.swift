@@ -245,7 +245,7 @@ final class AlertManager {
             NotificationCenter.default.post(
                 name: .selectMainTab,
                 object: nil,
-                userInfo: ["tab": MainView.MainTab.history]
+                userInfo: ["tab": MainView.MainTab.logs]
             )
 
         default:

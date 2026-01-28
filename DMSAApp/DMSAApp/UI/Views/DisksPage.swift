@@ -301,7 +301,7 @@ struct DiskListItem: View {
 
 struct DiskDetailView: View {
     @Binding var disk: DiskConfig
-    let syncPairs: [SyncPair]
+    let syncPairs: [SyncPairConfig]
     let diskManager: DiskManager
     let onDelete: () -> Void
 
@@ -390,10 +390,10 @@ struct DiskDetailView: View {
                         .font(.caption)
                         .foregroundColor(isConnected ? .green : .gray)
 
-                    if let info = diskInfo, let fs = disk.fileSystem, fs != "auto" {
+                    if disk.fileSystem != "auto" {
                         Text("•")
                             .foregroundColor(.secondary)
-                        Text(fs)
+                        Text(disk.fileSystem)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -610,7 +610,7 @@ struct StorageDetailItem: View {
 // MARK: - Sync Pair Row
 
 struct SyncPairRow: View {
-    let pair: SyncPair
+    let pair: SyncPairConfig
 
     var body: some View {
         HStack(spacing: 12) {
@@ -621,7 +621,7 @@ struct SyncPairRow: View {
                 Text(pair.name)
                     .font(.body)
 
-                Text("\(pair.localPath) → \(pair.externalPath)")
+                Text("\(pair.localPath) → \(pair.externalRelativePath)")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
@@ -629,8 +629,8 @@ struct SyncPairRow: View {
 
             Spacer()
 
-            // Sync mode badge
-            Text(pair.syncMode.rawValue)
+            // Sync direction badge
+            Text(pair.direction.rawValue)
                 .font(.caption)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
@@ -685,11 +685,10 @@ struct DisksPage_Previews: PreviewProvider {
             DiskConfig(name: "PORTABLE", mountPath: "/Volumes/PORTABLE", priority: 1)
         ]
         config.syncPairs = [
-            SyncPair(
-                name: "Documents",
+            SyncPairConfig(
                 diskId: config.disks[0].id,
                 localPath: "~/Documents",
-                externalPath: "Documents"
+                externalRelativePath: "Documents"
             )
         ]
         return config

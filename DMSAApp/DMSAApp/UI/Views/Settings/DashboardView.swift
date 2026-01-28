@@ -5,7 +5,7 @@ import SwiftUI
 /// 仪表盘视图 - 主页面，显示状态概览和快速操作
 struct DashboardView: View {
     @Binding var config: AppConfig
-    @StateObject private var appState = AppUIState.shared
+    @ObservedObject private var stateManager = StateManager.shared
     @StateObject private var progressListener = SyncProgressListener()
 
     // Services
@@ -13,7 +13,6 @@ struct DashboardView: View {
     private let diskManager = DiskManager.shared
 
     // Local state
-    @State private var recentActivities: [ActivityItem] = []
     @State private var recentHistory: [SyncHistory] = []
     @State private var isLoading = false
 
@@ -90,7 +89,7 @@ struct DashboardView: View {
                 HStack(spacing: 16) {
                     StatChip(
                         icon: "doc",
-                        value: "\(appState.totalFiles)",
+                        value: "\(stateManager.statistics.totalFiles)",
                         label: "dashboard.chip.files".localized
                     )
 
@@ -216,7 +215,7 @@ struct DashboardView: View {
         if isSyncing {
             return isPaused ? "pause.circle.fill" : "arrow.clockwise"
         }
-        if appState.conflictCount > 0 {
+        if stateManager.conflictCount > 0 {
             return "exclamationmark.triangle.fill"
         }
         if !diskManager.isAnyExternalConnected {
@@ -229,7 +228,7 @@ struct DashboardView: View {
         if isSyncing {
             return isPaused ? .orange : .blue
         }
-        if appState.conflictCount > 0 {
+        if stateManager.conflictCount > 0 {
             return .orange
         }
         if !diskManager.isAnyExternalConnected {
@@ -244,7 +243,7 @@ struct DashboardView: View {
                 ? "dashboard.status.paused".localized
                 : "dashboard.status.syncing".localized
         }
-        if appState.conflictCount > 0 {
+        if stateManager.conflictCount > 0 {
             return "dashboard.status.hasConflicts".localized
         }
         if !diskManager.isAnyExternalConnected {
@@ -258,8 +257,8 @@ struct DashboardView: View {
             let progress = Int(syncProgress * 100)
             return String(format: "dashboard.status.progress".localized, progress)
         }
-        if appState.conflictCount > 0 {
-            return String(format: "dashboard.status.conflictsCount".localized, appState.conflictCount)
+        if stateManager.conflictCount > 0 {
+            return String(format: "dashboard.status.conflictsCount".localized, stateManager.conflictCount)
         }
         if !diskManager.isAnyExternalConnected {
             return "dashboard.status.connectDisk".localized

@@ -30,7 +30,7 @@ struct ActivityRow: View {
             // Time
             Text(activity.timeText)
                 .font(.caption)
-                .foregroundColor(.tertiaryLabel)
+                .foregroundColor(Color(NSColor.tertiaryLabelColor))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)

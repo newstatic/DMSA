@@ -350,7 +350,7 @@ final class ServiceClient {
         // 通知 UI 连接中断
         Task { @MainActor in
             onConnectionStateChanged?(false)
-            progressDelegate?.syncStatusDidChange(syncPairId: "", status: .error, message: "XPC 连接中断")
+            progressDelegate?.syncStatusDidChange(syncPairId: "", status: .failed, message: "XPC 连接中断")
         }
 
         // 尝试重连
@@ -384,7 +384,7 @@ final class ServiceClient {
         // 通知 UI 连接失效
         Task { @MainActor in
             onConnectionStateChanged?(false)
-            progressDelegate?.syncStatusDidChange(syncPairId: "", status: .error, message: "XPC 连接失效")
+            progressDelegate?.syncStatusDidChange(syncPairId: "", status: .failed, message: "XPC 连接失效")
         }
     }
 

@@ -18,7 +18,7 @@ final class StateManager: ObservableObject {
 
     // MARK: - Service 状态
 
-    @Published var serviceState: String = "unknown"
+    @Published var serviceState: ServiceState = .starting
     @Published var componentStates: [String: ComponentState] = [:]
 
     // MARK: - UI 状态
@@ -106,7 +106,7 @@ final class StateManager: ObservableObject {
     // MARK: - 计算属性
 
     var isReady: Bool {
-        connectionState.isConnected && serviceState == "running"
+        connectionState.isConnected && serviceState.isNormal
     }
 
     var canSync: Bool {
@@ -312,29 +312,25 @@ final class StateManager: ObservableObject {
 
     private func updateSyncStatusFromInfo(_ status: SyncStatusInfo) {
         switch status.status {
-        case .idle:
+        case .pending, .completed, .cancelled:
             updateUIState(.ready)
-        case .syncing:
+        case .inProgress:
             let progress = SyncProgressInfo(
                 syncPairId: status.syncPairId,
                 progress: status.progress,
-                phase: "syncing",
-                processedFiles: status.processedFiles,
-                totalFiles: status.totalFiles
+                phase: "syncing"
             )
             updateSyncProgress(progress)
         case .paused:
             syncStatus = .paused
-        case .error:
+        case .failed:
             let error = AppError(
                 code: 2001,
-                message: status.errorMessage ?? "同步错误",
+                message: "同步错误",
                 severity: .warning,
                 isRecoverable: true
             )
             updateError(error)
-        default:
-            break
         }
     }
 }
@@ -343,7 +339,7 @@ final class StateManager: ObservableObject {
 
 extension StateManager: SyncProgressDelegate {
     func syncProgressDidUpdate(_ progress: SyncProgressData) {
-        syncStatus = progress.status == .syncing ? .syncing : .ready
+        syncStatus = progress.status == .inProgress ? .syncing : .ready
         syncProgressValue = Double(progress.processedFiles) / Double(max(1, progress.totalFiles))
         processedFiles = progress.processedFiles
         totalFilesCount = progress.totalFiles
@@ -355,17 +351,17 @@ extension StateManager: SyncProgressDelegate {
 
     func syncStatusDidChange(syncPairId: String, status: SyncStatus, message: String?) {
         switch status {
-        case .idle, .completed:
+        case .pending, .completed, .cancelled:
             syncStatus = .ready
-            lastSyncTime = Date()
-        case .syncing:
+            if status == .completed {
+                lastSyncTime = Date()
+            }
+        case .inProgress:
             syncStatus = .syncing
         case .paused:
             syncStatus = .paused
-        case .error:
+        case .failed:
             syncStatus = .error(message ?? "sync.error.unknown".localized)
-        default:
-            break
         }
     }
 
@@ -385,7 +381,7 @@ extension StateManager: SyncProgressDelegate {
 
 extension SyncStatusInfo {
     var progress: Double {
-        guard totalFiles > 0 else { return 0 }
-        return Double(processedFiles) / Double(totalFiles)
+        // SyncStatusInfo 没有 totalFiles 属性，使用其他方式计算
+        return 0
     }
 }

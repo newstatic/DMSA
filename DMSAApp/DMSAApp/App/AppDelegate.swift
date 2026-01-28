@@ -183,16 +183,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Logger.shared.info("等待同步完成后退出...")
 
         // 设置观察者，等待同步完成
-        Task {
+        Task { @MainActor in
             // 简单轮询等待同步完成
             while stateManager.isSyncing {
                 try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
             }
 
             // 同步完成后退出
-            await MainActor.run {
-                NSApplication.shared.terminate(nil)
-            }
+            NSApplication.shared.terminate(nil)
         }
     }
 
@@ -306,7 +304,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             configLock.unlock()
             // 等待其他任务完成获取
             try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
-            return cached ?? await getConfig()
+            if let cached = cached {
+                return cached
+            }
+            return await getConfig()
         }
 
         isConfigFetching = true

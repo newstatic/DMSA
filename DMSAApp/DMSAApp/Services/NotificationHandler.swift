@@ -255,21 +255,18 @@ final class NotificationHandler {
             return
         }
 
-        if let serviceState = info["serviceState"] as? String {
-            stateManager.serviceState = serviceState
+        // 从 Int 值解析 ServiceState
+        if let serviceStateRaw = info["serviceState"] as? Int,
+           let state = ServiceState(rawValue: serviceStateRaw) {
+            stateManager.serviceState = state
         }
 
         if let componentsData = info["components"] as? [[String: Any]] {
             var componentStates: [String: ComponentState] = [:]
             for compData in componentsData {
                 if let name = compData["name"] as? String,
-                   let status = compData["status"] as? String {
-                    let state = ComponentState(
-                        name: name,
-                        status: status,
-                        lastUpdate: Date(),
-                        errorMessage: compData["errorMessage"] as? String
-                    )
+                   let stateRaw = compData["state"] as? Int,
+                   let state = ComponentState(rawValue: stateRaw) {
                     componentStates[name] = state
                 }
             }
@@ -312,11 +309,11 @@ final class NotificationHandler {
             syncPairId: progressData.syncPairId,
             progress: Double(progressData.processedFiles) / Double(max(1, progressData.totalFiles)),
             phase: progressData.phase.rawValue,
+            currentFile: progressData.currentFile,
             processedFiles: progressData.processedFiles,
             totalFiles: progressData.totalFiles,
             processedBytes: progressData.processedBytes,
             totalBytes: progressData.totalBytes,
-            currentFile: progressData.currentFile,
             speed: progressData.speed
         )
 
@@ -336,7 +333,7 @@ final class NotificationHandler {
         let message = info["message"] as? String
 
         switch status {
-        case .idle, .completed:
+        case .pending, .completed, .cancelled:
             stateManager.updateUIState(.ready)
             stateManager.syncProgress = nil
 
@@ -349,14 +346,14 @@ final class NotificationHandler {
                 )
             }
 
-        case .syncing:
+        case .inProgress:
             // 保持当前进度状态
             break
 
         case .paused:
             stateManager.syncStatus = .paused
 
-        case .error:
+        case .failed:
             let error = AppError(
                 code: ErrorCodes.syncFailed,
                 message: message ?? "sync.error.unknown".localized,
@@ -371,9 +368,6 @@ final class NotificationHandler {
                 body: message ?? "sync.error.message".localized,
                 identifier: "sync-error-\(syncPairId)"
             )
-
-        default:
-            break
         }
     }
 
@@ -532,13 +526,6 @@ final class NotificationHandler {
             }
         }
     }
-}
-
-// MARK: - 错误码扩展
-
-extension ErrorCodes {
-    /// 组件错误
-    static let componentError = 6001
 }
 
 // MARK: - Constants 通知名扩展

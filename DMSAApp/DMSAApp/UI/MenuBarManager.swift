@@ -210,7 +210,7 @@ final class MenuBarManager {
         menu.addItem(disksItem)
 
         // View Conflicts (if any)
-        let conflictCount = AppUIState.shared.conflictCount
+        let conflictCount = MainActor.assumeIsolated { StateManager.shared.conflictCount }
         if conflictCount > 0 {
             let conflictsItem = NSMenuItem(
                 title: String(format: "menu.viewConflicts".localized, conflictCount),
@@ -353,21 +353,23 @@ final class MenuBarManager {
         delegate?.menuBarDidRequestOpenTab(.conflicts)
     }
 
-    // MARK: - Sync with AppUIState
+    // MARK: - Sync with StateManager
 
     /// Updates menu bar to reflect current app state
     func syncWithAppState() {
-        let appState = AppUIState.shared
+        MainActor.assumeIsolated {
+            let stateManager = StateManager.shared
 
-        // Update sync state based on AppUIState
-        if appState.isSyncing {
-            syncState = .syncing
-        } else {
-            switch appState.syncStatus {
-            case .error(let message):
-                syncState = .error(message)
-            default:
-                syncState = .idle
+            // Update sync state based on StateManager
+            if stateManager.isSyncing {
+                syncState = .syncing
+            } else {
+                switch stateManager.syncStatus {
+                case .error(let message):
+                    syncState = .error(message)
+                default:
+                    syncState = .idle
+                }
             }
         }
 

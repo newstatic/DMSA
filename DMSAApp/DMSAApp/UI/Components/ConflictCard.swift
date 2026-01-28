@@ -45,7 +45,7 @@ struct ConflictCard: View {
                 // Arrow
                 Image(systemName: "arrow.left.arrow.right")
                     .font(.system(size: 14))
-                    .foregroundColor(.tertiaryLabel)
+                    .foregroundColor(Color(NSColor.tertiaryLabelColor))
 
                 VersionCard(
                     title: "conflict.external".localized,
@@ -173,20 +173,13 @@ struct VersionCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.quaternaryLabel.opacity(0.5))
+        .background(Color(NSColor.quaternaryLabelColor).opacity(0.5))
         .cornerRadius(8)
     }
 }
 
-// MARK: - Conflict Resolution
-
-enum ConflictResolution {
-    case keepLocal
-    case keepExternal
-    case keepBoth
-}
-
 // MARK: - Conflict Item
+// 注意: ConflictResolution 使用 DMSAShared/Models/Sync/ConflictInfo.swift 中的定义
 
 struct ConflictItem: Identifiable {
     let id = UUID()

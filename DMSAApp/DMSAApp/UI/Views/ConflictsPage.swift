@@ -5,7 +5,7 @@ import SwiftUI
 /// 冲突解决页面 - 显示和解决文件冲突
 struct ConflictsPage: View {
     @Binding var config: AppConfig
-    @StateObject private var appState = AppUIState.shared
+    @ObservedObject private var stateManager = StateManager.shared
 
     // State
     @State private var conflicts: [ConflictItem] = []
@@ -126,7 +126,7 @@ struct ConflictsPage: View {
                 self.isLoading = false
 
                 // Update app state
-                appState.conflictCount = conflicts.count
+                stateManager.conflictCount = conflicts.count
             }
         }
     }
@@ -139,7 +139,7 @@ struct ConflictsPage: View {
             await MainActor.run {
                 // Remove resolved conflict from list
                 conflicts.removeAll { $0.id == conflict.id }
-                appState.conflictCount = conflicts.count
+                stateManager.conflictCount = conflicts.count
             }
         }
     }
@@ -151,7 +151,7 @@ struct ConflictsPage: View {
 
             await MainActor.run {
                 conflicts.removeAll()
-                appState.conflictCount = 0
+                stateManager.conflictCount = 0
             }
         }
     }

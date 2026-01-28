@@ -1166,4 +1166,162 @@ DMSAApp/DMSAApp/UI/Views/SettingsPage.swift  # 添加 VFSSettingsViewModel
 
 ---
 
+### Ruby xcodeproj 迁移
+
+**相关会话:** 4f263311 (续)
+**日期:** 2026-01-28
+**状态:** ✅ 完成
+
+**功能描述:**
+Python pbxproj 库存在 bug，导致连续添加文件后项目损坏。切换到 Ruby xcodeproj 库 (CocoaPods 使用的同一个库)。
+
+**问题与解决:**
+
+| 问题 | 根因 | 解决方案 |
+|------|------|----------|
+| `'NoneType' object has no attribute 'isa'` | Python pbxproj 在 save() 后内部状态损坏 | 切换到 Ruby xcodeproj 库 |
+| 编码错误 `invalid byte sequence in US-ASCII` | Ruby 默认 ASCII 编码 | 设置 `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8` |
+| 路径重复 `/DMSAService/Utils/DMSAService/Utils/` | `group.new_file()` 使用了完整路径 | 只传文件名 `File.basename(file_path)` |
+| Service 编译错误: 缺少类型定义 | StartupChecker 等文件未添加到项目 | 使用 Ruby 工具添加缺失文件 |
+| App 编译错误: 缺少 AppUIState 等 | 新 UI 代码引用未定义类型 | 代码问题，需后续修复 |
+
+**实现思路:**
+
+1. Python pbxproj 库在添加文件并保存后，再次加载会产生损坏引用
+2. Ruby xcodeproj 是 CocoaPods 官方使用的库，更稳定可靠
+3. 创建 `pbxproj_tool.rb` 替代原 Python 版本
+
+**Ruby 工具用法:**
+```bash
+# 从项目根目录运行
+LANG=en_US.UTF-8 bundle exec ruby pbxproj_tool.rb list-targets
+
+# 从 DMSAApp 目录运行添加文件
+cd DMSAApp
+LANG=en_US.UTF-8 bundle exec ruby ../pbxproj_tool.rb add-multi com.ttttt.dmsa.service \
+  DMSAService/Utils/StartupChecker.swift \
+  DMSAShared/Models/ServiceState.swift
+
+# 移除文件
+LANG=en_US.UTF-8 bundle exec ruby ../pbxproj_tool.rb remove HistoryView.swift
+```
+
+**编译状态:**
+
+| Target | 状态 | 说明 |
+|--------|------|------|
+| com.ttttt.dmsa.service | ✅ 成功 | 添加了 4 个缺失文件后编译通过 |
+| DMSAApp | ❌ 失败 | 代码问题：DashboardView 引用未定义的 AppUIState、ActivityItem 等类型 |
+
+**新建/修改文件:**
+```
+pbxproj_tool.rb              # Ruby 版 Xcode 项目管理工具
+Gemfile                      # Ruby 依赖配置
+vendor/bundle/               # Ruby gems 本地安装目录
+```
+
+**删除文件:**
+```
+.venv/                       # Python 虚拟环境 (已删除)
+pbxproj_tool.py              # Python 版工具 (已删除)
+```
+
+---
+
+### DMSAApp 编译错误修复
+
+**相关会话:** 7ec270c8
+**日期:** 2026-01-28
+**状态:** ✅ 完成
+
+**功能描述:**
+修复 DMSAApp 编译错误，解决 P0 级类型引用问题，使项目成功编译。
+
+**问题与解决:**
+
+| 问题 | 文件 | 解决方案 |
+|------|------|----------|
+| AppUIState 未定义 | DashboardView.swift, ConflictsPage.swift, MenuBarManager.swift | 替换为 StateManager.shared |
+| ActivityItem 未定义 | DashboardView.swift | 删除未使用的变量 |
+| serviceState 类型 String | StateManager.swift | 改为 ServiceState 枚举类型 |
+| SyncStatus 枚举成员错误 | NotificationHandler.swift, StateManager.swift, ServiceClient.swift | `.idle/.syncing/.error` → `.pending/.inProgress/.failed` |
+| SyncStatusInfo.message 不存在 | StateManager.swift | 改用默认错误消息 |
+| SyncProgressInfo 参数顺序 | NotificationHandler.swift | 调整 currentFile 位置 |
+| AddDiskSheet 未定义 | DisksPage.swift | 创建 AddDiskSheet.swift 组件 |
+| externalPath 不存在 | DisksPage.swift | 改为 externalRelativePath |
+| syncMode 不存在 | DisksPage.swift | 改为 direction |
+| Color.tertiaryLabel 不存在 | ActivityRow.swift, ConflictCard.swift | 改为 Color(NSColor.tertiaryLabelColor) |
+| Color.quaternaryLabel 不存在 | ConflictCard.swift | 改为 Color(NSColor.quaternaryLabelColor) |
+| await ?? 操作符错误 | AppDelegate.swift | 拆分为 if let + return |
+| MainActor 隔离问题 | AppDelegate.swift | Task 添加 @MainActor in |
+
+**关键代码变更:**
+
+```swift
+// DashboardView.swift - 替换状态管理
+// Before:
+@StateObject private var appState = AppUIState.shared
+// After:
+@ObservedObject private var stateManager = StateManager.shared
+
+// StateManager.swift - 枚举类型
+@Published var serviceState: ServiceState = .starting
+
+// NotificationHandler.swift - SyncStatus 枚举修复
+switch status {
+case .pending, .completed, .cancelled:  // 原: .idle, .completed
+    stateManager.updateUIState(.ready)
+case .inProgress:  // 原: .syncing
+    break
+case .failed:  // 原: .error
+    stateManager.updateError(error)
+}
+
+// ServiceClient.swift - 错误状态修复
+progressDelegate?.syncStatusDidChange(
+    syncPairId: "",
+    status: .failed,  // 原: .error
+    message: "XPC 连接中断"
+)
+
+// ActivityRow.swift - macOS Color 修复
+.foregroundColor(Color(NSColor.tertiaryLabelColor))
+
+// AppDelegate.swift - await 语法修复
+// Before:
+return cached ?? await getConfig()
+// After:
+if let cached = cached { return cached }
+return await getConfig()
+```
+
+**新建文件:**
+```
+DMSAApp/DMSAApp/UI/Components/AddDiskSheet.swift  # 添加硬盘 Sheet 组件
+SERVICE_FLOW/26_UI代码审查报告.md                   # 代码审查报告
+```
+
+**修改文件:**
+```
+DMSAApp/DMSAApp/App/AppDelegate.swift              # await 语法 + MainActor
+DMSAApp/DMSAApp/Models/AppStates.swift             # ComponentState 重命名
+DMSAApp/DMSAApp/Services/AlertManager.swift        # MainTab.history → .logs
+DMSAApp/DMSAApp/Services/NotificationHandler.swift # SyncStatus 枚举修复
+DMSAApp/DMSAApp/Services/ServiceClient.swift       # .error → .failed
+DMSAApp/DMSAApp/Services/StateManager.swift        # serviceState 类型 + SyncStatus
+DMSAApp/DMSAApp/UI/Components/ActivityRow.swift    # Color 扩展修复
+DMSAApp/DMSAApp/UI/Components/ConflictCard.swift   # Color 扩展 + 删除重复枚举
+DMSAApp/DMSAApp/UI/MenuBarManager.swift            # MainActor.assumeIsolated
+DMSAApp/DMSAApp/UI/Views/ConflictsPage.swift       # AppUIState → StateManager
+DMSAApp/DMSAApp/UI/Views/DisksPage.swift           # 属性名修复
+DMSAApp/DMSAApp/UI/Views/Settings/DashboardView.swift # AppUIState → StateManager
+DMSAApp/DMSAApp.xcodeproj/project.pbxproj          # 添加 AddDiskSheet
+```
+
+**编译结果:**
+- ✅ DMSAApp - BUILD SUCCEEDED
+- ✅ com.ttttt.dmsa.service - BUILD SUCCEEDED
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*

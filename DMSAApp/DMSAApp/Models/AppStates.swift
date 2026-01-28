@@ -77,10 +77,11 @@ enum UIState: Equatable {
     }
 }
 
-// MARK: - Component State
+// MARK: - App Component State
 
-/// 组件状态
-struct ComponentState: Codable, Equatable {
+/// 应用组件状态 (UI 层使用)
+/// 注意: 与 ServiceState.swift 中的 ComponentState 枚举不同
+struct AppComponentState: Codable, Equatable {
     var name: String
     var status: String
     var lastUpdate: Date
