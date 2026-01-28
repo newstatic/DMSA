@@ -56,13 +56,28 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
     }
 
     private static func loadConfig() -> AppConfig {
+        let logger = Logger.forService("DMSAService")
         let configURL = Constants.Paths.config
-        guard FileManager.default.fileExists(atPath: configURL.path),
-              let data = try? Data(contentsOf: configURL),
-              let config = try? JSONDecoder().decode(AppConfig.self, from: data) else {
-            Logger.forService("DMSAService").warning("配置加载失败，使用默认配置")
+        logger.info("loadConfig: 从 \(configURL.path) 加载配置")
+
+        guard FileManager.default.fileExists(atPath: configURL.path) else {
+            logger.warning("loadConfig: 配置文件不存在")
             return AppConfig()
         }
+
+        guard let data = try? Data(contentsOf: configURL) else {
+            logger.warning("loadConfig: 无法读取配置文件")
+            return AppConfig()
+        }
+
+        guard let config = try? JSONDecoder().decode(AppConfig.self, from: data) else {
+            logger.warning("loadConfig: JSON 解析失败")
+            return AppConfig()
+        }
+
+        logger.info("loadConfig: 成功加载配置")
+        logger.info("  syncPairs: \(config.syncPairs.map { $0.id })")
+        logger.info("  disks: \(config.disks.map { $0.id })")
         return config
     }
 
@@ -582,6 +597,25 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         Task {
             let history = await ServiceDatabaseManager.shared.getAllSyncHistory(limit: limit)
             let data = (try? JSONEncoder().encode(history)) ?? Data()
+            reply(data)
+        }
+    }
+
+    func dataGetSyncFileRecords(syncPairId: String,
+                                limit: Int,
+                                withReply reply: @escaping (Data) -> Void) {
+        Task {
+            let records = await ServiceDatabaseManager.shared.getSyncFileRecords(syncPairId: syncPairId, limit: limit)
+            let data = (try? JSONEncoder().encode(records)) ?? Data()
+            reply(data)
+        }
+    }
+
+    func dataGetAllSyncFileRecords(limit: Int,
+                                   withReply reply: @escaping (Data) -> Void) {
+        Task {
+            let records = await ServiceDatabaseManager.shared.getAllSyncFileRecords(limit: limit)
+            let data = (try? JSONEncoder().encode(records)) ?? Data()
             reply(data)
         }
     }

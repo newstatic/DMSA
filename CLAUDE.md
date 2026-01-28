@@ -358,6 +358,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | 7ec270c8 | 2026-01-28 | UI + App 功能核对 | 生成 27_UI核对报告.md + 28_App功能核对报告.md |
 | 7ec270c8 | 2026-01-28 | i18n 修复 + 清理 | 添加 150+ 缺失本地化键，删除 78 个未使用键 |
 | 7ec270c8 | 2026-01-28 | 磁盘状态同步修复 | DashboardView 与 DisksPage 状态不同步问题 |
+| 7ec270c8 | 2026-01-28 | 文件级同步/淘汰记录 | ServiceSyncFileRecord 实体 + XPC + UI 展示 |
 
 ---
 

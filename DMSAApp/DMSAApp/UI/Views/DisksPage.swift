@@ -151,7 +151,7 @@ struct DisksPage: View {
                         get: { config.disks[index] },
                         set: { config.disks[index] = $0 }
                     ),
-                    syncPairs: config.syncPairs.filter { $0.diskId == disk.id },
+                    allSyncPairs: $config.syncPairs,
                     diskManager: diskManager,
                     onDelete: {
                         diskToDelete = disk
@@ -301,12 +301,19 @@ struct DiskListItem: View {
 
 struct DiskDetailView: View {
     @Binding var disk: DiskConfig
-    let syncPairs: [SyncPairConfig]
+    @Binding var allSyncPairs: [SyncPairConfig]
     let diskManager: DiskManager
     let onDelete: () -> Void
 
+    private var syncPairs: [SyncPairConfig] {
+        allSyncPairs.filter { $0.diskId == disk.id }
+    }
+
     @State private var showTestResult = false
     @State private var testSuccess = false
+    @State private var showAddSyncPairSheet = false
+    @State private var syncPairToDelete: SyncPairConfig?
+    @State private var showDeleteSyncPairConfirmation = false
 
     private var diskInfo: (total: Int64, available: Int64, used: Int64)? {
         diskManager.getDiskInfo(at: disk.mountPath)
@@ -351,6 +358,27 @@ struct DiskDetailView: View {
             Button("common.ok".localized, role: .cancel) { }
         } message: {
             Text(testSuccess ? "disks.test.success.message".localized : "disks.test.failed.message".localized)
+        }
+        .sheet(isPresented: $showAddSyncPairSheet) {
+            AddSyncPairSheet(
+                diskId: disk.id,
+                diskMountPath: disk.mountPath,
+                onAdd: { newPair in
+                    allSyncPairs.append(newPair)
+                }
+            )
+        }
+        .alert("disks.syncPair.delete.title".localized, isPresented: $showDeleteSyncPairConfirmation) {
+            Button("common.cancel".localized, role: .cancel) { }
+            Button("common.delete".localized, role: .destructive) {
+                if let pair = syncPairToDelete {
+                    allSyncPairs.removeAll { $0.id == pair.id }
+                }
+            }
+        } message: {
+            if let pair = syncPairToDelete {
+                Text(String(format: "disks.syncPair.delete.message".localized, pair.name))
+            }
         }
     }
 
@@ -507,21 +535,48 @@ struct DiskDetailView: View {
                     .padding(.vertical, 2)
                     .background(Color.secondary.opacity(0.2))
                     .cornerRadius(8)
+
+                Button {
+                    showAddSyncPairSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .buttonStyle(.plain)
+                .help("disks.syncPair.add".localized)
             }
 
             if syncPairs.isEmpty {
-                HStack {
-                    Image(systemName: "folder.badge.questionmark")
+                VStack(spacing: 12) {
+                    Image(systemName: "folder.badge.plus")
+                        .font(.system(size: 32))
                         .foregroundColor(.secondary)
+
                     Text("disks.syncPairs.empty".localized)
                         .font(.body)
                         .foregroundColor(.secondary)
+
+                    Button {
+                        showAddSyncPairSheet = true
+                    } label: {
+                        Label("disks.syncPair.add".localized, systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
-                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
             } else {
                 VStack(spacing: 8) {
                     ForEach(syncPairs) { pair in
-                        SyncPairRow(pair: pair)
+                        if let index = allSyncPairs.firstIndex(where: { $0.id == pair.id }) {
+                            SyncPairEditableRow(
+                                pair: $allSyncPairs[index],
+                                onDelete: {
+                                    syncPairToDelete = pair
+                                    showDeleteSyncPairConfirmation = true
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -607,7 +662,155 @@ struct StorageDetailItem: View {
     }
 }
 
-// MARK: - Sync Pair Row
+// MARK: - Sync Pair Editable Row
+
+struct SyncPairEditableRow: View {
+    @Binding var pair: SyncPairConfig
+    var onDelete: (() -> Void)? = nil
+    @State private var isExpanded = false
+
+    // 预设的缓存大小选项
+    private let cacheSizeOptions: [(label: String, value: Int64)] = [
+        ("1 GB", 1 * 1024 * 1024 * 1024),
+        ("5 GB", 5 * 1024 * 1024 * 1024),
+        ("10 GB", 10 * 1024 * 1024 * 1024),
+        ("20 GB", 20 * 1024 * 1024 * 1024),
+        ("50 GB", 50 * 1024 * 1024 * 1024),
+        ("100 GB", 100 * 1024 * 1024 * 1024),
+        ("settings.eviction.unlimited".localized, Int64.max)
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Main row (always visible)
+            HStack(spacing: 12) {
+                Image(systemName: "folder.fill")
+                    .foregroundColor(.accentColor)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(pair.name)
+                        .font(.body)
+
+                    Text("\(pair.localPath) → \(pair.externalRelativePath)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                // Cache size badge
+                if pair.maxLocalCacheSize < Int64.max {
+                    Text(ByteCountFormatter.string(fromByteCount: pair.maxLocalCacheSize, countStyle: .file))
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.15))
+                        .foregroundColor(.orange)
+                        .cornerRadius(4)
+                }
+
+                // Expand button
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded.toggle()
+                    }
+                } label: {
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(10)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+            }
+
+            // Expanded content (eviction settings)
+            if isExpanded {
+                Divider()
+                    .padding(.horizontal, 10)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    // Auto eviction toggle
+                    Toggle("settings.eviction.autoEnabled".localized, isOn: $pair.autoEvictionEnabled)
+                        .toggleStyle(.switch)
+
+                    // Max local cache size
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("settings.eviction.maxCacheSize".localized)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Picker("", selection: $pair.maxLocalCacheSize) {
+                            ForEach(cacheSizeOptions, id: \.value) { option in
+                                Text(option.label).tag(option.value)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                    }
+
+                    // Target free space (only shown if auto eviction is enabled)
+                    if pair.autoEvictionEnabled {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("settings.eviction.targetFreeSpace".localized)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            HStack {
+                                Slider(
+                                    value: Binding(
+                                        get: { Double(pair.targetFreeSpace) / Double(1024 * 1024 * 1024) },
+                                        set: { pair.targetFreeSpace = Int64($0) * 1024 * 1024 * 1024 }
+                                    ),
+                                    in: 1...50,
+                                    step: 1
+                                )
+
+                                Text(ByteCountFormatter.string(fromByteCount: pair.targetFreeSpace, countStyle: .file))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 60)
+                            }
+                        }
+
+                        // Explanation
+                        Text("settings.eviction.hint".localized)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Divider()
+                        .padding(.vertical, 4)
+
+                    // Delete button
+                    if let onDelete = onDelete {
+                        HStack {
+                            Spacer()
+                            Button(role: .destructive) {
+                                onDelete()
+                            } label: {
+                                Label("disks.syncPair.delete".localized, systemImage: "trash")
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                }
+                .padding(12)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+            }
+        }
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
+    }
+}
+
+// MARK: - Sync Pair Row (Legacy, for display only)
 
 struct SyncPairRow: View {
     let pair: SyncPairConfig
@@ -640,6 +843,188 @@ struct SyncPairRow: View {
         .padding(8)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(6)
+    }
+}
+
+// MARK: - Add Sync Pair Sheet
+
+struct AddSyncPairSheet: View {
+    let diskId: String
+    let diskMountPath: String
+    let onAdd: (SyncPairConfig) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var localPath: String = ""
+    @State private var externalRelativePath: String = ""
+    @State private var maxLocalCacheSize: Int64 = 10 * 1024 * 1024 * 1024
+    @State private var autoEvictionEnabled: Bool = true
+
+    private var isValid: Bool {
+        !localPath.isEmpty && !externalRelativePath.isEmpty
+    }
+
+    private var suggestedExternalPath: String {
+        let name = (localPath as NSString).lastPathComponent
+        return name.isEmpty ? "" : name
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("disks.syncPair.add.title".localized)
+                    .font(.headline)
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding()
+
+            Divider()
+
+            // Content
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Local path
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("disks.syncPair.localPath".localized)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        HStack {
+                            TextField("~/Downloads", text: $localPath)
+                                .textFieldStyle(.roundedBorder)
+
+                            Button("common.browse".localized) {
+                                selectLocalPath()
+                            }
+                        }
+
+                        Text("disks.syncPair.localPath.hint".localized)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    // External relative path
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("disks.syncPair.externalPath".localized)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        HStack {
+                            Text(diskMountPath + "/")
+                                .foregroundColor(.secondary)
+                            TextField("Downloads", text: $externalRelativePath)
+                                .textFieldStyle(.roundedBorder)
+                        }
+
+                        Text("disks.syncPair.externalPath.hint".localized)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Divider()
+
+                    // Cache settings
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("disks.syncPair.cacheSettings".localized)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        Toggle("settings.eviction.autoEnabled".localized, isOn: $autoEvictionEnabled)
+                            .toggleStyle(.switch)
+
+                        HStack {
+                            Text("settings.eviction.maxCacheSize".localized)
+                            Spacer()
+                            Picker("", selection: $maxLocalCacheSize) {
+                                Text("5 GB").tag(Int64(5 * 1024 * 1024 * 1024))
+                                Text("10 GB").tag(Int64(10 * 1024 * 1024 * 1024))
+                                Text("20 GB").tag(Int64(20 * 1024 * 1024 * 1024))
+                                Text("50 GB").tag(Int64(50 * 1024 * 1024 * 1024))
+                                Text("settings.eviction.unlimited".localized).tag(Int64.max)
+                            }
+                            .labelsHidden()
+                            .frame(width: 120)
+                        }
+                    }
+                }
+                .padding()
+            }
+
+            Divider()
+
+            // Footer
+            HStack {
+                Spacer()
+
+                Button("common.cancel".localized) {
+                    dismiss()
+                }
+                .keyboardShortcut(.escape)
+
+                Button("common.add".localized) {
+                    addSyncPair()
+                }
+                .keyboardShortcut(.return)
+                .buttonStyle(.borderedProminent)
+                .disabled(!isValid)
+            }
+            .padding()
+        }
+        .frame(width: 500, height: 450)
+        .onChange(of: localPath) { _ in
+            if externalRelativePath.isEmpty {
+                externalRelativePath = suggestedExternalPath
+            }
+        }
+    }
+
+    private func selectLocalPath() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
+
+        if panel.runModal() == .OK, let url = panel.url {
+            localPath = url.path
+        }
+    }
+
+    private func addSyncPair() {
+        var newPair = SyncPairConfig(
+            diskId: diskId,
+            localPath: localPath,
+            externalRelativePath: externalRelativePath
+        )
+        newPair.maxLocalCacheSize = maxLocalCacheSize
+        newPair.autoEvictionEnabled = autoEvictionEnabled
+
+        // 保存新同步对的 ID，用于后续触发索引
+        let syncPairId = newPair.id
+
+        onAdd(newPair)
+        dismiss()
+
+        // 异步触发索引构建
+        Task {
+            do {
+                // 先添加同步对到服务端
+                try await ServiceClient.shared.addSyncPair(newPair)
+                // 然后触发索引构建
+                try await ServiceClient.shared.rebuildIndex(syncPairId: syncPairId)
+                Logger.shared.info("[DisksPage] 同步对 \(syncPairId) 已添加并开始索引")
+            } catch {
+                Logger.shared.error("[DisksPage] 添加同步对或索引失败: \(error.localizedDescription)")
+            }
+        }
     }
 }
 

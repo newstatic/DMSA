@@ -244,10 +244,21 @@ actor EvictionManager {
                 // 更新索引 (位置变为 externalOnly)
                 await updateEntryLocation(entry: entry, vfsManager: vfsManager)
 
+                // 记录淘汰成功
+                let record = ServiceSyncFileRecord(syncPairId: syncPairId, diskId: "", virtualPath: entry.virtualPath, fileSize: fileSize)
+                record.status = 3  // 淘汰成功
+                await ServiceDatabaseManager.shared.saveSyncFileRecord(record)
+
                 logger.debug("淘汰: \(entry.virtualPath) (\(formatBytes(fileSize)))")
 
             } catch {
                 errors.append("删除失败: \(entry.virtualPath) - \(error.localizedDescription)")
+
+                // 记录淘汰失败
+                let record = ServiceSyncFileRecord(syncPairId: syncPairId, diskId: "", virtualPath: entry.virtualPath, fileSize: 0)
+                record.status = 4  // 淘汰失败
+                record.errorMessage = error.localizedDescription
+                await ServiceDatabaseManager.shared.saveSyncFileRecord(record)
             }
         }
 

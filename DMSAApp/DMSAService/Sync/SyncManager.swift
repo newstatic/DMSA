@@ -49,6 +49,11 @@ actor SyncManager {
     func startScheduler(config: AppConfig?) async {
         self.config = config
         logger.info("启动同步调度器")
+        logger.info("  收到 config: \(config == nil ? "nil" : "有效")")
+        if let config = config {
+            logger.info("  syncPairs: \(config.syncPairs.map { $0.id })")
+            logger.info("  disks: \(config.disks.map { $0.id })")
+        }
 
         // 从配置管理器加载同步配置
         let serviceConfig = await configManager.getConfig()
@@ -198,11 +203,19 @@ actor SyncManager {
 
     func syncNow(syncPairId: String) async throws {
         logger.info("执行立即同步: \(syncPairId)")
+        logger.info("  当前 config: \(config == nil ? "nil" : "有效")")
+        if let config = config {
+            logger.info("  syncPairs 数量: \(config.syncPairs.count)")
+            logger.info("  disks 数量: \(config.disks.count)")
+        }
         try await performSync(syncPairId: syncPairId, files: [])
     }
 
     func syncAll() async {
-        guard let config = config else { return }
+        guard let config = config else {
+            logger.warning("syncAll 跳过: config 为 nil")
+            return
+        }
 
         for syncPair in config.syncPairs where syncPair.enabled {
             do {
@@ -256,16 +269,34 @@ actor SyncManager {
     func pauseSync(syncPairId: String) async {
         if var status = syncStatuses[syncPairId] {
             status.isPaused = true
+            status.status = .paused
             syncStatuses[syncPairId] = status
         }
+        // 更新进度状态
+        if var progress = syncProgress[syncPairId] {
+            progress.phase = .paused
+            syncProgress[syncPairId] = progress
+            notifyProgressUpdate(progress)
+        }
+        // 通知 App
+        notifySyncStatusChanged(syncPairId: syncPairId, status: .paused, message: "同步已暂停")
         logger.info("同步已暂停: \(syncPairId)")
     }
 
     func resumeSync(syncPairId: String) async {
         if var status = syncStatuses[syncPairId] {
             status.isPaused = false
+            status.status = .inProgress
             syncStatuses[syncPairId] = status
         }
+        // 更新进度状态
+        if var progress = syncProgress[syncPairId] {
+            progress.phase = .syncing
+            syncProgress[syncPairId] = progress
+            notifyProgressUpdate(progress)
+        }
+        // 通知 App
+        notifySyncStatusChanged(syncPairId: syncPairId, status: .inProgress, message: "同步已恢复")
         logger.info("同步已恢复: \(syncPairId)")
     }
 
@@ -277,15 +308,37 @@ actor SyncManager {
             status.status = .cancelled
             syncStatuses[syncPairId] = status
         }
+        // 更新进度状态
+        if var progress = syncProgress[syncPairId] {
+            progress.phase = .cancelled
+            progress.status = .cancelled
+            syncProgress[syncPairId] = progress
+            notifyProgressUpdate(progress)
+        }
+        // 通知 App
+        notifySyncStatusChanged(syncPairId: syncPairId, status: .cancelled, message: "同步已取消")
+        logger.info("同步已取消: \(syncPairId)")
     }
 
     // MARK: - 同步执行
 
     private func performSync(syncPairId: String, files: [String]) async throws {
-        guard let config = config,
-              let syncPair = config.syncPairs.first(where: { $0.id == syncPairId }),
-              let disk = config.disks.first(where: { $0.id == syncPair.diskId }) else {
-            throw SyncError.configurationError("找不到同步对配置")
+        // 详细调试日志
+        guard let currentConfig = config else {
+            logger.error("performSync 失败: config 为 nil")
+            throw SyncError.configurationError("找不到同步对配置: config 为空")
+        }
+
+        guard let syncPair = currentConfig.syncPairs.first(where: { $0.id == syncPairId }) else {
+            logger.error("performSync 失败: 找不到 syncPairId=\(syncPairId)")
+            logger.error("  可用的 syncPairs: \(currentConfig.syncPairs.map { $0.id })")
+            throw SyncError.configurationError("找不到同步对配置: syncPairId 不匹配")
+        }
+
+        guard let disk = currentConfig.disks.first(where: { $0.id == syncPair.diskId }) else {
+            logger.error("performSync 失败: 找不到 diskId=\(syncPair.diskId)")
+            logger.error("  可用的 disks: \(currentConfig.disks.map { $0.id })")
+            throw SyncError.configurationError("找不到同步对配置: diskId 不匹配")
         }
 
         // 检查是否暂停
@@ -293,10 +346,21 @@ actor SyncManager {
             throw SyncError.cancelled
         }
 
-        // 检查硬盘是否连接
+        // 检查硬盘是否连接 (检查挂载点而非具体目录)
         let externalDir = syncPair.fullExternalDir(diskMountPath: disk.mountPath)
-        guard FileManager.default.fileExists(atPath: externalDir) else {
+        guard FileManager.default.fileExists(atPath: disk.mountPath) else {
             throw SyncError.diskNotConnected(disk.name)
+        }
+
+        // 如果外部目录不存在，自动创建（首次同步场景）
+        if !FileManager.default.fileExists(atPath: externalDir) {
+            do {
+                try FileManager.default.createDirectory(atPath: externalDir, withIntermediateDirectories: true, attributes: nil)
+                logger.info("自动创建外部目录: \(externalDir)")
+            } catch {
+                logger.error("创建外部目录失败: \(externalDir) - \(error)")
+                throw SyncError.permissionDenied(path: externalDir)
+            }
         }
 
         // 更新状态
@@ -348,16 +412,50 @@ actor SyncManager {
             let fm = FileManager.default
             let localDir = syncPair.localDir
 
+            // 计算总字节数
+            var totalBytes: Int64 = 0
+            for virtualPath in filesToSync {
+                let relativePath = virtualPath.hasPrefix("/") ? String(virtualPath.dropFirst()) : virtualPath
+                let localPath = (localDir as NSString).appendingPathComponent(relativePath)
+                if let attrs = try? fm.attributesOfItem(atPath: localPath),
+                   let size = attrs[.size] as? Int64 {
+                    totalBytes += size
+                }
+            }
+
             progress.totalFiles = filesToSync.count
+            progress.totalBytes = totalBytes
             progress.phase = .syncing
             syncProgress[syncPairId] = progress
             notifyProgressUpdate(progress)
+            logger.info("同步总量: \(filesToSync.count) 文件, \(ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file))")
 
-            // 执行同步
+            // 执行同步 (批量保存文件记录)
+            var fileRecordBatch: [ServiceSyncFileRecord] = []
+            let batchSize = 100
+
             for (index, virtualPath) in filesToSync.enumerated() {
                 // 检查是否取消
                 if syncStatuses[syncPairId]?.status == .cancelled {
+                    // 保存剩余批次
+                    if !fileRecordBatch.isEmpty {
+                        await database.saveSyncFileRecords(fileRecordBatch)
+                        fileRecordBatch.removeAll()
+                    }
                     throw SyncError.cancelled
+                }
+
+                // 检查是否暂停，等待恢复
+                while syncStatuses[syncPairId]?.isPaused == true {
+                    // 检查是否在暂停期间被取消
+                    if syncStatuses[syncPairId]?.status == .cancelled {
+                        if !fileRecordBatch.isEmpty {
+                            await database.saveSyncFileRecords(fileRecordBatch)
+                            fileRecordBatch.removeAll()
+                        }
+                        throw SyncError.cancelled
+                    }
+                    try await Task.sleep(nanoseconds: 500_000_000) // 0.5秒检查一次
                 }
 
                 let relativePath = virtualPath.hasPrefix("/") ? String(virtualPath.dropFirst()) : virtualPath
@@ -376,6 +474,7 @@ actor SyncManager {
                     }
 
                     // 复制文件
+                    var fileSize: Int64 = 0
                     if fm.fileExists(atPath: localPath) {
                         if fm.fileExists(atPath: externalPath) {
                             try fm.removeItem(atPath: externalPath)
@@ -385,8 +484,17 @@ actor SyncManager {
                         // 获取文件大小
                         if let attrs = try? fm.attributesOfItem(atPath: localPath),
                            let size = attrs[.size] as? Int64 {
+                            fileSize = size
                             progress.processedBytes += size
                             history.bytesTransferred += size
+                        }
+
+                        // 计算速度 (bytes/second)
+                        if let startTime = progress.startTime {
+                            let elapsed = Date().timeIntervalSince(startTime)
+                            if elapsed > 0 {
+                                progress.speed = Int64(Double(progress.processedBytes) / elapsed)
+                            }
                         }
 
                         history.filesUpdated += 1
@@ -396,10 +504,26 @@ actor SyncManager {
                     // 清除脏标记
                     dirtyFiles[syncPairId]?.remove(virtualPath)
 
+                    // 记录文件同步成功
+                    let record = ServiceSyncFileRecord(syncPairId: syncPairId, diskId: disk.id, virtualPath: virtualPath, fileSize: fileSize)
+                    record.status = 0  // 成功
+                    fileRecordBatch.append(record)
+
                 } catch {
                     logger.error("同步文件失败: \(virtualPath) - \(error)")
-                    // ServiceSyncHistory 不支持 details，记录错误
                     history.filesSkipped += 1
+
+                    // 记录文件同步失败
+                    let record = ServiceSyncFileRecord(syncPairId: syncPairId, diskId: disk.id, virtualPath: virtualPath, fileSize: 0)
+                    record.status = 1  // 失败
+                    record.errorMessage = error.localizedDescription
+                    fileRecordBatch.append(record)
+                }
+
+                // 批量保存文件记录
+                if fileRecordBatch.count >= batchSize {
+                    await database.saveSyncFileRecords(fileRecordBatch)
+                    fileRecordBatch.removeAll()
                 }
 
                 syncProgress[syncPairId] = progress
@@ -407,6 +531,15 @@ actor SyncManager {
                 // 实时推送进度
                 notifyProgressUpdate(progress)
             }
+
+            // 保存剩余批次
+            if !fileRecordBatch.isEmpty {
+                await database.saveSyncFileRecords(fileRecordBatch)
+                fileRecordBatch.removeAll()
+            }
+
+            // 清理旧文件同步记录
+            await database.cleanupOldSyncFileRecords(syncPairId: syncPairId)
 
             // 同步完成
             progress.status = .completed
@@ -425,16 +558,10 @@ actor SyncManager {
 
             logger.info("同步完成: \(syncPair.name), \(history.filesUpdated) 个文件")
 
-            // 发送通知：同步完成
+            // 发送通知：同步完成 (通过 XPC 回调)
             notifySyncStatusChanged(syncPairId: syncPairId, status: .completed, message: "同步完成，共 \(history.filesUpdated) 个文件")
             notifyProgressUpdate(progress)
-
-            DistributedNotificationCenter.default().postNotificationName(
-                NSNotification.Name(Constants.Notifications.syncCompleted),
-                object: nil,
-                userInfo: nil,
-                deliverImmediately: true
-            )
+            XPCNotifier.notifySyncCompleted(syncPairId: syncPairId, filesCount: history.filesUpdated, bytesCount: history.bytesTransferred)
 
         } catch {
             // 同步失败
@@ -457,6 +584,9 @@ actor SyncManager {
             // 发送通知：同步失败
             notifySyncStatusChanged(syncPairId: syncPairId, status: .failed, message: error.localizedDescription)
             notifyProgressUpdate(progress)
+
+            // 失败时也保存历史记录
+            await database.saveSyncHistory(history)
 
             throw error
         }
@@ -563,7 +693,7 @@ actor SyncManager {
 
     // MARK: - 进度通知
 
-    /// 发送同步进度通知到 App
+    /// 发送同步进度通知到 App (通过 XPC 回调)
     private func notifyProgressUpdate(_ progress: SyncProgress) {
         // 节流：避免过于频繁的通知
         let now = Date()
@@ -572,40 +702,16 @@ actor SyncManager {
         }
         lastProgressNotificationTime = now
 
-        // 将进度信息编码为 JSON 字符串，通过 object 参数传递
-        guard let data = try? JSONEncoder().encode(progress),
-              let jsonString = String(data: data, encoding: .utf8) else {
+        // 通过 XPC 回调发送进度
+        guard let data = try? JSONEncoder().encode(progress) else {
             return
         }
-
-        DistributedNotificationCenter.default().postNotificationName(
-            NSNotification.Name(Constants.Notifications.syncProgress),
-            object: jsonString,
-            userInfo: nil,
-            deliverImmediately: true
-        )
+        XPCNotifier.notifySyncProgress(data: data)
     }
 
-    /// 发送同步状态变更通知
+    /// 发送同步状态变更通知 (通过 XPC 回调)
     private func notifySyncStatusChanged(syncPairId: String, status: SyncStatus, message: String? = nil) {
-        let statusInfo: [String: Any] = [
-            "syncPairId": syncPairId,
-            "status": status.rawValue,
-            "message": message ?? "",
-            "timestamp": Date().timeIntervalSince1970
-        ]
-
-        guard let data = try? JSONSerialization.data(withJSONObject: statusInfo),
-              let jsonString = String(data: data, encoding: .utf8) else {
-            return
-        }
-
-        DistributedNotificationCenter.default().postNotificationName(
-            NSNotification.Name(Constants.Notifications.syncStatusChanged),
-            object: jsonString,
-            userInfo: nil,
-            deliverImmediately: true
-        )
+        XPCNotifier.notifySyncStatusChanged(syncPairId: syncPairId, status: status, message: message)
     }
 
     // MARK: - 额外方法 (ServiceImplementation 需要)

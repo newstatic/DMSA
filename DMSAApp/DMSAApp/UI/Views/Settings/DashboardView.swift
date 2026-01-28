@@ -6,7 +6,6 @@ import SwiftUI
 struct DashboardView: View {
     @Binding var config: AppConfig
     @ObservedObject private var stateManager = StateManager.shared
-    @StateObject private var progressListener = SyncProgressListener()
 
     // Services
     private let serviceClient = ServiceClient.shared
@@ -14,12 +13,8 @@ struct DashboardView: View {
 
     // Local state
     @State private var recentHistory: [SyncHistory] = []
+    @State private var recentFileRecords: [SyncFileRecord] = []
     @State private var isLoading = false
-
-    // Sync control state
-    @State private var isSyncing = false
-    @State private var syncProgress: Double = 0
-    @State private var isPaused = false
 
     // MARK: - Body
 
@@ -37,6 +32,9 @@ struct DashboardView: View {
 
                 // Recent Activity
                 recentActivitySection
+
+                // File Sync History
+                fileRecordsSection
             }
             .padding(32)
             .frame(maxWidth: 800)
@@ -45,21 +43,28 @@ struct DashboardView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             loadData()
-            setupProgressListener()
         }
-        .onChange(of: progressListener.currentProgress) { progress in
-            if let progress = progress {
-                updateFromProgress(progress)
-            }
-        }
-        .onChange(of: progressListener.lastStatusChange) { change in
-            if let change = change {
-                handleStatusChange(change)
+        .onChange(of: stateManager.syncStatus) { _ in
+            // 同步完成时刷新历史
+            if stateManager.syncStatus == .ready {
+                loadData()
             }
         }
     }
 
     // MARK: - Status Banner Section
+
+    private var isSyncing: Bool {
+        stateManager.syncStatus == .syncing
+    }
+
+    private var isPaused: Bool {
+        stateManager.syncStatus == .paused
+    }
+
+    private var syncProgress: Double {
+        stateManager.syncProgressValue
+    }
 
     private var statusBannerSection: some View {
         HStack(spacing: 20) {
@@ -209,9 +214,55 @@ struct DashboardView: View {
         }
     }
 
+    // MARK: - File Records Section
+
+    private var fileRecordsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "dashboard.fileHistory".localized)
+
+            if recentFileRecords.isEmpty {
+                Text("dashboard.fileHistory.empty".localized)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(8)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(recentFileRecords.prefix(10)) { record in
+                        FileRecordRow(record: record)
+
+                        if record.id != recentFileRecords.prefix(10).last?.id {
+                            Divider()
+                                .padding(.leading, 52)
+                        }
+                    }
+                }
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+            }
+        }
+    }
+
     // MARK: - Computed Properties
 
     private var statusIcon: String {
+        // 优先检查服务状态
+        if !stateManager.isReady {
+            switch stateManager.syncStatus {
+            case .starting:
+                return "gear"
+            case .indexing:
+                return "doc.text.magnifyingglass"
+            case .reconnecting:
+                return "arrow.triangle.2.circlepath"
+            case .serviceUnavailable:
+                return "xmark.circle.fill"
+            default:
+                return "ellipsis.circle"
+            }
+        }
         if isSyncing {
             return isPaused ? "pause.circle.fill" : "arrow.clockwise"
         }
@@ -225,6 +276,21 @@ struct DashboardView: View {
     }
 
     private var statusColor: Color {
+        // 优先检查服务状态
+        if !stateManager.isReady {
+            switch stateManager.syncStatus {
+            case .starting:
+                return .yellow
+            case .indexing:
+                return .orange
+            case .reconnecting:
+                return .orange
+            case .serviceUnavailable:
+                return .gray
+            default:
+                return .gray
+            }
+        }
         if isSyncing {
             return isPaused ? .orange : .blue
         }
@@ -243,6 +309,21 @@ struct DashboardView: View {
     }
 
     private var statusTitle: String {
+        // 优先检查服务状态
+        if !stateManager.isReady {
+            switch stateManager.syncStatus {
+            case .starting:
+                return "dashboard.status.starting".localized
+            case .indexing:
+                return "dashboard.status.indexing".localized
+            case .reconnecting:
+                return "dashboard.status.reconnecting".localized
+            case .serviceUnavailable:
+                return "dashboard.status.serviceUnavailable".localized
+            default:
+                return "dashboard.status.preparing".localized
+            }
+        }
         if isSyncing {
             return isPaused
                 ? "dashboard.status.paused".localized
@@ -258,6 +339,21 @@ struct DashboardView: View {
     }
 
     private var statusSubtitle: String {
+        // 优先检查服务状态
+        if !stateManager.isReady {
+            switch stateManager.syncStatus {
+            case .starting:
+                return "dashboard.status.startingDesc".localized
+            case .indexing:
+                return "dashboard.status.indexingDesc".localized
+            case .reconnecting:
+                return "dashboard.status.reconnectingDesc".localized
+            case .serviceUnavailable:
+                return "dashboard.status.serviceUnavailableDesc".localized
+            default:
+                return "dashboard.status.preparingDesc".localized
+            }
+        }
         if isSyncing {
             let progress = Int(syncProgress * 100)
             return String(format: "dashboard.status.progress".localized, progress)
@@ -272,7 +368,14 @@ struct DashboardView: View {
     }
 
     private var canStartSync: Bool {
-        hasConnectedDisk && !config.syncPairs.isEmpty && !isSyncing
+        let ready = stateManager.isReady
+        let hasDisk = hasConnectedDisk
+        let hasPairs = !config.syncPairs.isEmpty
+        let notSyncing = !isSyncing
+        let result = ready && hasDisk && hasPairs && notSyncing
+
+        Logger.shared.debug("[DashboardView] canStartSync: \(result) (isReady=\(ready), hasDisk=\(hasDisk), hasPairs=\(hasPairs), notSyncing=\(notSyncing))")
+        return result
     }
 
     private var firstConnectedDisk: DiskConfig? {
@@ -292,18 +395,11 @@ struct DashboardView: View {
     private func startSync() {
         guard canStartSync else { return }
 
-        isSyncing = true
-        isPaused = false
-        syncProgress = 0
-
         Task {
             do {
                 try await serviceClient.updateConfig(config)
                 try await serviceClient.syncAll()
             } catch {
-                await MainActor.run {
-                    isSyncing = false
-                }
                 Logger.shared.error("Sync failed: \(error.localizedDescription)")
             }
         }
@@ -335,41 +431,13 @@ struct DashboardView: View {
 
         Task {
             let history = (try? await serviceClient.getSyncHistory(limit: 10)) ?? []
+            let fileRecords = (try? await serviceClient.getAllSyncFileRecords(limit: 50)) ?? []
 
             await MainActor.run {
                 recentHistory = history
+                recentFileRecords = fileRecords
                 isLoading = false
             }
-        }
-    }
-
-    private func setupProgressListener() {
-        serviceClient.progressDelegate = progressListener
-    }
-
-    private func updateFromProgress(_ progress: ServiceSyncProgressInfo) {
-        isSyncing = progress.status == .inProgress
-        syncProgress = progress.progress
-        isPaused = progress.isPaused
-
-        if progress.status == .completed || progress.status == .failed {
-            loadData()
-        }
-    }
-
-    private func handleStatusChange(_ change: SyncStatusChange) {
-        switch change.status {
-        case .inProgress:
-            isSyncing = true
-            isPaused = false
-        case .completed, .failed, .cancelled:
-            isSyncing = false
-            isPaused = false
-            loadData()
-        case .paused:
-            isPaused = true
-        default:
-            break
         }
     }
 
@@ -423,6 +491,7 @@ struct ServiceSyncProgressInfo: Equatable {
     var currentFile: String?
     var phaseText: String
     var isPaused: Bool
+    var speed: Int64
 
     var progress: Double {
         guard totalBytes > 0 else { return 0 }
@@ -446,7 +515,8 @@ class SyncProgressListener: ObservableObject, SyncProgressDelegate {
                 processedBytes: progress.processedBytes,
                 currentFile: progress.currentFile,
                 phaseText: progress.phase.description,
-                isPaused: progress.phase == .paused
+                isPaused: progress.phase == .paused,
+                speed: progress.speed
             )
         }
     }
@@ -595,6 +665,84 @@ struct DiskStatusCard: View {
         .padding()
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(8)
+    }
+}
+
+// MARK: - File Record Row
+
+struct FileRecordRow: View {
+    let record: SyncFileRecord
+
+    private var formattedTime: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: record.syncedAt)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(statusColor.opacity(0.15))
+                    .frame(width: 28, height: 28)
+
+                Image(systemName: statusIcon)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(statusColor)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(record.fileName)
+                    .font(.body)
+                    .lineLimit(1)
+
+                Text(record.virtualPath)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(record.statusDescription)
+                    .font(.caption)
+                    .foregroundColor(statusColor)
+
+                HStack(spacing: 4) {
+                    Text(ByteCountFormatter.string(fromByteCount: record.fileSize, countStyle: .file))
+                    Text("·")
+                    Text(formattedTime)
+                }
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private var statusIcon: String {
+        switch record.status {
+        case 0: return "checkmark.circle.fill"
+        case 1: return "xmark.circle.fill"
+        case 2: return "arrow.right.circle.fill"
+        case 3: return "trash.circle.fill"
+        case 4: return "exclamationmark.circle.fill"
+        default: return "questionmark.circle"
+        }
+    }
+
+    private var statusColor: Color {
+        switch record.status {
+        case 0: return .green
+        case 1: return .red
+        case 2: return .orange
+        case 3: return .blue
+        case 4: return .red
+        default: return .gray
+        }
     }
 }
 

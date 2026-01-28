@@ -266,6 +266,15 @@ import Foundation
     func dataGetSyncHistory(limit: Int,
                             withReply reply: @escaping (Data) -> Void)
 
+    /// 获取文件同步记录 (每个被同步/淘汰的文件)
+    func dataGetSyncFileRecords(syncPairId: String,
+                                limit: Int,
+                                withReply reply: @escaping (Data) -> Void)
+
+    /// 获取所有文件同步记录
+    func dataGetAllSyncFileRecords(limit: Int,
+                                   withReply reply: @escaping (Data) -> Void)
+
     /// 获取树版本信息
     func dataGetTreeVersion(syncPairId: String,
                             source: String,

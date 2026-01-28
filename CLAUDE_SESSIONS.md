@@ -1324,4 +1324,43 @@ DMSAApp/DMSAApp.xcodeproj/project.pbxproj          # 添加 AddDiskSheet
 
 ---
 
+## Session 7ec270c8 - 文件级同步/淘汰记录 (2026-01-28)
+
+### 任务
+- 实现文件级别的同步和淘汰历史记录 (每个文件单独记录)
+- 修复 saveSyncHistory 失败路径未调用的 bug
+- 配置添加后自动建立索引
+- getIndexStats 超时修复 (10s → 30s)
+
+### 实现思路
+用户要求同步历史记录到每一个文件，而不是任务级别。创建 `ServiceSyncFileRecord` ObjectBox 实体，status 字段统一覆盖同步和淘汰操作:
+- 0=同步成功, 1=同步失败, 2=跳过, 3=淘汰成功, 4=淘汰失败
+
+同步循环中使用批量写入 (batch size=100) 提升性能，避免逐条写入影响 500K+ 文件的同步速度。
+
+### 修改文件
+| 文件 | 修改内容 |
+|------|----------|
+| `ServiceDatabaseManager.swift` | 新增 ServiceSyncFileRecord 实体 + CRUD 方法 |
+| `SyncManager.swift` | 同步循环中批量记录文件级操作 + saveSyncHistory 失败路径修复 |
+| `EvictionManager.swift` | 淘汰操作记录到 ServiceSyncFileRecord |
+| `DMSAServiceProtocol.swift` | 新增 dataGetSyncFileRecords/dataGetAllSyncFileRecords |
+| `ServiceImplementation.swift` | 实现上述 XPC 方法 |
+| `XPCClientTypes.swift` | App 端 SyncFileRecord 模型 |
+| `ServiceClient.swift` | getSyncFileRecords/getAllSyncFileRecords + rebuildIndex |
+| `DashboardView.swift` | 新增文件同步记录列表 (FileRecordRow) |
+| `EntityInfo-*.generated.swift` | 手动添加 ServiceSyncFileRecord ObjectBox 绑定 |
+| `Localizable.strings` (en/zh) | dashboard.fileHistory 相关键 |
+| `DisksPage.swift` | 添加同步对后自动触发索引重建 |
+
+### 问题与解决
+1. **saveSyncHistory 失败路径 bug**: catch 块中 throw 在 saveSyncHistory 之前，导致失败时历史不记录。修复: 在 catch 块中也调用 saveSyncHistory
+2. **getIndexStats 超时**: 506K 文件响应需 18s，10s 默认超时不够。修复: 增加到 30s
+3. **ObjectBox EntityInspectable**: 新实体需要手动添加生成的绑定代码 (entity ID=4, index ID 7-10)
+
+### 编译结果
+- ✅ BUILD SUCCEEDED
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*

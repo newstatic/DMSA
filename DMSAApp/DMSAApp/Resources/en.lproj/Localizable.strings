@@ -184,6 +184,13 @@
 "settings.cache.clearAllConfirm" = "Are you sure you want to clear all cached files? This cannot be undone.";
 "settings.cache.fileCount" = "%d files";
 
+// Eviction settings (per sync pair)
+"settings.eviction.autoEnabled" = "Auto cleanup";
+"settings.eviction.maxCacheSize" = "Max local cache size";
+"settings.eviction.targetFreeSpace" = "Target free space";
+"settings.eviction.hint" = "When local cache exceeds the limit, old synced files will be removed to free up space.";
+"settings.eviction.unlimited" = "Unlimited";
+
 // MARK: - Notification Settings
 "settings.notifications.title" = "Notification Settings";
 "settings.notifications.enable" = "Enable notifications";
@@ -505,7 +512,11 @@
 // MARK: - Sidebar (v4.9)
 "sidebar.status.ready" = "Ready";
 "sidebar.status.syncing" = "Syncing";
+"sidebar.status.indexing" = "Indexing";
+"sidebar.status.starting" = "Starting";
 "sidebar.status.paused" = "Paused";
+"sidebar.status.reconnecting" = "Reconnecting";
+"service.error" = "Service Error";
 
 // MARK: - Dashboard Extended (v4.9)
 "dashboard.chip.files" = "Files";
@@ -519,12 +530,24 @@
 "dashboard.storage.localCache" = "Local Cache";
 "dashboard.recentActivity" = "Recent Activity";
 "dashboard.viewAll" = "View All";
+"dashboard.fileHistory" = "File Sync History";
+"dashboard.fileHistory.empty" = "No file sync records yet";
 "dashboard.status.connectDisk" = "Connect an external disk";
 "dashboard.status.allGood" = "All Good";
 "dashboard.status.allSynced" = "All Synced";
 "dashboard.status.hasConflicts" = "Conflicts Need Attention";
 "dashboard.status.progress" = "Sync Progress: %d%%";
 "dashboard.status.conflictsCount" = "%d Conflicts";
+"dashboard.status.starting" = "Starting";
+"dashboard.status.startingDesc" = "Service is starting...";
+"dashboard.status.indexing" = "Indexing";
+"dashboard.status.indexingDesc" = "Building file index...";
+"dashboard.status.reconnecting" = "Reconnecting";
+"dashboard.status.reconnectingDesc" = "Reconnecting to service...";
+"dashboard.status.preparing" = "Preparing";
+"dashboard.status.preparingDesc" = "Preparing service...";
+"dashboard.status.serviceUnavailable" = "Service Unavailable";
+"dashboard.status.serviceUnavailableDesc" = "Please check service status";
 "dashboard.time.now" = "Just now";
 
 // MARK: - Settings Sections (v4.9)
@@ -574,6 +597,16 @@
 "sync.status.clickToStart" = "Click to start sync";
 "sync.status.progress" = "Processed %d / %d files";
 "sync.status.paused" = "Paused";
+"sync.status.starting" = "Starting";
+"sync.status.startingDesc" = "Service is starting...";
+"sync.status.indexing" = "Indexing";
+"sync.status.indexingDesc" = "Building file index...";
+"sync.status.reconnecting" = "Reconnecting";
+"sync.status.reconnectingDesc" = "Reconnecting to service...";
+"sync.status.preparing" = "Preparing";
+"sync.status.preparingDesc" = "Preparing service...";
+"sync.status.serviceUnavailable" = "Service Unavailable";
+"sync.status.serviceUnavailableDesc" = "Please check service status";
 
 // MARK: - Disks Page Extended (v4.9)
 "disks.title" = "Disk Management";
@@ -610,6 +643,23 @@
 "disks.add.mountPath" = "Mount Path";
 "disks.add.priority" = "Priority";
 "disks.add.error.duplicate" = "This disk already exists";
+
+// MARK: - Sync Pair Management (v4.9)
+"disks.syncPair.add" = "Add Sync Pair";
+"disks.syncPair.add.title" = "Add Sync Pair";
+"disks.syncPair.delete" = "Delete";
+"disks.syncPair.delete.title" = "Delete Sync Pair";
+"disks.syncPair.delete.message" = "Are you sure you want to delete this sync pair? This will not delete files.";
+"disks.syncPair.localPath" = "Local Folder";
+"disks.syncPair.localPath.hint" = "Select the local folder to sync";
+"disks.syncPair.externalPath" = "External Folder";
+"disks.syncPair.externalPath.hint" = "Folder path on external disk";
+"disks.syncPair.cacheSettings" = "Cache Settings";
+"disks.syncPair.browse" = "Browse...";
+"disks.syncPair.id" = "Sync Pair ID";
+"disks.syncPair.indexing" = "Building index...";
+"disks.syncPair.indexComplete" = "Index complete";
+"disks.syncPair.indexFailed" = "Index failed";
 
 // MARK: - Conflicts Page (v4.9)
 "conflicts.title" = "Conflicts";

@@ -184,14 +184,124 @@ extension FileEntry {
     }
 }
 
+// MARK: - Eviction Types
+
+/// 淘汰配置
+struct EvictionConfig: Codable {
+    var triggerThreshold: Int64
+    var targetFreeSpace: Int64
+    var maxFilesPerRun: Int
+    var minFileAge: TimeInterval
+    var autoEvictionEnabled: Bool
+    var checkInterval: TimeInterval
+
+    init(triggerThreshold: Int64 = 5 * 1024 * 1024 * 1024,
+         targetFreeSpace: Int64 = 10 * 1024 * 1024 * 1024,
+         maxFilesPerRun: Int = 100,
+         minFileAge: TimeInterval = 3600,
+         autoEvictionEnabled: Bool = true,
+         checkInterval: TimeInterval = 300) {
+        self.triggerThreshold = triggerThreshold
+        self.targetFreeSpace = targetFreeSpace
+        self.maxFilesPerRun = maxFilesPerRun
+        self.minFileAge = minFileAge
+        self.autoEvictionEnabled = autoEvictionEnabled
+        self.checkInterval = checkInterval
+    }
+}
+
+/// 淘汰统计
+struct EvictionStats: Codable {
+    var evictedCount: Int
+    var evictedSize: Int64
+    var lastEvictionTime: Date?
+    var skippedDirty: Int
+    var skippedLocked: Int
+    var failedSync: Int
+
+    init(evictedCount: Int = 0,
+         evictedSize: Int64 = 0,
+         lastEvictionTime: Date? = nil,
+         skippedDirty: Int = 0,
+         skippedLocked: Int = 0,
+         failedSync: Int = 0) {
+        self.evictedCount = evictedCount
+        self.evictedSize = evictedSize
+        self.lastEvictionTime = lastEvictionTime
+        self.skippedDirty = skippedDirty
+        self.skippedLocked = skippedLocked
+        self.failedSync = failedSync
+    }
+}
+
+/// 淘汰结果
+struct EvictionResult: Codable {
+    var evictedFiles: [String]
+    var freedSpace: Int64
+    var errors: [String]
+
+    init(evictedFiles: [String] = [],
+         freedSpace: Int64 = 0,
+         errors: [String] = []) {
+        self.evictedFiles = evictedFiles
+        self.freedSpace = freedSpace
+        self.errors = errors
+    }
+}
+
+// MARK: - SyncFileRecord
+
+/// 文件级同步/淘汰记录 (App 端模型)
+struct SyncFileRecord: Codable, Identifiable {
+    var id: UInt64 = 0
+    var syncPairId: String = ""
+    var diskId: String = ""
+    var virtualPath: String = ""
+    var fileSize: Int64 = 0
+    var syncedAt: Date = Date()
+    /// 操作状态: 0=同步成功, 1=同步失败, 2=跳过, 3=淘汰成功, 4=淘汰失败
+    var status: Int = 0
+    var errorMessage: String?
+    var syncTaskId: UInt64 = 0
+
+    var statusDescription: String {
+        switch status {
+        case 0: return "同步成功"
+        case 1: return "同步失败"
+        case 2: return "跳过"
+        case 3: return "淘汰成功"
+        case 4: return "淘汰失败"
+        default: return "未知"
+        }
+    }
+
+    var isSuccess: Bool { status == 0 || status == 3 }
+    var isSync: Bool { status <= 2 }
+    var isEviction: Bool { status >= 3 }
+
+    var fileName: String {
+        (virtualPath as NSString).lastPathComponent
+    }
+
+    static func arrayFrom(data: Data) -> [SyncFileRecord] {
+        return (try? JSONDecoder().decode([SyncFileRecord].self, from: data)) ?? []
+    }
+}
+
 // MARK: - SyncHistory Extension
 
 extension SyncHistory {
     /// 从 Data 数组创建 SyncHistory 数组
     static func arrayFrom(data: Data) -> [SyncHistory] {
-        guard let histories = try? JSONDecoder().decode([SyncHistory].self, from: data) else {
+        do {
+            let histories = try JSONDecoder().decode([SyncHistory].self, from: data)
+            return histories
+        } catch {
+            Logger.shared.error("[SyncHistory] 解码失败: \(error)")
+            if let jsonStr = String(data: data, encoding: .utf8) {
+                Logger.shared.debug("[SyncHistory] 原始 JSON (前 500 字符): \(String(jsonStr.prefix(500)))")
+            }
             return []
         }
-        return histories
     }
 }

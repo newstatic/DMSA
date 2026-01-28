@@ -184,6 +184,13 @@
 "settings.cache.clearAllConfirm" = "确定要清理所有缓存文件吗？此操作无法撤销。";
 "settings.cache.fileCount" = "%d 个文件";
 
+// 淘汰设置 (每个同步对)
+"settings.eviction.autoEnabled" = "自动清理";
+"settings.eviction.maxCacheSize" = "本地缓存上限";
+"settings.eviction.targetFreeSpace" = "目标保留空间";
+"settings.eviction.hint" = "当本地缓存超过上限时，会自动删除已同步的旧文件以释放空间。";
+"settings.eviction.unlimited" = "无限制";
+
 // MARK: - Notification Settings
 "settings.notifications.title" = "通知设置";
 "settings.notifications.enable" = "启用通知";
@@ -505,7 +512,11 @@
 // MARK: - Sidebar (v4.9)
 "sidebar.status.ready" = "准备就绪";
 "sidebar.status.syncing" = "同步中";
+"sidebar.status.indexing" = "索引中";
+"sidebar.status.starting" = "启动中";
 "sidebar.status.paused" = "已暂停";
+"sidebar.status.reconnecting" = "重连中";
+"service.error" = "服务错误";
 
 // MARK: - Dashboard Extended (v4.9)
 "dashboard.chip.files" = "文件";
@@ -519,12 +530,24 @@
 "dashboard.storage.localCache" = "本地缓存";
 "dashboard.recentActivity" = "最近活动";
 "dashboard.viewAll" = "查看全部";
+"dashboard.fileHistory" = "文件同步记录";
+"dashboard.fileHistory.empty" = "暂无文件同步记录";
 "dashboard.status.connectDisk" = "请连接外置硬盘";
 "dashboard.status.allGood" = "一切正常";
 "dashboard.status.allSynced" = "已全部同步";
 "dashboard.status.hasConflicts" = "有冲突待处理";
 "dashboard.status.progress" = "同步进度: %d%%";
 "dashboard.status.conflictsCount" = "%d 个冲突";
+"dashboard.status.starting" = "启动中";
+"dashboard.status.startingDesc" = "服务正在启动...";
+"dashboard.status.indexing" = "索引中";
+"dashboard.status.indexingDesc" = "正在构建文件索引...";
+"dashboard.status.reconnecting" = "重连中";
+"dashboard.status.reconnectingDesc" = "正在重新连接服务...";
+"dashboard.status.preparing" = "准备中";
+"dashboard.status.preparingDesc" = "正在准备服务...";
+"dashboard.status.serviceUnavailable" = "服务不可用";
+"dashboard.status.serviceUnavailableDesc" = "请检查服务状态";
 "dashboard.time.now" = "刚刚";
 
 // MARK: - Settings Sections (v4.9)
@@ -574,6 +597,16 @@
 "sync.status.clickToStart" = "点击开始同步";
 "sync.status.progress" = "已处理 %d / %d 文件";
 "sync.status.paused" = "已暂停";
+"sync.status.starting" = "启动中";
+"sync.status.startingDesc" = "服务正在启动...";
+"sync.status.indexing" = "索引中";
+"sync.status.indexingDesc" = "正在构建文件索引...";
+"sync.status.reconnecting" = "重连中";
+"sync.status.reconnectingDesc" = "正在重新连接服务...";
+"sync.status.preparing" = "准备中";
+"sync.status.preparingDesc" = "正在准备服务...";
+"sync.status.serviceUnavailable" = "服务不可用";
+"sync.status.serviceUnavailableDesc" = "请检查服务状态";
 
 // MARK: - Disks Page Extended (v4.9)
 "disks.title" = "磁盘管理";
@@ -610,6 +643,23 @@
 "disks.add.mountPath" = "挂载路径";
 "disks.add.priority" = "优先级";
 "disks.add.error.duplicate" = "此磁盘已存在";
+
+// MARK: - Sync Pair Management (v4.9)
+"disks.syncPair.add" = "添加同步对";
+"disks.syncPair.add.title" = "添加同步对";
+"disks.syncPair.delete" = "删除";
+"disks.syncPair.delete.title" = "删除同步对";
+"disks.syncPair.delete.message" = "确定要删除此同步对吗？此操作不会删除文件。";
+"disks.syncPair.localPath" = "本地文件夹";
+"disks.syncPair.localPath.hint" = "选择要同步的本地文件夹";
+"disks.syncPair.externalPath" = "外置文件夹";
+"disks.syncPair.externalPath.hint" = "外置磁盘上的文件夹路径";
+"disks.syncPair.cacheSettings" = "缓存设置";
+"disks.syncPair.browse" = "浏览...";
+"disks.syncPair.id" = "同步对 ID";
+"disks.syncPair.indexing" = "正在构建索引...";
+"disks.syncPair.indexComplete" = "索引完成";
+"disks.syncPair.indexFailed" = "索引失败";
 
 // MARK: - Conflicts Page (v4.9)
 "conflicts.title" = "冲突";

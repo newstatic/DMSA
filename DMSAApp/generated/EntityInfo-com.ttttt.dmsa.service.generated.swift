@@ -878,6 +878,120 @@ internal final class ServiceSyncStatisticsBinding: ObjectBox.EntityBinding, Send
 }
 
 
+extension ServiceSyncFileRecord: ObjectBox.__EntityRelatable {
+    internal typealias EntityType = ServiceSyncFileRecord
+
+    internal var _id: EntityId<ServiceSyncFileRecord> {
+        return EntityId<ServiceSyncFileRecord>(self.id.value)
+    }
+}
+
+extension ServiceSyncFileRecord: ObjectBox.EntityInspectable {
+    internal typealias EntityBindingType = ServiceSyncFileRecordBinding
+
+    /// Generated metadata used by ObjectBox to persist the entity.
+    internal static let entityInfo = ObjectBox.EntityInfo(name: "ServiceSyncFileRecord", id: 4)
+
+    internal static let entityBinding = EntityBindingType()
+
+    fileprivate static func buildEntity(modelBuilder: ObjectBox.ModelBuilder) throws {
+        let entityBuilder = try modelBuilder.entityBuilder(for: ServiceSyncFileRecord.self, id: 4, uid: 3847291056482719744)
+        try entityBuilder.addProperty(name: "id", type: PropertyType.long, flags: [.id], id: 1, uid: 5182736401928345600)
+        try entityBuilder.addProperty(name: "syncPairId", type: PropertyType.string, flags: [.indexHash, .indexed], id: 2, uid: 7293841502637184000, indexId: 7, indexUid: 4519283746102938624)
+        try entityBuilder.addProperty(name: "diskId", type: PropertyType.string, flags: [.indexHash, .indexed], id: 3, uid: 8401927365482918912, indexId: 8, indexUid: 6738291045827364864)
+        try entityBuilder.addProperty(name: "virtualPath", type: PropertyType.string, flags: [.indexHash, .indexed], id: 4, uid: 1928374650192837632, indexId: 9, indexUid: 8192736450182736384)
+        try entityBuilder.addProperty(name: "fileSize", type: PropertyType.long, id: 5, uid: 3019284756019283456)
+        try entityBuilder.addProperty(name: "syncedAt", type: PropertyType.date, flags: [.indexed], id: 6, uid: 4102938475601928192, indexId: 10, indexUid: 9283746501928374272)
+        try entityBuilder.addProperty(name: "status", type: PropertyType.long, id: 7, uid: 5201938475610293760)
+        try entityBuilder.addProperty(name: "errorMessage", type: PropertyType.string, id: 8, uid: 6302948576710394368)
+        try entityBuilder.addProperty(name: "syncTaskId", type: PropertyType.long, id: 9, uid: 7403958677810495488)
+
+        try entityBuilder.lastProperty(id: 9, uid: 7403958677810495488)
+    }
+}
+
+extension ServiceSyncFileRecord {
+    internal static var id: Property<ServiceSyncFileRecord, Id, Id> { return Property<ServiceSyncFileRecord, Id, Id>(propertyId: 1, isPrimaryKey: true) }
+    internal static var syncPairId: Property<ServiceSyncFileRecord, String, Void> { return Property<ServiceSyncFileRecord, String, Void>(propertyId: 2, isPrimaryKey: false) }
+    internal static var diskId: Property<ServiceSyncFileRecord, String, Void> { return Property<ServiceSyncFileRecord, String, Void>(propertyId: 3, isPrimaryKey: false) }
+    internal static var virtualPath: Property<ServiceSyncFileRecord, String, Void> { return Property<ServiceSyncFileRecord, String, Void>(propertyId: 4, isPrimaryKey: false) }
+    internal static var fileSize: Property<ServiceSyncFileRecord, Int64, Void> { return Property<ServiceSyncFileRecord, Int64, Void>(propertyId: 5, isPrimaryKey: false) }
+    internal static var syncedAt: Property<ServiceSyncFileRecord, Date, Void> { return Property<ServiceSyncFileRecord, Date, Void>(propertyId: 6, isPrimaryKey: false) }
+    internal static var status: Property<ServiceSyncFileRecord, Int, Void> { return Property<ServiceSyncFileRecord, Int, Void>(propertyId: 7, isPrimaryKey: false) }
+    internal static var errorMessage: Property<ServiceSyncFileRecord, String?, Void> { return Property<ServiceSyncFileRecord, String?, Void>(propertyId: 8, isPrimaryKey: false) }
+    internal static var syncTaskId: Property<ServiceSyncFileRecord, UInt64, Void> { return Property<ServiceSyncFileRecord, UInt64, Void>(propertyId: 9, isPrimaryKey: false) }
+
+    fileprivate func __setId(identifier: ObjectBox.Id) {
+        self.id = Id(identifier)
+    }
+}
+
+extension ObjectBox.Property where E == ServiceSyncFileRecord {
+    internal static var id: Property<ServiceSyncFileRecord, Id, Id> { return Property<ServiceSyncFileRecord, Id, Id>(propertyId: 1, isPrimaryKey: true) }
+    internal static var syncPairId: Property<ServiceSyncFileRecord, String, Void> { return Property<ServiceSyncFileRecord, String, Void>(propertyId: 2, isPrimaryKey: false) }
+    internal static var diskId: Property<ServiceSyncFileRecord, String, Void> { return Property<ServiceSyncFileRecord, String, Void>(propertyId: 3, isPrimaryKey: false) }
+    internal static var virtualPath: Property<ServiceSyncFileRecord, String, Void> { return Property<ServiceSyncFileRecord, String, Void>(propertyId: 4, isPrimaryKey: false) }
+    internal static var fileSize: Property<ServiceSyncFileRecord, Int64, Void> { return Property<ServiceSyncFileRecord, Int64, Void>(propertyId: 5, isPrimaryKey: false) }
+    internal static var syncedAt: Property<ServiceSyncFileRecord, Date, Void> { return Property<ServiceSyncFileRecord, Date, Void>(propertyId: 6, isPrimaryKey: false) }
+    internal static var status: Property<ServiceSyncFileRecord, Int, Void> { return Property<ServiceSyncFileRecord, Int, Void>(propertyId: 7, isPrimaryKey: false) }
+    internal static var errorMessage: Property<ServiceSyncFileRecord, String?, Void> { return Property<ServiceSyncFileRecord, String?, Void>(propertyId: 8, isPrimaryKey: false) }
+    internal static var syncTaskId: Property<ServiceSyncFileRecord, UInt64, Void> { return Property<ServiceSyncFileRecord, UInt64, Void>(propertyId: 9, isPrimaryKey: false) }
+}
+
+
+/// Generated service type to handle persisting and reading entity data. Exposed through `ServiceSyncFileRecord.EntityBindingType`.
+internal final class ServiceSyncFileRecordBinding: ObjectBox.EntityBinding, Sendable {
+    internal typealias EntityType = ServiceSyncFileRecord
+    internal typealias IdType = Id
+
+    internal required init() {}
+
+    internal func generatorBindingVersion() -> Int { 1 }
+
+    internal func setEntityIdUnlessStruct(of entity: EntityType, to entityId: ObjectBox.Id) {
+        entity.__setId(identifier: entityId)
+    }
+
+    internal func entityId(of entity: EntityType) -> ObjectBox.Id {
+        return entity.id.value
+    }
+
+    internal func collect(fromEntity entity: EntityType, id: ObjectBox.Id,
+                                  propertyCollector: ObjectBox.FlatBufferBuilder, store: ObjectBox.Store) throws {
+        let propertyOffset_syncPairId = propertyCollector.prepare(string: entity.syncPairId)
+        let propertyOffset_diskId = propertyCollector.prepare(string: entity.diskId)
+        let propertyOffset_virtualPath = propertyCollector.prepare(string: entity.virtualPath)
+        let propertyOffset_errorMessage = propertyCollector.prepare(string: entity.errorMessage)
+
+        propertyCollector.collect(id, at: 2 + 2 * 1)
+        propertyCollector.collect(entity.fileSize, at: 2 + 2 * 5)
+        propertyCollector.collect(entity.syncedAt, at: 2 + 2 * 6)
+        propertyCollector.collect(entity.status, at: 2 + 2 * 7)
+        propertyCollector.collect(entity.syncTaskId, at: 2 + 2 * 9)
+        propertyCollector.collect(dataOffset: propertyOffset_syncPairId, at: 2 + 2 * 2)
+        propertyCollector.collect(dataOffset: propertyOffset_diskId, at: 2 + 2 * 3)
+        propertyCollector.collect(dataOffset: propertyOffset_virtualPath, at: 2 + 2 * 4)
+        propertyCollector.collect(dataOffset: propertyOffset_errorMessage, at: 2 + 2 * 8)
+    }
+
+    internal func createEntity(entityReader: ObjectBox.FlatBufferReader, store: ObjectBox.Store) -> EntityType {
+        let entity = ServiceSyncFileRecord()
+
+        entity.id = entityReader.read(at: 2 + 2 * 1)
+        entity.syncPairId = entityReader.read(at: 2 + 2 * 2)
+        entity.diskId = entityReader.read(at: 2 + 2 * 3)
+        entity.virtualPath = entityReader.read(at: 2 + 2 * 4)
+        entity.fileSize = entityReader.read(at: 2 + 2 * 5)
+        entity.syncedAt = entityReader.read(at: 2 + 2 * 6)
+        entity.status = entityReader.read(at: 2 + 2 * 7)
+        entity.errorMessage = entityReader.read(at: 2 + 2 * 8)
+        entity.syncTaskId = entityReader.read(at: 2 + 2 * 9)
+
+        return entity
+    }
+}
+
+
 /// Helper function that allows calling Enum(rawValue: value) with a nil value, which will return nil.
 fileprivate func optConstruct<T: RawRepresentable>(_ type: T.Type, rawValue: T.RawValue?) -> T? {
     guard let rawValue = rawValue else { return nil }
@@ -891,8 +1005,9 @@ fileprivate func cModel() throws -> OpaquePointer {
     try ServiceFileEntry.buildEntity(modelBuilder: modelBuilder)
     try ServiceSyncHistory.buildEntity(modelBuilder: modelBuilder)
     try ServiceSyncStatistics.buildEntity(modelBuilder: modelBuilder)
-    modelBuilder.lastEntity(id: 3, uid: 6794996534435832064)
-    modelBuilder.lastIndex(id: 6, uid: 2853245467694275072)
+    try ServiceSyncFileRecord.buildEntity(modelBuilder: modelBuilder)
+    modelBuilder.lastEntity(id: 4, uid: 3847291056482719744)
+    modelBuilder.lastIndex(id: 10, uid: 9283746501928374272)
     return modelBuilder.finish()
 }
 
