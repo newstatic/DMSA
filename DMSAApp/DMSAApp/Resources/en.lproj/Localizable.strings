@@ -252,9 +252,7 @@
 // Permission Management
 "settings.advanced.permissions" = "Permission Management";
 "settings.advanced.fullDiskAccess" = "Full Disk Access";
-"settings.advanced.fullDiskAccessHint" = "Required for accessing protected directories like Downloads";
 "settings.advanced.notificationPermission" = "Notification Permission";
-"settings.advanced.notificationPermissionHint" = "Required for sync completion and error notifications";
 "settings.advanced.authorize" = "Authorize";
 "settings.advanced.reauthorize" = "Re-authorize";
 "settings.advanced.refreshPermissions" = "Refresh Permission Status";
@@ -432,45 +430,8 @@
 "time.hoursAgo" = "%d hours ago";
 "time.daysAgo" = "%d days ago";
 
-// MARK: - Statistics
-"settings.statistics.title" = "Statistics Dashboard";
-"settings.statistics.overview" = "Overview";
-"settings.statistics.trends" = "Trends";
-"settings.statistics.export" = "Export Data";
-"settings.statistics.timeRange" = "Time Range";
-"settings.statistics.disk" = "Disk";
-"settings.statistics.refresh" = "Refresh";
-"settings.statistics.totalSyncs" = "Total Syncs";
-"settings.statistics.successRate" = "Success Rate";
-"settings.statistics.totalData" = "Total Data";
-"settings.statistics.avgSpeed" = "Avg Speed";
-"settings.statistics.syncFrequency" = "Sync Frequency";
-"settings.statistics.dataVolume" = "Data Volume";
-"settings.statistics.noData" = "No statistics data available";
-"settings.statistics.exportFormat" = "Export Format";
-"settings.statistics.exportData" = "Export Data";
-"settings.statistics.today" = "Today";
-"settings.statistics.syncs" = "syncs";
-
-// MARK: - Units
-"unit.bytes" = "B";
-"unit.kb" = "KB";
-"unit.mb" = "MB";
-"unit.gb" = "GB";
-"unit.tb" = "TB";
-"unit.files" = "files";
-"unit.seconds" = "s";
-"unit.minutes" = "min";
-
 // MARK: - Menu Bar (New)
 "menu.autoSync" = "Auto Sync";
-"menu.autoSyncEnabled" = "Auto Sync: On";
-"menu.autoSyncDisabled" = "Auto Sync: Off";
-
-// MARK: - Settings Tabs (New)
-"settings.notificationHistory" = "Notification History";
-"settings.logs" = "Logs";
-"settings.history" = "Sync History";
 
 // MARK: - Logs View
 "logs.level" = "Level";
@@ -484,32 +445,6 @@
 "logs.openAppLog" = "App Log";
 "logs.openServiceLog" = "Service Log";
 
-// MARK: - Notifications History View
-"notifications.allTypes" = "All Types";
-"notifications.unread" = "%d unread";
-"notifications.markAllRead" = "Mark All Read";
-"notifications.noRecords" = "No notification records";
-"notifications.totalCount" = "%d notifications";
-"notifications.clearHistory" = "Clear Notification History";
-"notifications.clearHistoryConfirm" = "Are you sure you want to clear all notification history? This cannot be undone.";
-
-// MARK: - Notification Detail
-"notifications.detail.title" = "Notification Details";
-"notifications.detail.notificationTitle" = "Title";
-"notifications.detail.content" = "Content";
-"notifications.detail.time" = "Time";
-"notifications.detail.type" = "Type";
-"notifications.detail.additionalInfo" = "Additional Info";
-
-// MARK: - Notification Types
-"notification.type.syncCompleted" = "Sync Completed";
-"notification.type.syncFailed" = "Sync Failed";
-"notification.type.syncStarted" = "Sync Started";
-"notification.type.diskConnected" = "Disk Connected";
-"notification.type.diskDisconnected" = "Disk Disconnected";
-"notification.type.cacheWarning" = "Cache Warning";
-"notification.type.error" = "Error";
-
 // MARK: - Notification Actions
 "notification.action.openSettings" = "Open Settings";
 "notification.action.openDiskSettings" = "Open Disk Settings";
@@ -517,32 +452,11 @@
 "notification.action.openLogs" = "Open Logs";
 "notification.action.openHistory" = "Open History";
 
-// MARK: - Dashboard
-"dashboard.title" = "Dashboard";
-"dashboard.today" = "Today";
-"dashboard.syncControl" = "Sync Control";
-"dashboard.diskStatus" = "Disk Status";
-"dashboard.quickStats" = "Quick Stats";
+// MARK: - Dashboard (Legacy - kept for compatibility)
 "dashboard.recentActivity" = "Recent Activity";
-"dashboard.noDisksConfigured" = "No disks configured. Add one in Disk settings.";
-"dashboard.noRecentActivity" = "No sync history yet";
-"dashboard.startSync" = "Start Sync";
-"dashboard.pause" = "Pause";
-"dashboard.resume" = "Resume";
-"dashboard.stop" = "Stop";
-"dashboard.status.ready" = "Ready";
 "dashboard.status.syncing" = "Syncing...";
 "dashboard.status.paused" = "Paused";
 "dashboard.status.noDisk" = "No disk connected";
-"dashboard.status.starting" = "Starting...";
-"dashboard.totalSyncs" = "Total Syncs";
-"dashboard.successRate" = "Success Rate";
-"dashboard.filesTransferred" = "Files";
-"dashboard.dataTransferred" = "Data";
-"dashboard.available" = "available";
-"dashboard.notConnected" = "Not connected";
-"dashboard.loading" = "Loading...";
-"dashboard.files" = "files";
 
 // MARK: - Alert Messages
 "alert.viewLogs" = "View Logs";
@@ -575,3 +489,183 @@
 "fuse.status.loadError" = "Failed to load macFUSE";
 "common.later" = "Later";
 "common.quit" = "Quit";
+"common.granted" = "Granted";
+"common.notGranted" = "Not Granted";
+"common.authorize" = "Authorize";
+
+// MARK: - Navigation (v4.9)
+"nav.dashboard" = "Dashboard";
+"nav.sync" = "Sync";
+"nav.conflicts" = "Conflicts";
+"nav.disks" = "Disks";
+"nav.settings" = "Settings";
+"nav.logs" = "Logs";
+"nav.badge.syncing" = "Syncing";
+
+// MARK: - Sidebar (v4.9)
+"sidebar.status.ready" = "Ready";
+"sidebar.status.syncing" = "Syncing";
+"sidebar.status.paused" = "Paused";
+
+// MARK: - Dashboard Extended (v4.9)
+"dashboard.chip.files" = "Files";
+"dashboard.chip.disks" = "Disks";
+"dashboard.chip.lastSync" = "Last Sync";
+"dashboard.quickActions" = "Quick Actions";
+"dashboard.action.syncNow" = "Sync Now";
+"dashboard.action.addDisk" = "Add Disk";
+"dashboard.action.openDownloads" = "Open Downloads";
+"dashboard.storage" = "Storage";
+"dashboard.storage.localCache" = "Local Cache";
+"dashboard.recentActivity" = "Recent Activity";
+"dashboard.viewAll" = "View All";
+"dashboard.status.connectDisk" = "Connect an external disk";
+"dashboard.status.allGood" = "All Good";
+"dashboard.status.allSynced" = "All Synced";
+"dashboard.status.hasConflicts" = "Conflicts Need Attention";
+"dashboard.status.progress" = "Sync Progress: %d%%";
+"dashboard.status.conflictsCount" = "%d Conflicts";
+"dashboard.time.now" = "Just now";
+
+// MARK: - Settings Sections (v4.9)
+"settings.section.general" = "General";
+"settings.section.sync" = "Sync";
+"settings.section.filters" = "Filters";
+"settings.section.notifications" = "Notifications";
+"settings.section.vfs" = "Virtual File System";
+"settings.section.advanced" = "Advanced";
+
+// MARK: - Settings Sync (v4.9)
+"settings.sync.behavior" = "Sync Behavior";
+"settings.sync.options" = "Sync Options";
+"settings.sync.conflict" = "Conflict Resolution";
+
+// MARK: - Settings Filters Extended (v4.9)
+"settings.filters.excludePatterns" = "Exclude Patterns";
+"settings.filters.sizeFilters" = "File Size Filters";
+
+// MARK: - Settings Notifications Extended (v4.9)
+"settings.notifications.sound" = "Sound";
+"settings.notifications.testMessage" = "This is a test notification";
+
+// MARK: - Settings VFS (v4.9)
+"settings.vfs.downloadMacFUSE" = "Download macFUSE";
+"settings.vfs.service" = "Service Status";
+"settings.vfs.installService" = "Install Service";
+"settings.vfs.reinstallService" = "Reinstall Service";
+"settings.vfs.mounts" = "Mount Points";
+"settings.vfs.noMounts" = "No Active Mounts";
+
+// MARK: - Sync Page Extended (v4.9)
+"sync.resume" = "Resume";
+"sync.pause" = "Pause";
+"sync.cancel" = "Cancel";
+"sync.start" = "Start Sync";
+"sync.stats.processed" = "Processed";
+"sync.stats.transferred" = "Transferred";
+"sync.stats.speed" = "Speed";
+"sync.stats.remaining" = "Remaining";
+"sync.currentFile" = "Current File";
+"sync.failedFiles" = "Failed Files";
+"sync.retryAll" = "Retry All";
+"sync.history" = "Sync History";
+"sync.history.empty" = "No sync history yet";
+"sync.status.tapToResume" = "Tap to resume sync";
+"sync.status.clickToStart" = "Click to start sync";
+"sync.status.progress" = "Processed %d / %d files";
+"sync.status.paused" = "Paused";
+
+// MARK: - Disks Page Extended (v4.9)
+"disks.title" = "Disk Management";
+"disks.add" = "Add Disk";
+"disks.section.connected" = "Connected";
+"disks.section.disconnected" = "Disconnected";
+"disks.select.prompt" = "Select a disk to view details";
+"disks.status.connected" = "Connected";
+"disks.status.disconnected" = "Disconnected";
+"disks.storage" = "Storage Info";
+"disks.storage.used" = "Used";
+"disks.storage.available" = "Available";
+"disks.storage.total" = "Total";
+"disks.configuration" = "Configuration";
+"disks.mountPath" = "Mount Path";
+"disks.priority" = "Priority";
+"disks.priority.hint" = "Lower number = higher priority";
+"disks.syncPairs" = "Sync Pairs";
+"disks.syncPairs.empty" = "No sync pairs configured";
+"disks.test" = "Test Connection";
+"disks.openInFinder" = "Open in Finder";
+"disks.delete" = "Delete Disk";
+"disks.delete.confirm.title" = "Delete Disk";
+"disks.delete.confirm.message" = "Are you sure you want to delete disk %@? This will not delete files on the disk.";
+"disks.test.success.title" = "Connection Successful";
+"disks.test.success.message" = "Disk is accessible";
+"disks.test.failed.title" = "Connection Failed";
+"disks.test.failed.message" = "Cannot access disk";
+"disks.name" = "Name";
+"disks.empty.title" = "No Disks Configured";
+"disks.empty.message" = "Add an external disk to start syncing";
+"disks.add.title" = "Add Disk";
+"disks.add.name" = "Disk Name";
+"disks.add.mountPath" = "Mount Path";
+"disks.add.priority" = "Priority";
+"disks.add.error.duplicate" = "This disk already exists";
+
+// MARK: - Conflicts Page (v4.9)
+"conflicts.title" = "Conflicts";
+"conflicts.subtitle" = "%d conflicts need attention";
+"conflicts.search" = "Search conflicts...";
+"conflicts.resolveAll" = "Resolve All";
+"conflicts.resolveAllLocal" = "Keep All Local";
+"conflicts.resolveAllExternal" = "Keep All External";
+"conflicts.resolveAllBoth" = "Keep Both";
+"conflicts.empty.title" = "No Conflicts";
+"conflicts.empty.message" = "All files are synced without conflicts";
+"conflict.local" = "Local Version";
+"conflict.external" = "External Version";
+"conflict.keepLocal" = "Keep Local";
+"conflict.keepExternal" = "Keep External";
+"conflict.keepBoth" = "Keep Both";
+"conflict.revealLocal" = "Show Local File";
+"conflict.revealExternal" = "Show External File";
+"conflict.showDiff" = "Show Diff";
+
+// MARK: - Activity (v4.9)
+"activity.empty" = "No activity yet";
+
+// MARK: - Menu Bar Extended (v4.9)
+"menu.openDashboard" = "Open Dashboard";
+"menu.openDisks" = "Open Disk Management";
+"menu.viewConflicts" = "View Conflicts (%d)";
+
+// MARK: - Sidebar Extended (v4.9)
+"sidebar.status.unavailable" = "Service Unavailable";
+
+// MARK: - Alert Extended (v4.9)
+"alert.dismiss" = "Dismiss";
+"alert.ok" = "OK";
+
+// MARK: - Disk Extended (v4.9)
+"disk.connected" = "Connected";
+"disk.disconnected" = "Disconnected";
+
+// MARK: - Error Extended (v4.9)
+"error.critical" = "Critical Error";
+"error.critical.title" = "A Critical Error Occurred";
+"warning" = "Warning";
+
+// MARK: - Conflict Extended (v4.9)
+"conflict.detected" = "Conflict Detected";
+"conflict.detected.message" = "File %@ has a conflict that needs manual resolution";
+
+// MARK: - Sync Extended (v4.9)
+"sync.completed" = "Sync Completed";
+"sync.completed.files" = "Synced %d files";
+"sync.completed.message" = "Sync completed successfully";
+"sync.error" = "Sync Error";
+"sync.error.message" = "An error occurred during sync";
+"sync.error.unknown" = "Unknown sync error";
+
+// MARK: - Recovery Extended (v4.9)
+"recovery.reconnect" = "Reconnect";
+"recovery.retry" = "Retry";

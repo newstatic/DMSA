@@ -356,6 +356,8 @@ tail -f ~/Library/Logs/DMSA/app.log
 | 7ec270c8 | 2026-01-28 | DMSAApp 编译修复 | 修复 P0 类型错误，SyncStatus 枚举修复，Color 扩展 |
 | 7ec270c8 | 2026-01-28 | pbxproj_tool 完善 | Ruby 编码修复 + smart-fix 智能修复命令 |
 | 7ec270c8 | 2026-01-28 | UI + App 功能核对 | 生成 27_UI核对报告.md + 28_App功能核对报告.md |
+| 7ec270c8 | 2026-01-28 | i18n 修复 + 清理 | 添加 150+ 缺失本地化键，删除 78 个未使用键 |
+| 7ec270c8 | 2026-01-28 | 磁盘状态同步修复 | DashboardView 与 DisksPage 状态不同步问题 |
 
 ---
 

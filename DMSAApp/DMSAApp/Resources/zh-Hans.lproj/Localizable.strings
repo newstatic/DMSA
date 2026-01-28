@@ -252,9 +252,7 @@
 // 权限管理
 "settings.advanced.permissions" = "权限管理";
 "settings.advanced.fullDiskAccess" = "完全磁盘访问权限";
-"settings.advanced.fullDiskAccessHint" = "用于访问 Downloads 等受保护目录";
 "settings.advanced.notificationPermission" = "通知权限";
-"settings.advanced.notificationPermissionHint" = "用于同步完成、错误提醒等通知";
 "settings.advanced.authorize" = "授权";
 "settings.advanced.reauthorize" = "重新授权";
 "settings.advanced.refreshPermissions" = "刷新权限状态";
@@ -432,45 +430,8 @@
 "time.hoursAgo" = "%d 小时前";
 "time.daysAgo" = "%d 天前";
 
-// MARK: - Statistics
-"settings.statistics.title" = "统计面板";
-"settings.statistics.overview" = "概览";
-"settings.statistics.trends" = "趋势";
-"settings.statistics.export" = "导出数据";
-"settings.statistics.timeRange" = "时间范围";
-"settings.statistics.disk" = "硬盘";
-"settings.statistics.refresh" = "刷新";
-"settings.statistics.totalSyncs" = "总同步次数";
-"settings.statistics.successRate" = "成功率";
-"settings.statistics.totalData" = "总数据量";
-"settings.statistics.avgSpeed" = "平均速度";
-"settings.statistics.syncFrequency" = "同步频率";
-"settings.statistics.dataVolume" = "数据量";
-"settings.statistics.noData" = "暂无统计数据";
-"settings.statistics.exportFormat" = "导出格式";
-"settings.statistics.exportData" = "导出数据";
-"settings.statistics.today" = "今天";
-"settings.statistics.syncs" = "次同步";
-
-// MARK: - Units
-"unit.bytes" = "B";
-"unit.kb" = "KB";
-"unit.mb" = "MB";
-"unit.gb" = "GB";
-"unit.tb" = "TB";
-"unit.files" = "个文件";
-"unit.seconds" = "秒";
-"unit.minutes" = "分钟";
-
 // MARK: - Menu Bar (New)
 "menu.autoSync" = "自动同步";
-"menu.autoSyncEnabled" = "自动同步: 开启";
-"menu.autoSyncDisabled" = "自动同步: 关闭";
-
-// MARK: - Settings Tabs (New)
-"settings.notificationHistory" = "通知记录";
-"settings.logs" = "日志";
-"settings.history" = "同步历史";
 
 // MARK: - Logs View
 "logs.level" = "级别";
@@ -484,32 +445,6 @@
 "logs.openAppLog" = "App 日志";
 "logs.openServiceLog" = "Service 日志";
 
-// MARK: - Notifications History View
-"notifications.allTypes" = "全部类型";
-"notifications.unread" = "%d 条未读";
-"notifications.markAllRead" = "全部标记已读";
-"notifications.noRecords" = "暂无通知记录";
-"notifications.totalCount" = "共 %d 条通知";
-"notifications.clearHistory" = "清除通知记录";
-"notifications.clearHistoryConfirm" = "确定要清除所有通知记录吗？此操作无法撤销。";
-
-// MARK: - Notification Detail
-"notifications.detail.title" = "通知详情";
-"notifications.detail.notificationTitle" = "标题";
-"notifications.detail.content" = "内容";
-"notifications.detail.time" = "时间";
-"notifications.detail.type" = "类型";
-"notifications.detail.additionalInfo" = "附加信息";
-
-// MARK: - Notification Types
-"notification.type.syncCompleted" = "同步完成";
-"notification.type.syncFailed" = "同步失败";
-"notification.type.syncStarted" = "同步开始";
-"notification.type.diskConnected" = "硬盘已连接";
-"notification.type.diskDisconnected" = "硬盘已断开";
-"notification.type.cacheWarning" = "缓存警告";
-"notification.type.error" = "错误";
-
 // MARK: - Notification Actions
 "notification.action.openSettings" = "打开设置";
 "notification.action.openDiskSettings" = "打开硬盘设置";
@@ -517,32 +452,11 @@
 "notification.action.openLogs" = "打开日志";
 "notification.action.openHistory" = "打开历史";
 
-// MARK: - Dashboard
-"dashboard.title" = "首页";
-"dashboard.today" = "今天";
-"dashboard.syncControl" = "同步控制";
-"dashboard.diskStatus" = "硬盘状态";
-"dashboard.quickStats" = "快速统计";
+// MARK: - Dashboard (Legacy - kept for compatibility)
 "dashboard.recentActivity" = "最近活动";
-"dashboard.noDisksConfigured" = "未配置硬盘，请在「硬盘」设置中添加";
-"dashboard.noRecentActivity" = "暂无同步记录";
-"dashboard.startSync" = "开始同步";
-"dashboard.pause" = "暂停";
-"dashboard.resume" = "继续";
-"dashboard.stop" = "停止";
-"dashboard.status.ready" = "准备就绪";
 "dashboard.status.syncing" = "正在同步...";
 "dashboard.status.paused" = "已暂停";
 "dashboard.status.noDisk" = "无硬盘连接";
-"dashboard.status.starting" = "正在启动...";
-"dashboard.totalSyncs" = "同步次数";
-"dashboard.successRate" = "成功率";
-"dashboard.filesTransferred" = "文件数";
-"dashboard.dataTransferred" = "传输量";
-"dashboard.available" = "可用";
-"dashboard.notConnected" = "未连接";
-"dashboard.loading" = "加载中...";
-"dashboard.files" = "个文件";
 
 // MARK: - Alert Messages
 "alert.viewLogs" = "查看日志";
@@ -575,3 +489,183 @@
 "fuse.status.loadError" = "加载 macFUSE 失败";
 "common.later" = "稍后";
 "common.quit" = "退出";
+"common.granted" = "已授权";
+"common.notGranted" = "未授权";
+"common.authorize" = "授权";
+
+// MARK: - Navigation (v4.9)
+"nav.dashboard" = "仪表盘";
+"nav.sync" = "同步";
+"nav.conflicts" = "冲突";
+"nav.disks" = "磁盘";
+"nav.settings" = "设置";
+"nav.logs" = "日志";
+"nav.badge.syncing" = "同步中";
+
+// MARK: - Sidebar (v4.9)
+"sidebar.status.ready" = "准备就绪";
+"sidebar.status.syncing" = "同步中";
+"sidebar.status.paused" = "已暂停";
+
+// MARK: - Dashboard Extended (v4.9)
+"dashboard.chip.files" = "文件";
+"dashboard.chip.disks" = "磁盘";
+"dashboard.chip.lastSync" = "上次同步";
+"dashboard.quickActions" = "快捷操作";
+"dashboard.action.syncNow" = "立即同步";
+"dashboard.action.addDisk" = "添加磁盘";
+"dashboard.action.openDownloads" = "打开 Downloads";
+"dashboard.storage" = "存储空间";
+"dashboard.storage.localCache" = "本地缓存";
+"dashboard.recentActivity" = "最近活动";
+"dashboard.viewAll" = "查看全部";
+"dashboard.status.connectDisk" = "请连接外置硬盘";
+"dashboard.status.allGood" = "一切正常";
+"dashboard.status.allSynced" = "已全部同步";
+"dashboard.status.hasConflicts" = "有冲突待处理";
+"dashboard.status.progress" = "同步进度: %d%%";
+"dashboard.status.conflictsCount" = "%d 个冲突";
+"dashboard.time.now" = "刚刚";
+
+// MARK: - Settings Sections (v4.9)
+"settings.section.general" = "通用";
+"settings.section.sync" = "同步";
+"settings.section.filters" = "过滤";
+"settings.section.notifications" = "通知";
+"settings.section.vfs" = "虚拟文件系统";
+"settings.section.advanced" = "高级";
+
+// MARK: - Settings Sync (v4.9)
+"settings.sync.behavior" = "同步行为";
+"settings.sync.options" = "同步选项";
+"settings.sync.conflict" = "冲突处理";
+
+// MARK: - Settings Filters Extended (v4.9)
+"settings.filters.excludePatterns" = "排除模式";
+"settings.filters.sizeFilters" = "文件大小过滤";
+
+// MARK: - Settings Notifications Extended (v4.9)
+"settings.notifications.sound" = "提示音";
+"settings.notifications.testMessage" = "这是一条测试通知";
+
+// MARK: - Settings VFS (v4.9)
+"settings.vfs.downloadMacFUSE" = "下载 macFUSE";
+"settings.vfs.service" = "服务状态";
+"settings.vfs.installService" = "安装服务";
+"settings.vfs.reinstallService" = "重新安装服务";
+"settings.vfs.mounts" = "挂载点";
+"settings.vfs.noMounts" = "无活动挂载";
+
+// MARK: - Sync Page Extended (v4.9)
+"sync.resume" = "继续";
+"sync.pause" = "暂停";
+"sync.cancel" = "取消";
+"sync.start" = "开始同步";
+"sync.stats.processed" = "已处理";
+"sync.stats.transferred" = "已传输";
+"sync.stats.speed" = "速度";
+"sync.stats.remaining" = "剩余时间";
+"sync.currentFile" = "当前文件";
+"sync.failedFiles" = "失败文件";
+"sync.retryAll" = "重试全部";
+"sync.history" = "同步历史";
+"sync.history.empty" = "暂无同步历史";
+"sync.status.tapToResume" = "点击继续同步";
+"sync.status.clickToStart" = "点击开始同步";
+"sync.status.progress" = "已处理 %d / %d 文件";
+"sync.status.paused" = "已暂停";
+
+// MARK: - Disks Page Extended (v4.9)
+"disks.title" = "磁盘管理";
+"disks.add" = "添加磁盘";
+"disks.section.connected" = "已连接";
+"disks.section.disconnected" = "未连接";
+"disks.select.prompt" = "选择一个磁盘查看详情";
+"disks.status.connected" = "已连接";
+"disks.status.disconnected" = "未连接";
+"disks.storage" = "存储信息";
+"disks.storage.used" = "已使用";
+"disks.storage.available" = "可用空间";
+"disks.storage.total" = "总容量";
+"disks.configuration" = "配置";
+"disks.mountPath" = "挂载路径";
+"disks.priority" = "优先级";
+"disks.priority.hint" = "数字越小优先级越高";
+"disks.syncPairs" = "同步对";
+"disks.syncPairs.empty" = "暂无同步对";
+"disks.test" = "测试连接";
+"disks.openInFinder" = "在 Finder 中打开";
+"disks.delete" = "删除磁盘";
+"disks.delete.confirm.title" = "删除磁盘";
+"disks.delete.confirm.message" = "确定要删除磁盘 %@ 吗？此操作不会删除磁盘上的文件。";
+"disks.test.success.title" = "连接成功";
+"disks.test.success.message" = "磁盘可以正常访问";
+"disks.test.failed.title" = "连接失败";
+"disks.test.failed.message" = "无法访问磁盘";
+"disks.name" = "名称";
+"disks.empty.title" = "未配置磁盘";
+"disks.empty.message" = "添加一个外置硬盘来开始同步";
+"disks.add.title" = "添加磁盘";
+"disks.add.name" = "磁盘名称";
+"disks.add.mountPath" = "挂载路径";
+"disks.add.priority" = "优先级";
+"disks.add.error.duplicate" = "此磁盘已存在";
+
+// MARK: - Conflicts Page (v4.9)
+"conflicts.title" = "冲突";
+"conflicts.subtitle" = "发现 %d 个冲突需要处理";
+"conflicts.search" = "搜索冲突...";
+"conflicts.resolveAll" = "批量处理";
+"conflicts.resolveAllLocal" = "全部保留本地";
+"conflicts.resolveAllExternal" = "全部保留外置";
+"conflicts.resolveAllBoth" = "全部保留两者";
+"conflicts.empty.title" = "没有冲突";
+"conflicts.empty.message" = "所有文件都已同步，没有冲突";
+"conflict.local" = "本地版本";
+"conflict.external" = "外置版本";
+"conflict.keepLocal" = "保留本地";
+"conflict.keepExternal" = "保留外置";
+"conflict.keepBoth" = "保留两者";
+"conflict.revealLocal" = "显示本地文件";
+"conflict.revealExternal" = "显示外置文件";
+"conflict.showDiff" = "查看差异";
+
+// MARK: - Activity (v4.9)
+"activity.empty" = "暂无活动记录";
+
+// MARK: - Menu Bar Extended (v4.9)
+"menu.openDashboard" = "打开仪表盘";
+"menu.openDisks" = "打开磁盘管理";
+"menu.viewConflicts" = "查看冲突 (%d)";
+
+// MARK: - Sidebar Extended (v4.9)
+"sidebar.status.unavailable" = "服务不可用";
+
+// MARK: - Alert Extended (v4.9)
+"alert.dismiss" = "关闭";
+"alert.ok" = "确定";
+
+// MARK: - Disk Extended (v4.9)
+"disk.connected" = "已连接";
+"disk.disconnected" = "已断开";
+
+// MARK: - Error Extended (v4.9)
+"error.critical" = "严重错误";
+"error.critical.title" = "发生严重错误";
+"warning" = "警告";
+
+// MARK: - Conflict Extended (v4.9)
+"conflict.detected" = "检测到冲突";
+"conflict.detected.message" = "文件 %@ 存在冲突，需要手动处理";
+
+// MARK: - Sync Extended (v4.9)
+"sync.completed" = "同步完成";
+"sync.completed.files" = "已同步 %d 个文件";
+"sync.completed.message" = "同步已成功完成";
+"sync.error" = "同步错误";
+"sync.error.message" = "同步过程中发生错误";
+"sync.error.unknown" = "未知同步错误";
+
+// MARK: - Recovery Extended (v4.9)
+"recovery.reconnect" = "重新连接";
+"recovery.retry" = "重试";

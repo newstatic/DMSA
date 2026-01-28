@@ -218,7 +218,7 @@ struct DashboardView: View {
         if stateManager.conflictCount > 0 {
             return "exclamationmark.triangle.fill"
         }
-        if !diskManager.isAnyExternalConnected {
+        if !hasConnectedDisk {
             return "xmark.circle.fill"
         }
         return "checkmark.circle.fill"
@@ -231,10 +231,15 @@ struct DashboardView: View {
         if stateManager.conflictCount > 0 {
             return .orange
         }
-        if !diskManager.isAnyExternalConnected {
+        if !hasConnectedDisk {
             return .gray
         }
         return .green
+    }
+
+    /// 是否有磁盘连接 - 使用直接文件系统检查避免缓存问题
+    private var hasConnectedDisk: Bool {
+        diskManager.isAnyDiskConnected(from: config.disks)
     }
 
     private var statusTitle: String {
@@ -246,7 +251,7 @@ struct DashboardView: View {
         if stateManager.conflictCount > 0 {
             return "dashboard.status.hasConflicts".localized
         }
-        if !diskManager.isAnyExternalConnected {
+        if !hasConnectedDisk {
             return "dashboard.status.noDisk".localized
         }
         return "dashboard.status.allGood".localized
@@ -260,14 +265,14 @@ struct DashboardView: View {
         if stateManager.conflictCount > 0 {
             return String(format: "dashboard.status.conflictsCount".localized, stateManager.conflictCount)
         }
-        if !diskManager.isAnyExternalConnected {
+        if !hasConnectedDisk {
             return "dashboard.status.connectDisk".localized
         }
         return "dashboard.status.allSynced".localized
     }
 
     private var canStartSync: Bool {
-        diskManager.isAnyExternalConnected && !config.syncPairs.isEmpty && !isSyncing
+        hasConnectedDisk && !config.syncPairs.isEmpty && !isSyncing
     }
 
     private var firstConnectedDisk: DiskConfig? {
@@ -275,7 +280,7 @@ struct DashboardView: View {
     }
 
     private var connectedDiskCount: Int {
-        config.disks.filter { diskManager.isDiskConnected($0.id) }.count
+        diskManager.connectedDiskCount(from: config.disks)
     }
 
     private var lastSyncTime: Date? {

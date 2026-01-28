@@ -202,13 +202,79 @@ final class DiskManager {
     }
 
     /// 检查硬盘是否已连接
+    /// 优先检查实际文件系统，其次检查缓存
     func isDiskConnected(_ diskId: String) -> Bool {
-        return connectedDisks[diskId] != nil
+        // 首先检查缓存
+        if connectedDisks[diskId] != nil {
+            return true
+        }
+
+        // 缓存中没有，检查实际文件系统
+        // 从已缓存的配置中查找
+        if let disk = cachedDisks.first(where: { $0.id == diskId }) {
+            let exists = fileManager.fileExists(atPath: disk.mountPath)
+            if exists {
+                // 更新缓存
+                Task { @MainActor in
+                    self.connectedDisks[diskId] = disk
+                }
+            }
+            return exists
+        }
+
+        return false
     }
 
     /// 检查任意外置硬盘是否已连接
+    /// 优先检查实际文件系统，其次检查缓存
     var isAnyExternalConnected: Bool {
-        return !connectedDisks.isEmpty
+        // 首先检查缓存
+        if !connectedDisks.isEmpty {
+            return true
+        }
+
+        // 缓存为空，检查实际文件系统
+        for disk in cachedDisks where disk.enabled {
+            if fileManager.fileExists(atPath: disk.mountPath) {
+                // 更新缓存
+                Task { @MainActor in
+                    self.connectedDisks[disk.id] = disk
+                }
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /// 检查给定磁盘列表中是否有任意磁盘已连接
+    /// 用于 UI 层传入配置进行检查，避免缓存问题
+    func isAnyDiskConnected(from disks: [DiskConfig]) -> Bool {
+        for disk in disks where disk.enabled {
+            if fileManager.fileExists(atPath: disk.mountPath) {
+                // 更新缓存
+                if connectedDisks[disk.id] == nil {
+                    connectedDisks[disk.id] = disk
+                }
+                return true
+            }
+        }
+        return false
+    }
+
+    /// 获取已连接磁盘数量
+    func connectedDiskCount(from disks: [DiskConfig]) -> Int {
+        var count = 0
+        for disk in disks where disk.enabled {
+            if fileManager.fileExists(atPath: disk.mountPath) {
+                // 更新缓存
+                if connectedDisks[disk.id] == nil {
+                    connectedDisks[disk.id] = disk
+                }
+                count += 1
+            }
+        }
+        return count
     }
 
     /// 获取磁盘空间信息
