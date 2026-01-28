@@ -2,7 +2,7 @@
 
 > 此文档供 Claude Code 跨会话持续参考，保持项目上下文记忆。
 > 详细会话记录见 `CLAUDE_SESSIONS.md`。
-> 版本: 5.2 | 更新日期: 2026-01-27
+> 版本: 5.3 | 更新日期: 2026-01-28
 
 ---
 
@@ -35,7 +35,8 @@
 | "Service" | `DMSAService` 统一后台服务 (root 权限) |
 | "XPC" | App 与 Service 的通信机制 |
 | "ServiceClient" | App 端 XPC 客户端 `ServiceClient.swift` |
-| "pbxproj_tool" | Xcode 项目管理工具 `pbxproj_tool.rb` (Ruby)，支持 list/add/remove/check/fix |
+| "pbxproj_tool" | Xcode 项目管理工具 `pbxproj_tool.rb` (Ruby)，支持 list/add/remove/check/fix/smart-fix |
+| "smart-fix" | pbxproj_tool 智能修复命令，自动检测并添加缺失文件 |
 
 **添加条件:**
 - 用户多次用某个词指代特定文件/组件
@@ -52,8 +53,8 @@
 | **项目路径** | `/Users/ttttt/Documents/xcodeProjects/DMSA` |
 | **Bundle ID** | `com.ttttt.dmsa` |
 | **最低系统版本** | macOS 11.0 |
-| **当前版本** | 4.8 |
-| **最后更新** | 2026-01-27 |
+| **当前版本** | 4.9 |
+| **最后更新** | 2026-01-28 |
 
 ---
 
@@ -353,6 +354,8 @@ tail -f ~/Library/Logs/DMSA/app.log
 | 4f263311 | 2026-01-27 | UI 文件清理 + pbxproj 工具 | 删除 14 个旧 UI 文件 + 创建 Xcode 项目管理工具 |
 | 4f263311 | 2026-01-28 | Ruby xcodeproj 迁移 | Python pbxproj 有 bug，切换到 Ruby xcodeproj |
 | 7ec270c8 | 2026-01-28 | DMSAApp 编译修复 | 修复 P0 类型错误，SyncStatus 枚举修复，Color 扩展 |
+| 7ec270c8 | 2026-01-28 | pbxproj_tool 完善 | Ruby 编码修复 + smart-fix 智能修复命令 |
+| 7ec270c8 | 2026-01-28 | UI + App 功能核对 | 生成 27_UI核对报告.md + 28_App功能核对报告.md |
 
 ---
 
@@ -386,6 +389,13 @@ tail -f ~/Library/Logs/DMSA/app.log
    - App 只做 UI，不包含任何业务逻辑
    - Service 是大脑，所有同步、VFS、数据管理都在 Service
    - XPC 是桥梁，App 通过 ServiceClient 与 Service 通信
+
+---
+
+
+**预期行为说明:**
+- DMSAShared 文件在两个 target 中出现两次是**正常的** (共享代码)
+- 产物文件 (.app, .service) 不存在是**正常的** (编译后才生成)
 
 ---
 
