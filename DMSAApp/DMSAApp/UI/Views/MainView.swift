@@ -114,7 +114,7 @@ struct MainView: View {
                 }
                 .listStyle(.sidebar)
             }
-            .frame(minWidth: 200, idealWidth: 220, maxWidth: 280)
+            .navigationSplitViewColumnWidth(min: 220, ideal: 220, max: 220)
             .background(Color(NSColor.windowBackgroundColor))
 
         } detail: {

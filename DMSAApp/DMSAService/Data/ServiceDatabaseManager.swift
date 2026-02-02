@@ -311,6 +311,7 @@ public struct IndexStats: Codable, Sendable {
     public var totalFiles: Int
     public var totalDirectories: Int
     public var totalSize: Int64
+    public var localSize: Int64       // localOnly + both 文件大小 (LOCAL_DIR 实际占用)
     public var localOnlyCount: Int
     public var externalOnlyCount: Int
     public var bothCount: Int
@@ -321,6 +322,7 @@ public struct IndexStats: Codable, Sendable {
         totalFiles: Int = 0,
         totalDirectories: Int = 0,
         totalSize: Int64 = 0,
+        localSize: Int64 = 0,
         localOnlyCount: Int = 0,
         externalOnlyCount: Int = 0,
         bothCount: Int = 0,
@@ -330,6 +332,7 @@ public struct IndexStats: Codable, Sendable {
         self.totalFiles = totalFiles
         self.totalDirectories = totalDirectories
         self.totalSize = totalSize
+        self.localSize = localSize
         self.localOnlyCount = localOnlyCount
         self.externalOnlyCount = externalOnlyCount
         self.bothCount = bothCount
@@ -480,46 +483,46 @@ actor ServiceDatabaseManager {
         }
     }
 
-    func saveFileEntries(_ entries: [ServiceFileEntry]) {
+    /// 分批写入文件索引 (每批 batchSize 条一个事务)
+    func saveFileEntries(_ entries: [ServiceFileEntry], batchSize: Int = 10000) {
         guard !entries.isEmpty else { return }
 
-        do {
-            try fileEntryBox?.put(entries)
+        var savedCount = 0
+        var failedCount = 0
+        var failedBatches = 0
 
-            // 统计各种状态
-            var localOnlyCount = 0
-            var externalOnlyCount = 0
-            var bothCount = 0
-            var dirtyCount = 0
+        let totalBatches = (entries.count + batchSize - 1) / batchSize
 
-            // 更新缓存
-            for entry in entries {
-                if fileEntryCache[entry.syncPairId] == nil {
-                    fileEntryCache[entry.syncPairId] = [:]
+        for batchIndex in 0..<totalBatches {
+            let start = batchIndex * batchSize
+            let end = min(start + batchSize, entries.count)
+            let batch = Array(entries[start..<end])
+
+            do {
+                try fileEntryBox?.put(batch)
+                savedCount += batch.count
+
+                // 更新缓存
+                for entry in batch {
+                    if fileEntryCache[entry.syncPairId] == nil {
+                        fileEntryCache[entry.syncPairId] = [:]
+                    }
+                    fileEntryCache[entry.syncPairId]?[entry.virtualPath] = entry
                 }
-                fileEntryCache[entry.syncPairId]?[entry.virtualPath] = entry
-
-                // 统计
-                switch entry.location {
-                case FileLocation.localOnly.rawValue: localOnlyCount += 1
-                case FileLocation.externalOnly.rawValue: externalOnlyCount += 1
-                case FileLocation.both.rawValue: bothCount += 1
-                default: break
+            } catch {
+                failedCount += batch.count
+                failedBatches += 1
+                if failedBatches <= 3 {
+                    logger.error("批次写入失败 [\(batchIndex + 1)/\(totalBatches)]: \(batch.count) 条 - \(error)")
                 }
-                if entry.isDirty { dirtyCount += 1 }
             }
 
-            logger.info("批量保存 \(entries.count) 个文件索引")
-            logger.info("  - localOnly: \(localOnlyCount), externalOnly: \(externalOnlyCount), both: \(bothCount), dirty: \(dirtyCount)")
-
-            // 验证缓存
-            if let syncPairId = entries.first?.syncPairId {
-                let cacheCount = fileEntryCache[syncPairId]?.count ?? 0
-                logger.info("  - 缓存条目数: \(cacheCount)")
+            if (batchIndex + 1) % 5 == 0 || batchIndex == totalBatches - 1 {
+                logger.info("索引写入进度: \(savedCount)/\(entries.count) (\(batchIndex + 1)/\(totalBatches) 批)")
             }
-        } catch {
-            logger.error("批量保存文件索引失败: \(error)")
         }
+
+        logger.info("保存文件索引完成: 总计=\(entries.count), 成功=\(savedCount), 失败=\(failedCount), 失败批次=\(failedBatches)")
     }
 
     func deleteFileEntry(virtualPath: String, syncPairId: String) {
@@ -613,6 +616,27 @@ actor ServiceDatabaseManager {
             entry.localPath != nil &&
             entry.lockState == LockState.unlocked.rawValue
         }.sorted { $0.accessedAt < $1.accessedAt } ?? []
+    }
+
+    func removeFileEntry(_ entry: ServiceFileEntry) {
+        do {
+            try fileEntryBox?.remove(entry)
+            fileEntryCache[entry.syncPairId]?.removeValue(forKey: entry.virtualPath)
+        } catch {
+            logger.error("删除文件索引失败: \(error)")
+        }
+    }
+
+    func removeFileEntries(_ entries: [ServiceFileEntry]) {
+        guard !entries.isEmpty else { return }
+        do {
+            try fileEntryBox?.remove(entries)
+            for entry in entries {
+                fileEntryCache[entry.syncPairId]?.removeValue(forKey: entry.virtualPath)
+            }
+        } catch {
+            logger.error("批量删除文件索引失败: \(error)")
+        }
     }
 
     func clearFileEntries(syncPairId: String) {
@@ -927,11 +951,17 @@ actor ServiceDatabaseManager {
                 stats.totalSize += entry.size
             }
 
-            switch FileLocation(rawValue: entry.location) {
+            let location = FileLocation(rawValue: entry.location)
+            switch location {
             case .localOnly: stats.localOnlyCount += 1
             case .externalOnly: stats.externalOnlyCount += 1
             case .both: stats.bothCount += 1
             default: break
+            }
+
+            // LOCAL 实际占用 = localOnly + both 的文件大小
+            if !entry.isDirectory && (location == .localOnly || location == .both) {
+                stats.localSize += entry.size
             }
 
             if entry.isDirty {

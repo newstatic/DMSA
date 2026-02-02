@@ -88,7 +88,11 @@ actor EvictionManager {
         timer.schedule(deadline: .now() + config.checkInterval, repeating: config.checkInterval)
         timer.setEventHandler { [weak self] in
             Task {
-                await self?.checkAndEvictIfNeeded()
+                guard let self = self else {
+                    Logger.forService("Eviction").warning("淘汰定时器: self 已释放")
+                    return
+                }
+                await self.checkAndEvictIfNeeded()
             }
         }
         timer.resume()
@@ -106,34 +110,52 @@ actor EvictionManager {
     // MARK: - 淘汰逻辑
 
     /// 检查并执行淘汰 (如果需要)
+    /// 判断依据: LOCAL_DIR 文件总大小 (索引统计) > triggerThreshold
     func checkAndEvictIfNeeded() async {
+        logger.info("========== 淘汰检查开始 ==========")
+
         guard !isRunning else {
-            logger.debug("淘汰正在进行中，跳过")
+            logger.info("淘汰检查: 跳过 (上一次淘汰正在进行中)")
             return
         }
 
         guard let vfsManager = vfsManager else {
-            logger.warning("VFSManager 未设置")
+            logger.warning("淘汰检查: 跳过 (VFSManager 未设置，可能已被释放)")
             return
         }
 
         // 获取所有挂载点
         let mounts = await vfsManager.getAllMounts()
+        logger.info("淘汰检查: 挂载点数量=\(mounts.count), 缓存上限=\(formatBytes(config.triggerThreshold))")
+
+        if mounts.isEmpty {
+            logger.info("淘汰检查: 无挂载点，跳过")
+            return
+        }
+
+        let database = ServiceDatabaseManager.shared
 
         for mount in mounts {
-            let freeSpace = getAvailableSpace(at: mount.localDir)
+            // 基于索引统计的 LOCAL 文件实际占用大小
+            let stats = await database.getIndexStats(syncPairId: mount.syncPairId)
+            let localSize = stats.localSize
+            let needsEviction = localSize > config.triggerThreshold
 
-            if freeSpace < config.triggerThreshold {
-                logger.info("触发淘汰: \(mount.syncPairId), 可用空间: \(formatBytes(freeSpace))")
+            logger.info("淘汰检查: syncPair=\(mount.syncPairId), 本地占用=\(formatBytes(localSize)), 缓存上限=\(formatBytes(config.triggerThreshold)), 需要淘汰=\(needsEviction)")
+
+            if needsEviction {
+                logger.info("触发淘汰: \(mount.syncPairId), 目标降到 \(formatBytes(config.targetFreeSpace))")
 
                 let result = await evict(
                     syncPairId: mount.syncPairId,
                     targetFreeSpace: config.targetFreeSpace
                 )
 
-                logger.info("淘汰完成: 释放 \(formatBytes(result.freedSpace)), 淘汰 \(result.evictedFiles.count) 个文件")
+                logger.info("淘汰完成: 释放 \(formatBytes(result.freedSpace)), 淘汰 \(result.evictedFiles.count) 个文件, 错误 \(result.errors.count) 个")
             }
         }
+
+        logger.info("========== 淘汰检查结束 ==========")
     }
 
     /// 执行淘汰
@@ -162,10 +184,12 @@ actor EvictionManager {
             return EvictionResult(evictedFiles: [], freedSpace: 0, errors: errors)
         }
 
-        let localDir = mount.localDir
-        var currentFreeSpace = getAvailableSpace(at: localDir)
+        // 基于索引统计获取 LOCAL 实际占用
+        let database = ServiceDatabaseManager.shared
+        let indexStats = await database.getIndexStats(syncPairId: syncPairId)
+        var currentLocalSize = indexStats.localSize
 
-        logger.info("开始淘汰: 当前可用 \(formatBytes(currentFreeSpace)), 目标 \(formatBytes(target))")
+        logger.info("开始淘汰: 本地占用 \(formatBytes(currentLocalSize)), 目标降到 \(formatBytes(target))")
 
         // 获取可淘汰的文件列表 (按 LRU 排序)
         let candidates = await getEvictionCandidates(syncPairId: syncPairId)
@@ -176,9 +200,9 @@ actor EvictionManager {
         var processedCount = 0
 
         for entry in candidates {
-            // 检查是否已达到目标
-            if currentFreeSpace >= target {
-                logger.info("已达到目标空间")
+            // 检查是否已达到目标 (本地占用降到目标以下)
+            if currentLocalSize <= target {
+                logger.info("已达到目标: 本地占用 \(formatBytes(currentLocalSize)) <= \(formatBytes(target))")
                 break
             }
 
@@ -238,7 +262,7 @@ actor EvictionManager {
 
                 evictedFiles.append(entry.virtualPath)
                 freedSpace += fileSize
-                currentFreeSpace += fileSize
+                currentLocalSize -= fileSize
                 processedCount += 1
 
                 // 更新索引 (位置变为 externalOnly)
@@ -341,10 +365,9 @@ actor EvictionManager {
         return candidates
     }
 
-    /// 更新文件条目位置
+    /// 更新文件条目位置 (淘汰: both → externalOnly)
     private func updateEntryLocation(entry: ServiceFileEntry, vfsManager: VFSManager) async {
-        // 通知 VFSManager 文件已从本地删除
-        await vfsManager.onFileDeleted(virtualPath: entry.virtualPath, syncPairId: entry.syncPairId)
+        await vfsManager.onFileEvicted(virtualPath: entry.virtualPath, syncPairId: entry.syncPairId)
     }
 
     // MARK: - 手动淘汰

@@ -63,7 +63,7 @@ struct SyncHistoryPage: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(minWidth: 400, maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear { loadData() }
     }
@@ -133,7 +133,8 @@ struct SyncHistoryPage: View {
     }
 
     private var filteredFileRecords: [SyncFileRecord] {
-        var result = fileRecords
+        // 排除淘汰记录 (status 3=淘汰成功, 4=淘汰失败)
+        var result = fileRecords.filter { $0.status != 3 && $0.status != 4 }
         if let pairId = selectedSyncPairId {
             result = result.filter { $0.syncPairId == pairId }
         }

@@ -1425,4 +1425,47 @@ if let uint64Id = try? container.decode(UInt64.self, forKey: .id) {
 
 ---
 
+## Session b6fc182a - 2026-02-02 - 持久化+索引+淘汰+日志+FUSE
+
+**任务:**
+1. ActivityManager 持久化到 ObjectBox (重启后保留最近活动)
+2. Dashboard 文件记录迁移到 SyncHistoryPage (Tab 切换 UI)
+3. 修复 syncHistory 读取为空 (CodingKeys 映射错误)
+4. 文件记录滚动分页加载 (每页50条)
+5. 日志系统按天轮转 + 7天自动清理
+6. FUSE 异常退出自动恢复 + 睡眠唤醒处理
+7. 侧边栏固定宽度 220pt
+8. 索引优化: 增量索引 + 分批写入 (每批1万条)
+9. 淘汰逻辑修正: 基于 localSize 而非磁盘剩余空间
+10. 淘汰后保留索引条目 (both→externalOnly 而非删除)
+11. 索引构建完成写入最近活动
+12. 同步历史过滤淘汰记录
+
+**修改文件:**
+- `ServiceDatabaseManager.swift` - ActivityRecord实体 + 分批写入saveFileEntries + IndexStats.localSize + removeFileEntry/removeFileEntries
+- `EntityInfo-*.generated.swift` - 实体 5 (ServiceActivityRecord) 绑定
+- `ServiceStateManager.swift` - ActivityManager async + DB 持久化
+- `DashboardView.swift` - 移除文件记录 section
+- `SyncHistoryPage.swift` - Tab切换 + 分页 + 过滤淘汰记录 + minWidth:400
+- `MainView.swift` - 侧边栏固定宽度 navigationSplitViewColumnWidth
+- `VFSManager.swift` - 增量索引 incrementalIndex + 分批写入 fullIndex + onFileEvicted + 索引活动记录
+- `EvictionManager.swift` - 基于 localSize 判断 + 诊断日志 + updateEntryLocation 改用 onFileEvicted
+- `DMSAServiceProtocol.swift` / `ServiceImplementation.swift` / `ServiceClient.swift` - offset 参数
+- `Logger.swift` (Shared + App) - 按天轮转
+- `Constants.swift` - 带日期日志路径
+- `FUSEFileSystem.swift` / `VFSManager.swift` - FUSE 恢复
+- `ServicePowerMonitor.swift` - **新文件** IOKit 电源通知
+- `SyncManager.swift` / `ServiceDelegate.swift` / `main.swift` - PowerMonitor 集成
+- `pbxproj_tool.rb` - group 定位 + PBXVariantGroup 修复
+
+**关键问题与解决:**
+1. **syncHistory 为空**: ServiceSyncHistory.CodingKeys 反向映射。移除重映射修复。
+2. **ActivityManager 重启丢失**: 添加 ObjectBox 持久化 + lazy loading。
+3. **FUSE 睡眠崩溃**: ServicePowerMonitor 监听 IOKit 电源通知。
+4. **每次启动全量重建索引**: 56万条 `put()` → `dbFull`。根因: 单次事务太大。改为分批写入(每批1万条) + 增量索引(有已有索引时只diff变化部分)。
+5. **淘汰从不触发**: `checkAndEvictIfNeeded` 用磁盘剩余空间判断(108GB远大于5GB阈值)。改为基于索引统计的 localSize (localOnly+both文件大小)。
+6. **淘汰后文件从VFS消失**: `updateEntryLocation` 调用 `onFileDeleted` 删除整条记录。新增 `onFileEvicted` 方法，改为 both→externalOnly 保留条目。
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*

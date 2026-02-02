@@ -348,6 +348,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | 7ec270c8 | 2026-01-28 | 磁盘状态同步修复 | DashboardView 与 DisksPage 状态不同步问题 |
 | 7ec270c8 | 2026-01-28 | 文件级同步/淘汰记录 | ServiceSyncFileRecord 实体 + XPC + UI 展示 |
 | c2bc39ee | 2026-02-02 | 编译/i18n/解码修复 | pbxproj 路径修复、PBXVariantGroup 修复、SyncHistory CodingKeys 映射修复 |
+| b6fc182a | 2026-02-02 | 持久化+索引+淘汰+日志+FUSE | ActivityRecord持久化、增量索引、分批写入、淘汰逻辑修正(localSize+externalOnly保留)、日志轮转、FUSE恢复 |
 
 ---
 

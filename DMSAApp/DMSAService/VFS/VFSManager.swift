@@ -412,22 +412,177 @@ actor VFSManager {
     private func buildIndex(for syncPairId: String) async {
         guard let mountPoint = mountPoints[syncPairId] else { return }
 
-        logger.info("构建文件索引: \(syncPairId)")
+        // 检查数据库是否已有索引 → 增量更新; 否则全量构建
+        let existingEntries = await database.getAllFileEntries(syncPairId: syncPairId)
+        if !existingEntries.isEmpty {
+            logger.info("发现已有索引 (\(existingEntries.count) 条)，执行增量更新")
+            await incrementalIndex(for: syncPairId, mountPoint: mountPoint, existingEntries: existingEntries)
+        } else {
+            logger.info("无已有索引，执行全量构建")
+            await fullIndex(for: syncPairId, mountPoint: mountPoint)
+        }
 
-        // 清除旧索引
-        await database.clearFileEntries(syncPairId: syncPairId)
+        // 更新挂载状态统计
+        let stats = await database.getIndexStats(syncPairId: syncPairId)
+        if var mountState = await configManager.getMountState(syncPairId: syncPairId) {
+            mountState.fileCount = stats.totalFiles + stats.totalDirectories
+            mountState.totalSize = stats.totalSize
+            await configManager.setMountState(mountState)
+        }
 
-        var entries: [ServiceFileEntry] = []
-        var localPaths: [String: ServiceFileEntry] = [:]
+        // 记录索引活动
+        let totalFiles = stats.totalFiles + stats.totalDirectories
+        let indexType = existingEntries.isEmpty ? "全量构建" : "增量更新"
+        let sizeStr = ByteCountFormatter.string(fromByteCount: stats.totalSize, countStyle: .file)
+        let activity = ActivityRecord(
+            type: .indexRebuilt,
+            title: "索引\(indexType)完成",
+            detail: "\(totalFiles) 个条目, \(sizeStr)",
+            syncPairId: syncPairId,
+            filesCount: totalFiles,
+            bytesCount: stats.totalSize
+        )
+        await ActivityManager.shared.addActivity(activity)
+    }
+
+    /// 增量索引: 基于已有数据库条目，只更新变化的部分
+    private func incrementalIndex(for syncPairId: String, mountPoint: VFSMountPoint, existingEntries: [ServiceFileEntry]) async {
         let fm = FileManager.default
+        let startTime = Date()
+
+        // 构建旧索引字典 (virtualPath → entry)
+        var oldIndex: [String: ServiceFileEntry] = [:]
+        for entry in existingEntries {
+            oldIndex[entry.virtualPath] = entry
+        }
+
+        // 扫描当前文件系统
+        var currentPaths: [String: ServiceFileEntry] = [:]
 
         // 扫描 LOCAL_DIR
         if let localContents = try? fm.subpathsOfDirectory(atPath: mountPoint.localDir) {
             for relativePath in localContents {
-                let fullPath = (mountPoint.localDir as NSString).appendingPathComponent(relativePath)
-
-                // 跳过排除的文件
                 if shouldExclude(path: relativePath) { continue }
+                let fullPath = (mountPoint.localDir as NSString).appendingPathComponent(relativePath)
+                let virtualPath = "/" + relativePath
+
+                var entry = ServiceFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
+                entry.localPath = fullPath
+
+                if let attrs = try? fm.attributesOfItem(atPath: fullPath) {
+                    entry.size = attrs[.size] as? Int64 ?? 0
+                    entry.modifiedAt = attrs[.modificationDate] as? Date ?? Date()
+                    entry.createdAt = attrs[.creationDate] as? Date ?? Date()
+                    entry.isDirectory = (attrs[.type] as? FileAttributeType) == .typeDirectory
+                }
+
+                entry.location = FileLocation.localOnly.rawValue
+                currentPaths[virtualPath] = entry
+            }
+        }
+
+        // 扫描 EXTERNAL_DIR
+        if mountPoint.isExternalOnline, let externalDir = mountPoint.externalDir {
+            if let externalContents = try? fm.subpathsOfDirectory(atPath: externalDir) {
+                for relativePath in externalContents {
+                    if shouldExclude(path: relativePath) { continue }
+                    let fullPath = (externalDir as NSString).appendingPathComponent(relativePath)
+                    let virtualPath = "/" + relativePath
+
+                    if var entry = currentPaths[virtualPath] {
+                        entry.externalPath = fullPath
+                        entry.location = FileLocation.both.rawValue
+                        currentPaths[virtualPath] = entry
+                    } else {
+                        var entry = ServiceFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
+                        entry.externalPath = fullPath
+                        if let attrs = try? fm.attributesOfItem(atPath: fullPath) {
+                            entry.size = attrs[.size] as? Int64 ?? 0
+                            entry.modifiedAt = attrs[.modificationDate] as? Date ?? Date()
+                            entry.createdAt = attrs[.creationDate] as? Date ?? Date()
+                            entry.isDirectory = (attrs[.type] as? FileAttributeType) == .typeDirectory
+                        }
+                        entry.location = FileLocation.externalOnly.rawValue
+                        currentPaths[virtualPath] = entry
+                    }
+                }
+            }
+        }
+
+        // 差异计算
+        var added = 0
+        var updated = 0
+        var removed = 0
+        var unchanged = 0
+        var entriesToSave: [ServiceFileEntry] = []
+        var entriesToRemove: [ServiceFileEntry] = []
+
+        // 新增 + 更新
+        for (vpath, newEntry) in currentPaths {
+            if let oldEntry = oldIndex[vpath] {
+                // 检查是否变化: 大小、修改时间、位置
+                if oldEntry.size != newEntry.size ||
+                   oldEntry.location != newEntry.location ||
+                   abs(oldEntry.modifiedAt.timeIntervalSince(newEntry.modifiedAt)) > 1.0 {
+                    // 保留旧条目的 id、isDirty、lockState、accessedAt 等运行时状态
+                    var merged = newEntry
+                    merged.id = oldEntry.id
+                    merged.isDirty = oldEntry.isDirty
+                    merged.lockState = oldEntry.lockState
+                    merged.accessedAt = oldEntry.accessedAt
+                    entriesToSave.append(merged)
+                    updated += 1
+                } else {
+                    unchanged += 1
+                }
+                oldIndex.removeValue(forKey: vpath)
+            } else {
+                entriesToSave.append(newEntry)
+                added += 1
+            }
+        }
+
+        // 删除 (oldIndex 中剩余的条目已不在文件系统中)
+        for (_, oldEntry) in oldIndex {
+            entriesToRemove.append(oldEntry)
+            removed += 1
+        }
+
+        // 批量保存/删除
+        if !entriesToSave.isEmpty {
+            await database.saveFileEntries(entriesToSave)
+        }
+        if !entriesToRemove.isEmpty {
+            await database.removeFileEntries(entriesToRemove)
+        }
+
+        let elapsed = Date().timeIntervalSince(startTime)
+        logger.info("========== 增量索引完成 ==========")
+        logger.info("  syncPairId: \(syncPairId)")
+        logger.info("  耗时: \(String(format: "%.2f", elapsed)) 秒")
+        logger.info("  新增: \(added), 更新: \(updated), 删除: \(removed), 未变: \(unchanged)")
+        logIndexStats(Array(currentPaths.values))
+    }
+
+    /// 全量索引: 生产者扫描 + 消费者分批写入 (每批 1 万条)
+    private func fullIndex(for syncPairId: String, mountPoint: VFSMountPoint) async {
+        let fm = FileManager.default
+        let startTime = Date()
+        let batchSize = 10000
+
+        // 清除旧索引
+        await database.clearFileEntries(syncPairId: syncPairId)
+
+        var buffer: [ServiceFileEntry] = []
+        buffer.reserveCapacity(batchSize)
+        var totalCount = 0
+        var localPaths: [String: ServiceFileEntry] = [:]
+
+        // 生产者: 扫描 LOCAL_DIR
+        if let localContents = try? fm.subpathsOfDirectory(atPath: mountPoint.localDir) {
+            for relativePath in localContents {
+                if shouldExclude(path: relativePath) { continue }
+                let fullPath = (mountPoint.localDir as NSString).appendingPathComponent(relativePath)
 
                 var entry = ServiceFileEntry(virtualPath: "/" + relativePath, syncPairId: syncPairId)
                 entry.localPath = fullPath
@@ -444,33 +599,27 @@ actor VFSManager {
             }
         }
 
-        // 扫描 EXTERNAL_DIR (如果在线)
+        // 生产者: 扫描 EXTERNAL_DIR，合并
         if mountPoint.isExternalOnline, let externalDir = mountPoint.externalDir {
             if let externalContents = try? fm.subpathsOfDirectory(atPath: externalDir) {
                 for relativePath in externalContents {
+                    if shouldExclude(path: relativePath) { continue }
                     let fullPath = (externalDir as NSString).appendingPathComponent(relativePath)
                     let virtualPath = "/" + relativePath
 
-                    // 跳过排除的文件
-                    if shouldExclude(path: relativePath) { continue }
-
                     if var entry = localPaths[virtualPath] {
-                        // 本地也存在，更新为 BOTH
                         entry.externalPath = fullPath
                         entry.location = FileLocation.both.rawValue
                         localPaths[virtualPath] = entry
                     } else {
-                        // 仅外部存在
                         var entry = ServiceFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
                         entry.externalPath = fullPath
-
                         if let attrs = try? fm.attributesOfItem(atPath: fullPath) {
                             entry.size = attrs[.size] as? Int64 ?? 0
                             entry.modifiedAt = attrs[.modificationDate] as? Date ?? Date()
                             entry.createdAt = attrs[.creationDate] as? Date ?? Date()
                             entry.isDirectory = (attrs[.type] as? FileAttributeType) == .typeDirectory
                         }
-
                         entry.location = FileLocation.externalOnly.rawValue
                         localPaths[virtualPath] = entry
                     }
@@ -478,11 +627,37 @@ actor VFSManager {
             }
         }
 
-        // 批量保存到数据库
-        entries = Array(localPaths.values)
-        await database.saveFileEntries(entries)
+        let scanElapsed = Date().timeIntervalSince(startTime)
+        logger.info("文件扫描完成: \(localPaths.count) 条, 耗时 \(String(format: "%.2f", scanElapsed)) 秒")
 
-        // 统计各种状态
+        // 消费者: 分批写入
+        for (_, entry) in localPaths {
+            buffer.append(entry)
+
+            if buffer.count >= batchSize {
+                await database.saveFileEntries(buffer)
+                totalCount += buffer.count
+                logger.info("索引写入进度: \(totalCount)/\(localPaths.count)")
+                buffer.removeAll(keepingCapacity: true)
+            }
+        }
+
+        // flush 尾巴
+        if !buffer.isEmpty {
+            await database.saveFileEntries(buffer)
+            totalCount += buffer.count
+        }
+
+        let elapsed = Date().timeIntervalSince(startTime)
+        logger.info("========== 全量索引完成 ==========")
+        logger.info("  syncPairId: \(syncPairId)")
+        logger.info("  总条目: \(totalCount)")
+        logger.info("  耗时: \(String(format: "%.2f", elapsed)) 秒 (扫描: \(String(format: "%.2f", scanElapsed)) 秒)")
+        logger.info("===================================")
+    }
+
+    /// 打印索引统计
+    private func logIndexStats(_ entries: [ServiceFileEntry]) {
         var localOnlyCount = 0
         var externalOnlyCount = 0
         var bothCount = 0
@@ -490,12 +665,7 @@ actor VFSManager {
         var filesCount = 0
 
         for entry in entries {
-            if entry.isDirectory {
-                directoriesCount += 1
-            } else {
-                filesCount += 1
-            }
-
+            if entry.isDirectory { directoriesCount += 1 } else { filesCount += 1 }
             switch entry.location {
             case FileLocation.localOnly.rawValue: localOnlyCount += 1
             case FileLocation.externalOnly.rawValue: externalOnlyCount += 1
@@ -504,23 +674,10 @@ actor VFSManager {
             }
         }
 
-        logger.info("========== 索引构建完成 ==========")
-        logger.info("  syncPairId: \(syncPairId)")
         logger.info("  总条目: \(entries.count) (文件: \(filesCount), 目录: \(directoriesCount))")
-        logger.info("  位置分布:")
-        logger.info("    - localOnly (仅本地): \(localOnlyCount)")
-        logger.info("    - externalOnly (仅外部): \(externalOnlyCount)")
-        logger.info("    - both (两边都有): \(bothCount)")
-        logger.info("  需要同步的文件 (localOnly 非目录): \(entries.filter { $0.needsSync && !$0.isDirectory }.count)")
+        logger.info("  位置分布: localOnly=\(localOnlyCount), externalOnly=\(externalOnlyCount), both=\(bothCount)")
+        logger.info("  需要同步: \(entries.filter { $0.needsSync && !$0.isDirectory }.count)")
         logger.info("===================================")
-
-        // 更新挂载状态统计
-        if var mountState = await configManager.getMountState(syncPairId: syncPairId) {
-            let stats = await database.getIndexStats(syncPairId: syncPairId)
-            mountState.fileCount = stats.totalFiles + stats.totalDirectories
-            mountState.totalSize = stats.totalSize
-            await configManager.setMountState(mountState)
-        }
     }
 
     private func shouldExclude(path: String) -> Bool {
@@ -580,6 +737,17 @@ actor VFSManager {
     func onFileDeleted(virtualPath: String, syncPairId: String) async {
         await database.deleteFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
         logger.debug("文件删除: \(virtualPath)")
+    }
+
+    /// 淘汰文件: both → externalOnly，保留索引条目
+    func onFileEvicted(virtualPath: String, syncPairId: String) async {
+        if let entry = await database.getFileEntry(virtualPath: virtualPath, syncPairId: syncPairId) {
+            entry.localPath = nil
+            entry.location = FileLocation.externalOnly.rawValue
+            entry.isDirty = false
+            await database.saveFileEntry(entry)
+            logger.debug("文件淘汰: \(virtualPath) (both → externalOnly)")
+        }
     }
 
     func onFileCreated(virtualPath: String, syncPairId: String, localPath: String, isDirectory: Bool = false) async {
