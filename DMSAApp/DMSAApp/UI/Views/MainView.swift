@@ -2,8 +2,8 @@ import SwiftUI
 
 // MARK: - Main View
 
-/// 主窗口视图 - 单窗口 + 左侧导航
-/// v4.8: 使用 StateManager 作为唯一状态管理器
+/// Main window view - single window + sidebar navigation
+/// v4.8: Uses StateManager as the sole state manager
 struct MainView: View {
     @ObservedObject var configManager: ConfigManager
     @ObservedObject private var localizationManager = LocalizationManager.shared
@@ -13,14 +13,14 @@ struct MainView: View {
     // MARK: - Navigation Tabs (6 items as per design spec)
 
     enum MainTab: String, CaseIterable, Identifiable {
-        case dashboard      // 仪表盘
-        case sync           // 同步
-        case syncHistory    // 同步历史
-        case evictionHistory // 淘汰历史
-        case conflicts      // 冲突
-        case disks          // 磁盘
-        case settings       // 设置
-        case logs           // 日志
+        case dashboard      // Dashboard
+        case sync           // Sync
+        case syncHistory    // Sync History
+        case evictionHistory // Eviction History
+        case conflicts      // Conflicts
+        case disks          // Disks
+        case settings       // Settings
+        case logs           // Logs
 
         var id: String { rawValue }
 
@@ -63,12 +63,12 @@ struct MainView: View {
             }
         }
 
-        /// 主导航组
+        /// Main navigation group
         static var mainGroup: [MainTab] {
             [.dashboard, .sync, .syncHistory, .evictionHistory, .conflicts, .disks]
         }
 
-        /// 次要导航组 (设置、日志)
+        /// Secondary navigation group (Settings, Logs)
         static var secondaryGroup: [MainTab] {
             [.settings, .logs]
         }
@@ -254,7 +254,7 @@ struct SidebarHeaderView: View {
     @ObservedObject var stateManager: StateManager
 
     var body: some View {
-        let _ = Logger.shared.debug("[SidebarHeader] 渲染: syncStatus=\(stateManager.syncStatus.text)")
+        let _ = Logger.shared.debug("[SidebarHeader] Render: syncStatus=\(stateManager.syncStatus.text)")
 
         HStack(spacing: 12) {
             // Status indicator
@@ -280,7 +280,7 @@ struct SidebarHeaderView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .onChange(of: stateManager.syncStatus) { newStatus in
-            Logger.shared.debug("[SidebarHeader] syncStatus 变更: \(newStatus.text)")
+            Logger.shared.debug("[SidebarHeader] syncStatus changed: \(newStatus.text)")
         }
     }
 }

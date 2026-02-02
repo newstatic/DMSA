@@ -1,6 +1,6 @@
 import Foundation
 
-/// 共享状态 (服务间状态同步)
+/// Shared state (inter-service state synchronization)
 public struct SharedState: Codable, Sendable {
     public var lastWrittenPath: String?
     public var lastWrittenSyncPair: String?
@@ -20,7 +20,7 @@ public struct SharedState: Codable, Sendable {
         self.lastConfigUpdate = nil
     }
 
-    /// 从文件加载
+    /// Load from file
     public static func load() -> SharedState {
         let url = Constants.Paths.sharedState
 
@@ -33,11 +33,11 @@ public struct SharedState: Codable, Sendable {
         return state
     }
 
-    /// 保存到文件
+    /// Save to file
     public func save() {
         let url = Constants.Paths.sharedState
 
-        // 确保目录存在
+        // Ensure directory exists
         let dir = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
@@ -46,7 +46,7 @@ public struct SharedState: Codable, Sendable {
         }
     }
 
-    /// 原子更新
+    /// Atomic update
     public static func update(_ block: (inout SharedState) -> Void) {
         var state = load()
         block(&state)
@@ -54,7 +54,7 @@ public struct SharedState: Codable, Sendable {
     }
 }
 
-/// 挂载信息
+/// Mount information
 public struct MountInfo: Codable, Identifiable, Sendable {
     public var id: String  // syncPairId
     public var syncPairId: String
@@ -80,7 +80,7 @@ public struct MountInfo: Codable, Identifiable, Sendable {
         self.totalSize = 0
     }
 
-    /// 转换为字典 (用于 XPC 传输)
+    /// Convert to dictionary (for XPC transport)
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "id": id,
@@ -99,7 +99,7 @@ public struct MountInfo: Codable, Identifiable, Sendable {
         return dict
     }
 
-    /// 从字典创建
+    /// Create from dictionary
     public static func from(dictionary dict: [String: Any]) -> MountInfo? {
         guard let syncPairId = dict["syncPairId"] as? String,
               let targetDir = dict["targetDir"] as? String,
@@ -121,23 +121,23 @@ public struct MountInfo: Codable, Identifiable, Sendable {
         return info
     }
 
-    /// 转换为 Data
+    /// Convert to Data
     public func toData() -> Data? {
         return try? JSONEncoder().encode(self)
     }
 
-    /// 从 Data 创建
+    /// Create from Data
     public static func from(data: Data) -> MountInfo? {
         return try? JSONDecoder().decode(MountInfo.self, from: data)
     }
 
-    /// 从 Data 数组创建
+    /// Create array from Data
     public static func arrayFrom(data: Data) -> [MountInfo] {
         return (try? JSONDecoder().decode([MountInfo].self, from: data)) ?? []
     }
 }
 
-/// 服务版本信息
+/// Service version information
 public struct ServiceVersionInfo: Codable, Sendable {
     public var version: String
     public var buildNumber: Int
@@ -146,7 +146,7 @@ public struct ServiceVersionInfo: Codable, Sendable {
     public var startedAt: Date
     public var uptime: TimeInterval
 
-    /// 默认初始化 (空值，由 Service 填充)
+    /// Default initialization (empty values, filled by Service)
     public init() {
         self.version = ""
         self.buildNumber = 0
@@ -156,7 +156,7 @@ public struct ServiceVersionInfo: Codable, Sendable {
         self.uptime = 0
     }
 
-    /// 完整初始化 (Service 端使用)
+    /// Full initialization (used by Service)
     public init(version: String, buildNumber: Int, protocolVersion: Int, minAppVersion: String, startedAt: Date) {
         self.version = version
         self.buildNumber = buildNumber
@@ -166,23 +166,23 @@ public struct ServiceVersionInfo: Codable, Sendable {
         self.uptime = Date().timeIntervalSince(startedAt)
     }
 
-    /// 完整版本字符串
+    /// Full version string
     public var fullVersion: String {
         "\(version) (build \(buildNumber), protocol v\(protocolVersion))"
     }
 
-    /// 转换为 Data
+    /// Convert to Data
     public func toData() -> Data? {
         return try? JSONEncoder().encode(self)
     }
 
-    /// 从 Data 创建
+    /// Create from Data
     public static func from(data: Data) -> ServiceVersionInfo? {
         return try? JSONDecoder().decode(ServiceVersionInfo.self, from: data)
     }
 }
 
-/// 同步状态信息
+/// Sync status information
 public struct SyncStatusInfo: Codable, Identifiable, Sendable {
     public var id: String  // syncPairId
     public var syncPairId: String
@@ -192,7 +192,7 @@ public struct SyncStatusInfo: Codable, Identifiable, Sendable {
     public var nextSyncTime: Date?
     public var pendingFiles: Int
     public var dirtyFiles: Int
-    // Note: currentProgress 通过 getSyncProgress API 单独获取
+    // Note: currentProgress is fetched separately via getSyncProgress API
 
     public init(syncPairId: String) {
         self.id = syncPairId
@@ -205,17 +205,17 @@ public struct SyncStatusInfo: Codable, Identifiable, Sendable {
         self.dirtyFiles = 0
     }
 
-    /// 转换为 Data
+    /// Convert to Data
     public func toData() -> Data? {
         return try? JSONEncoder().encode(self)
     }
 
-    /// 从 Data 创建
+    /// Create from Data
     public static func from(data: Data) -> SyncStatusInfo? {
         return try? JSONDecoder().decode(SyncStatusInfo.self, from: data)
     }
 
-    /// 从 Data 数组创建
+    /// Create array from Data
     public static func arrayFrom(data: Data) -> [SyncStatusInfo] {
         return (try? JSONDecoder().decode([SyncStatusInfo].self, from: data)) ?? []
     }

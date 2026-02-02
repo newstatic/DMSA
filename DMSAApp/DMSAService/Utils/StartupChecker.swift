@@ -1,16 +1,16 @@
 import Foundation
 
-/// 启动检查器
-/// 参考文档: SERVICE_FLOW/17_检查清单.md
+/// Startup checker
+/// Reference: SERVICE_FLOW/17_checklist.md
 ///
-/// 负责执行服务启动时的 12 项检查，确保服务正常运行。
+/// Executes 12 checks at service startup to ensure proper operation.
 struct StartupChecker {
 
     private static let logger = Logger.forService("Startup")
 
-    // MARK: - 检查结果
+    // MARK: - Check Results
 
-    /// 单项检查结果
+    /// Single check result
     struct CheckResult {
         let name: String
         let passed: Bool
@@ -26,7 +26,7 @@ struct StartupChecker {
         }
     }
 
-    /// 完整检查报告
+    /// Full check report
     struct CheckReport {
         let results: [CheckResult]
         let timestamp: Date
@@ -41,137 +41,137 @@ struct StartupChecker {
         }
     }
 
-    // MARK: - 预启动检查 (main.swift 启动时调用)
+    // MARK: - Preflight Checks (called at main.swift startup)
 
-    /// 执行预启动检查 (1-5 项)
-    /// 这些检查必须在服务启动前完成
+    /// Run preflight checks (items 1-5)
+    /// These checks must complete before the service starts
     static func runPreflightChecks() -> CheckReport {
-        logger.info("========== 预启动检查 ==========")
+        logger.info("========== Preflight Checks ==========")
 
         var results: [CheckResult] = []
 
-        // 1. 进程以 root 权限运行
+        // 1. Process running with root privileges
         results.append(checkRootPrivilege())
 
-        // 2. 环境变量已设置
+        // 2. Environment variables set
         results.append(checkEnvironmentVariables())
 
-        // 3. macFUSE 加载成功
+        // 3. macFUSE loaded successfully
         results.append(checkMacFUSE())
 
-        // 4. 日志目录可写
+        // 4. Log directory writable
         results.append(checkLogDirectory())
 
-        // 5. 配置目录存在
+        // 5. Config directory exists
         results.append(checkConfigDirectory())
 
         let report = CheckReport(results: results)
-        logCheckReport(report, phase: "预启动")
+        logCheckReport(report, phase: "Preflight")
         return report
     }
 
-    // MARK: - 运行时检查 (服务启动过程中调用)
+    // MARK: - Runtime Checks (called during service startup)
 
-    /// 检查 XPC 监听器状态
+    /// Check XPC listener status
     static func checkXPCListener(isRunning: Bool) -> CheckResult {
         if isRunning {
-            return .success("XPC监听器", "监听器已启动")
+            return .success("XPC Listener", "Listener started")
         } else {
-            return .failure("XPC监听器", "监听器启动失败", recoverable: false)
+            return .failure("XPC Listener", "Listener failed to start", recoverable: false)
         }
     }
 
-    /// 检查配置加载状态
+    /// Check config load status
     static func checkConfigLoaded(success: Bool, error: String? = nil) -> CheckResult {
         if success {
-            return .success("配置加载", "配置文件加载成功")
+            return .success("Config Load", "Config file loaded successfully")
         } else {
-            return .failure("配置加载", error ?? "配置加载失败，将使用默认配置", recoverable: true)
+            return .failure("Config Load", error ?? "Config load failed, using defaults", recoverable: true)
         }
     }
 
-    /// 检查 FUSE 挂载状态
+    /// Check FUSE mount status
     static func checkFUSEMount(success: Bool, mountPoint: String?, error: String? = nil) -> CheckResult {
         if success {
-            return .success("FUSE挂载", "挂载成功: \(mountPoint ?? "未知")")
+            return .success("FUSE Mount", "Mount successful: \(mountPoint ?? "unknown")")
         } else {
-            return .failure("FUSE挂载", error ?? "FUSE 挂载失败", recoverable: true)
+            return .failure("FUSE Mount", error ?? "FUSE mount failed", recoverable: true)
         }
     }
 
-    /// 检查后端目录保护状态
+    /// Check backend directory protection status
     static func checkBackendProtection(success: Bool, error: String? = nil) -> CheckResult {
         if success {
-            return .success("后端保护", "目录保护设置成功")
+            return .success("Backend Protection", "Directory protection set successfully")
         } else {
-            return .failure("后端保护", error ?? "目录保护设置失败", recoverable: true)
+            return .failure("Backend Protection", error ?? "Directory protection setup failed", recoverable: true)
         }
     }
 
-    /// 检查索引构建状态
+    /// Check index build status
     static func checkIndexBuild(success: Bool, filesCount: Int = 0, error: String? = nil) -> CheckResult {
         if success {
-            return .success("索引构建", "索引完成，共 \(filesCount) 个文件")
+            return .success("Index Build", "Index complete, \(filesCount) files")
         } else {
-            return .failure("索引构建", error ?? "索引构建失败", recoverable: true)
+            return .failure("Index Build", error ?? "Index build failed", recoverable: true)
         }
     }
 
-    /// 检查调度器状态
+    /// Check scheduler status
     static func checkScheduler(isRunning: Bool) -> CheckResult {
         if isRunning {
-            return .success("调度器", "同步调度器已启动")
+            return .success("Scheduler", "Sync scheduler started")
         } else {
-            return .failure("调度器", "调度器启动失败", recoverable: true)
+            return .failure("Scheduler", "Scheduler failed to start", recoverable: true)
         }
     }
 
-    /// 检查通知队列状态
+    /// Check notification queue status
     static func checkNotificationQueue(flushed: Bool, pendingCount: Int = 0) -> CheckResult {
         if flushed {
-            return .success("通知队列", "缓存通知已发送")
+            return .success("Notification Queue", "Cached notifications sent")
         } else {
-            return .failure("通知队列", "仍有 \(pendingCount) 条通知待发送", recoverable: true)
+            return .failure("Notification Queue", "\(pendingCount) notifications still pending", recoverable: true)
         }
     }
 
-    // MARK: - 私有检查方法
+    // MARK: - Private Check Methods
 
-    /// 检查 1: root 权限
+    /// Check 1: root privileges
     private static func checkRootPrivilege() -> CheckResult {
         let uid = getuid()
         if uid == 0 {
-            return .success("root权限", "进程以 root 权限运行 (uid=0)")
+            return .success("Root Privilege", "Process running as root (uid=0)")
         } else {
-            return .failure("root权限", "进程未以 root 权限运行 (uid=\(uid))", recoverable: false)
+            return .failure("Root Privilege", "Process not running as root (uid=\(uid))", recoverable: false)
         }
     }
 
-    /// 检查 2: 环境变量
+    /// Check 2: environment variables
     private static func checkEnvironmentVariables() -> CheckResult {
-        // 检查 OBJC_DISABLE_INITIALIZE_FORK_SAFETY (macFUSE 需要)
+        // Check OBJC_DISABLE_INITIALIZE_FORK_SAFETY (required by macFUSE)
         let forkSafety = ProcessInfo.processInfo.environment["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"]
 
         if forkSafety == "YES" {
-            return .success("环境变量", "OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES")
+            return .success("Environment", "OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES")
         } else {
-            // 尝试设置 (仅在进程启动时有效)
+            // Try to set (only effective at process startup)
             setenv("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES", 1)
-            return .success("环境变量", "OBJC_DISABLE_INITIALIZE_FORK_SAFETY 已设置")
+            return .success("Environment", "OBJC_DISABLE_INITIALIZE_FORK_SAFETY set")
         }
     }
 
-    /// 检查 3: macFUSE
+    /// Check 3: macFUSE
     private static func checkMacFUSE() -> CheckResult {
         let fm = FileManager.default
 
-        // 检查 Framework
+        // Check framework
         let frameworkPath = "/Library/Frameworks/macFUSE.framework"
         guard fm.fileExists(atPath: frameworkPath) else {
-            return .failure("macFUSE", "macFUSE.framework 未找到", recoverable: false)
+            return .failure("macFUSE", "macFUSE.framework not found", recoverable: false)
         }
 
-        // 检查 libfuse
+        // Check libfuse
         let libfusePaths = [
             "/usr/local/lib/libfuse.dylib",
             "/Library/Frameworks/macFUSE.framework/Versions/A/usr/local/lib/libfuse.2.dylib"
@@ -179,88 +179,88 @@ struct StartupChecker {
 
         let libfuseExists = libfusePaths.contains { fm.fileExists(atPath: $0) }
         guard libfuseExists else {
-            return .failure("macFUSE", "libfuse.dylib 未找到", recoverable: false)
+            return .failure("macFUSE", "libfuse.dylib not found", recoverable: false)
         }
 
-        // 尝试加载
+        // Try to load
         if let handle = dlopen("/usr/local/lib/libfuse.dylib", RTLD_LAZY) {
             dlclose(handle)
-            return .success("macFUSE", "macFUSE 加载成功")
+            return .success("macFUSE", "macFUSE loaded successfully")
         } else if let handle = dlopen(libfusePaths[1], RTLD_LAZY) {
             dlclose(handle)
-            return .success("macFUSE", "macFUSE 加载成功 (备用路径)")
+            return .success("macFUSE", "macFUSE loaded successfully (fallback path)")
         } else {
             let error = String(cString: dlerror())
-            return .failure("macFUSE", "加载失败: \(error)", recoverable: false)
+            return .failure("macFUSE", "Load failed: \(error)", recoverable: false)
         }
     }
 
-    /// 检查 4: 日志目录
+    /// Check 4: log directory
     private static func checkLogDirectory() -> CheckResult {
         let fm = FileManager.default
         let logDir = NSString("~/Library/Logs/DMSA").expandingTildeInPath
 
-        // 检查目录存在
+        // Check directory exists
         if !fm.fileExists(atPath: logDir) {
             do {
                 try fm.createDirectory(atPath: logDir, withIntermediateDirectories: true, attributes: nil)
             } catch {
-                return .failure("日志目录", "无法创建目录: \(error.localizedDescription)", recoverable: true)
+                return .failure("Log Directory", "Cannot create directory: \(error.localizedDescription)", recoverable: true)
             }
         }
 
-        // 检查可写
+        // Check writable
         let testFile = (logDir as NSString).appendingPathComponent(".write_test")
         do {
             try "test".write(toFile: testFile, atomically: true, encoding: .utf8)
             try fm.removeItem(atPath: testFile)
-            return .success("日志目录", logDir)
+            return .success("Log Directory", logDir)
         } catch {
-            return .failure("日志目录", "目录不可写: \(error.localizedDescription)", recoverable: true)
+            return .failure("Log Directory", "Directory not writable: \(error.localizedDescription)", recoverable: true)
         }
     }
 
-    /// 检查 5: 配置目录
+    /// Check 5: config directory
     private static func checkConfigDirectory() -> CheckResult {
         let fm = FileManager.default
         let configDir = NSString("~/Library/Application Support/DMSA").expandingTildeInPath
 
         if fm.fileExists(atPath: configDir) {
-            return .success("配置目录", configDir)
+            return .success("Config Directory", configDir)
         } else {
             do {
                 try fm.createDirectory(atPath: configDir, withIntermediateDirectories: true, attributes: nil)
-                return .success("配置目录", "目录已创建: \(configDir)")
+                return .success("Config Directory", "Directory created: \(configDir)")
             } catch {
-                return .failure("配置目录", "无法创建目录: \(error.localizedDescription)", recoverable: true)
+                return .failure("Config Directory", "Cannot create directory: \(error.localizedDescription)", recoverable: true)
             }
         }
     }
 
-    // MARK: - 日志输出
+    // MARK: - Log Output
 
-    /// 输出检查报告
+    /// Output check report
     private static func logCheckReport(_ report: CheckReport, phase: String) {
-        logger.info("---------- \(phase)检查结果 ----------")
+        logger.info("---------- \(phase) Check Results ----------")
 
         for result in report.results {
-            let status = result.passed ? "✅" : "❌"
-            let recoveryNote = (!result.passed && result.recoverable) ? " (可恢复)" : ""
+            let status = result.passed ? "PASS" : "FAIL"
+            let recoveryNote = (!result.passed && result.recoverable) ? " (recoverable)" : ""
             logger.info("\(status) [\(result.name)] \(result.message)\(recoveryNote)")
         }
 
         if report.allPassed {
-            logger.info("---------- \(phase)检查全部通过 ----------")
+            logger.info("---------- \(phase) Checks All Passed ----------")
         } else {
             let failedCount = report.results.filter { !$0.passed }.count
             let criticalCount = report.criticalFailures.count
-            logger.warning("---------- \(phase)检查完成: \(failedCount) 项失败, \(criticalCount) 项严重 ----------")
+            logger.warning("---------- \(phase) Checks Done: \(failedCount) failed, \(criticalCount) critical ----------")
         }
     }
 
-    /// 输出最终检查摘要
+    /// Output final check summary
     static func logFinalSummary(reports: [CheckReport]) {
-        logger.info("========== 启动检查最终摘要 ==========")
+        logger.info("========== Startup Check Final Summary ==========")
 
         var totalPassed = 0
         var totalFailed = 0
@@ -279,14 +279,14 @@ struct StartupChecker {
             }
         }
 
-        logger.info("通过: \(totalPassed) | 失败: \(totalFailed) | 严重: \(totalCritical)")
+        logger.info("Passed: \(totalPassed) | Failed: \(totalFailed) | Critical: \(totalCritical)")
 
         if totalCritical > 0 {
-            logger.error("存在严重错误，服务可能无法正常运行!")
+            logger.error("Critical errors found, service may not function properly!")
         } else if totalFailed > 0 {
-            logger.warning("存在非严重错误，部分功能可能受影响")
+            logger.warning("Non-critical errors found, some features may be affected")
         } else {
-            logger.info("所有检查通过，服务准备就绪")
+            logger.info("All checks passed, service ready")
         }
 
         logger.info("==========================================")

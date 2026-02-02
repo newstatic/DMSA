@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 同步历史全量查询页面
+/// Sync history full query page
 struct SyncHistoryPage: View {
     @ObservedObject private var stateManager = StateManager.shared
     private let serviceClient = ServiceClient.shared
@@ -133,7 +133,7 @@ struct SyncHistoryPage: View {
     }
 
     private var filteredFileRecords: [SyncFileRecord] {
-        // 排除淘汰记录 (status 3=淘汰成功, 4=淘汰失败)
+        // Exclude eviction records (status 3=eviction success, 4=eviction failure)
         var result = fileRecords.filter { $0.status != 3 && $0.status != 4 }
         if let pairId = selectedSyncPairId {
             result = result.filter { $0.syncPairId == pairId }
@@ -161,7 +161,7 @@ struct SyncHistoryPage: View {
             ForEach(filteredFileRecords) { record in
                 FileRecordRow(record: record)
                     .onAppear {
-                        // 滚动到倒数第5条时加载更多
+                        // Load more when scrolling to the 5th item from the end
                         if record.id == filteredFileRecords.dropLast(min(5, filteredFileRecords.count)).last?.id {
                             loadMoreFileRecords()
                         }

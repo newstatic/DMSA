@@ -1,7 +1,7 @@
 import Foundation
 
-/// 同步统计实体 (按天聚合)
-/// 用于记录和分析同步性能数据
+/// Sync statistics entity (aggregated by day)
+/// Used to record and analyze sync performance data
 class SyncStatistics: Identifiable, Codable {
     var id: UInt64 = 0
     var date: Date = Date()
@@ -20,18 +20,18 @@ class SyncStatistics: Identifiable, Codable {
         self.diskId = diskId
     }
 
-    /// 成功率
+    /// Success rate
     var successRate: Double {
         guard totalSyncs > 0 else { return 0 }
         return Double(successfulSyncs) / Double(totalSyncs) * 100
     }
 
-    /// 格式化成功率
+    /// Formatted success rate
     var formattedSuccessRate: String {
         return String(format: "%.1f%%", successRate)
     }
 
-    /// 格式化传输大小
+    /// Formatted bytes transferred
     var formattedBytesTransferred: String {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useAll]
@@ -39,23 +39,23 @@ class SyncStatistics: Identifiable, Codable {
         return formatter.string(fromByteCount: totalBytesTransferred)
     }
 
-    /// 格式化平均持续时间
+    /// Formatted average duration
     var formattedAverageDuration: String {
         let seconds = Int(averageDuration)
         if seconds < 60 {
-            return "\(seconds) 秒"
+            return "\(seconds)s"
         } else if seconds < 3600 {
             let minutes = seconds / 60
             let secs = seconds % 60
-            return "\(minutes) 分 \(secs) 秒"
+            return "\(minutes)m \(secs)s"
         } else {
             let hours = seconds / 3600
             let minutes = (seconds % 3600) / 60
-            return "\(hours) 小时 \(minutes) 分"
+            return "\(hours)h \(minutes)m"
         }
     }
 
-    /// 格式化日期
+    /// Formatted date
     var formattedDate: String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -64,7 +64,7 @@ class SyncStatistics: Identifiable, Codable {
         return formatter.string(from: date)
     }
 
-    /// 更新统计数据
+    /// Update statistics
     func update(with history: SyncHistory) {
         totalSyncs += 1
         if history.status == .completed {
@@ -75,7 +75,7 @@ class SyncStatistics: Identifiable, Codable {
         totalFilesTransferred += history.filesCount
         totalBytesTransferred += history.totalSize
 
-        // 更新平均持续时间
+        // Update average duration
         let totalDuration = averageDuration * Double(totalSyncs - 1) + history.duration
         averageDuration = totalDuration / Double(totalSyncs)
     }

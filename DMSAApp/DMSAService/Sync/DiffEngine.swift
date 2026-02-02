@@ -1,66 +1,66 @@
 import Foundation
 
-/// 差异计算引擎 - 比较两个目录快照并生成同步计划
+/// Diff Calculation Engine - Compares two directory snapshots and generates a sync plan
 class DiffEngine {
 
-    // MARK: - 配置
+    // MARK: - Configuration
 
     struct DiffOptions {
-        /// 是否比较校验和
+        /// Whether to compare checksums
         var compareChecksums: Bool = false
 
-        /// 是否检测文件移动
+        /// Whether to detect file moves
         var detectMoves: Bool = true
 
-        /// 是否忽略权限差异
+        /// Whether to ignore permission differences
         var ignorePermissions: Bool = false
 
-        /// 是否忽略所有者差异
+        /// Whether to ignore ownership differences
         var ignoreOwnership: Bool = true
 
-        /// 时间容差（秒）- 两个文件修改时间在此范围内视为相同
+        /// Time tolerance (seconds) - files with modification times within this range are considered identical
         var timeTolerance: TimeInterval = 2.0
 
-        /// 是否启用删除
+        /// Whether to enable deletion
         var enableDelete: Bool = true
 
-        /// 最大文件大小 (nil 表示无限制)
+        /// Maximum file size (nil means no limit)
         var maxFileSize: Int64? = nil
 
         static var `default`: DiffOptions { DiffOptions() }
     }
 
-    // MARK: - 结果类型
+    // MARK: - Result Types
 
     struct DiffResult {
-        /// 需要复制的文件 (源有，目标无)
+        /// Files to copy (exists in source, not in destination)
         var toCopy: [String] = []
 
-        /// 需要更新的文件 (两边都有但不同)
+        /// Files to update (exists in both but different)
         var toUpdate: [String] = []
 
-        /// 需要删除的文件 (源无，目标有)
+        /// Files to delete (not in source, exists in destination)
         var toDelete: [String] = []
 
-        /// 冲突的文件 (需要特殊处理)
+        /// Conflicting files (need special handling)
         var conflicts: [String] = []
 
-        /// 相同的文件 (无需操作)
+        /// Identical files (no action needed)
         var identical: [String] = []
 
-        /// 检测到的移动操作 (from -> to)
+        /// Detected move operations (from -> to)
         var moves: [(from: String, to: String)] = []
 
-        /// 需要创建的目录
+        /// Directories to create
         var directoriesToCreate: [String] = []
 
-        /// 需要删除的目录
+        /// Directories to delete
         var directoriesToDelete: [String] = []
 
-        /// 跳过的文件及原因
+        /// Skipped files with reasons
         var skipped: [(path: String, reason: SkipReason)] = []
 
-        // MARK: - 统计
+        // MARK: - Statistics
 
         var totalChanges: Int {
             toCopy.count + toUpdate.count + toDelete.count + moves.count
@@ -72,19 +72,19 @@ class DiffEngine {
 
         var summary: String {
             var parts: [String] = []
-            if !toCopy.isEmpty { parts.append("新增 \(toCopy.count)") }
-            if !toUpdate.isEmpty { parts.append("更新 \(toUpdate.count)") }
-            if !toDelete.isEmpty { parts.append("删除 \(toDelete.count)") }
-            if !moves.isEmpty { parts.append("移动 \(moves.count)") }
-            if !conflicts.isEmpty { parts.append("冲突 \(conflicts.count)") }
-            if parts.isEmpty { return "无变化" }
+            if !toCopy.isEmpty { parts.append("added \(toCopy.count)") }
+            if !toUpdate.isEmpty { parts.append("updated \(toUpdate.count)") }
+            if !toDelete.isEmpty { parts.append("deleted \(toDelete.count)") }
+            if !moves.isEmpty { parts.append("moved \(moves.count)") }
+            if !conflicts.isEmpty { parts.append("conflicts \(conflicts.count)") }
+            if parts.isEmpty { return "no changes" }
             return parts.joined(separator: ", ")
         }
     }
 
-    // MARK: - 公共方法
+    // MARK: - Public Methods
 
-    /// 计算两个目录快照的差异
+    /// Calculate diff between two directory snapshots
     func calculateDiff(
         source: DirectorySnapshot,
         destination: DirectorySnapshot,
@@ -99,10 +99,10 @@ class DiffEngine {
         let sourceKeys = Set(sourceFiles.keys)
         let destKeys = Set(destFiles.keys)
 
-        // 根据同步方向处理
+        // Process based on sync direction
         switch direction {
         case .localToExternal, .externalToLocal:
-            // 单向同步
+            // Unidirectional sync
             calculateUnidirectionalDiff(
                 sourceFiles: sourceFiles,
                 destFiles: destFiles,
@@ -113,7 +113,7 @@ class DiffEngine {
             )
 
         case .bidirectional:
-            // 双向同步 - 需要检测冲突
+            // Bidirectional sync - needs conflict detection
             calculateBidirectionalDiff(
                 sourceFiles: sourceFiles,
                 destFiles: destFiles,
@@ -124,21 +124,21 @@ class DiffEngine {
             )
         }
 
-        // 检测移动操作
+        // Detect move operations
         if options.detectMoves {
             detectMoves(result: &result, sourceFiles: sourceFiles, destFiles: destFiles)
         }
 
-        // 整理目录创建顺序（父目录在前）
+        // Sort directory creation order (parent directories first)
         result.directoriesToCreate.sort()
 
-        // 整理目录删除顺序（子目录在前）
+        // Sort directory deletion order (child directories first)
         result.directoriesToDelete.sort(by: >)
 
         return result
     }
 
-    /// 根据差异结果生成同步计划
+    /// Generate sync plan from diff result
     func createSyncPlan(
         from diffResult: DiffResult,
         source: DirectorySnapshot,
@@ -153,12 +153,12 @@ class DiffEngine {
             destinationPath: destination.rootPath
         )
 
-        // 添加目录创建动作
+        // Add directory creation actions
         for dir in diffResult.directoriesToCreate {
             plan.addAction(.createDirectory(path: dir))
         }
 
-        // 添加复制动作
+        // Add copy actions
         for path in diffResult.toCopy {
             if let metadata = source.metadata(for: path) {
                 let sourcePath = (source.rootPath as NSString).appendingPathComponent(path)
@@ -167,7 +167,7 @@ class DiffEngine {
             }
         }
 
-        // 添加更新动作
+        // Add update actions
         for path in diffResult.toUpdate {
             if let metadata = source.metadata(for: path) {
                 let sourcePath = (source.rootPath as NSString).appendingPathComponent(path)
@@ -176,7 +176,7 @@ class DiffEngine {
             }
         }
 
-        // 添加删除动作
+        // Add delete actions
         for path in diffResult.toDelete {
             if let metadata = destination.metadata(for: path) {
                 let destPath = (destination.rootPath as NSString).appendingPathComponent(path)
@@ -184,7 +184,7 @@ class DiffEngine {
             }
         }
 
-        // 添加冲突
+        // Add conflicts
         for path in diffResult.conflicts {
             let localMeta = source.metadata(for: path)
             let externalMeta = destination.metadata(for: path)
@@ -202,21 +202,21 @@ class DiffEngine {
             plan.addAction(.resolveConflict(conflict: conflict))
         }
 
-        // 添加跳过动作
+        // Add skip actions
         for (path, reason) in diffResult.skipped {
             plan.addAction(.skip(path: path, reason: reason))
         }
 
-        // 保存快照供后续使用
+        // Save snapshots for later use
         plan.sourceSnapshot = source
         plan.destinationSnapshot = destination
 
         return plan
     }
 
-    // MARK: - 私有方法
+    // MARK: - Private Methods
 
-    /// 单向同步差异计算
+    /// Unidirectional sync diff calculation
     private func calculateUnidirectionalDiff(
         sourceFiles: [String: FileMetadata],
         destFiles: [String: FileMetadata],
@@ -225,12 +225,12 @@ class DiffEngine {
         options: DiffOptions,
         result: inout DiffResult
     ) {
-        // 源有目标无 -> 复制
+        // In source but not in destination -> copy
         let newFiles = sourceKeys.subtracting(destKeys)
         for path in newFiles {
             guard let meta = sourceFiles[path] else { continue }
 
-            // 检查文件大小限制
+            // Check file size limit
             if let maxSize = options.maxFileSize, meta.size > maxSize {
                 result.skipped.append((path, .tooLarge))
                 continue
@@ -243,7 +243,7 @@ class DiffEngine {
             }
         }
 
-        // 源无目标有 -> 删除（如果启用）
+        // Not in source but in destination -> delete (if enabled)
         if options.enableDelete {
             let removedFiles = destKeys.subtracting(sourceKeys)
             for path in removedFiles {
@@ -257,24 +257,24 @@ class DiffEngine {
             }
         }
 
-        // 两边都有 -> 比较是否需要更新
+        // In both -> check if update needed
         let commonFiles = sourceKeys.intersection(destKeys)
         for path in commonFiles {
             guard let sourceMeta = sourceFiles[path],
                   let destMeta = destFiles[path] else { continue }
 
-            // 跳过目录
+            // Skip directories
             if sourceMeta.isDirectory && destMeta.isDirectory {
                 continue
             }
 
-            // 类型不匹配
+            // Type mismatch
             if sourceMeta.isDirectory != destMeta.isDirectory {
                 result.conflicts.append(path)
                 continue
             }
 
-            // 比较是否相同
+            // Compare if identical
             if areFilesIdentical(sourceMeta, destMeta, options: options) {
                 result.identical.append(path)
             } else {
@@ -283,7 +283,7 @@ class DiffEngine {
         }
     }
 
-    /// 双向同步差异计算
+    /// Bidirectional sync diff calculation
     private func calculateBidirectionalDiff(
         sourceFiles: [String: FileMetadata],
         destFiles: [String: FileMetadata],
@@ -292,7 +292,7 @@ class DiffEngine {
         options: DiffOptions,
         result: inout DiffResult
     ) {
-        // 源有目标无 -> 复制到目标
+        // In source but not in destination -> copy to destination
         let newInSource = sourceKeys.subtracting(destKeys)
         for path in newInSource {
             guard let meta = sourceFiles[path] else { continue }
@@ -309,15 +309,15 @@ class DiffEngine {
             }
         }
 
-        // 源无目标有 -> 从目标复制到源（或标记冲突）
+        // Not in source but in destination -> copy from destination to source (or mark conflict)
         let newInDest = destKeys.subtracting(sourceKeys)
         for path in newInDest {
-            // 双向同步中，目标新增的文件可能是用户想要保留的
-            // 标记为需要从目标同步到源
+            // In bidirectional sync, new files in destination may be ones the user wants to keep
+            // Mark as needing sync from destination to source
             result.conflicts.append(path)
         }
 
-        // 两边都有 -> 检测冲突
+        // In both -> detect conflicts
         let commonFiles = sourceKeys.intersection(destKeys)
         for path in commonFiles {
             guard let sourceMeta = sourceFiles[path],
@@ -335,37 +335,37 @@ class DiffEngine {
             if areFilesIdentical(sourceMeta, destMeta, options: options) {
                 result.identical.append(path)
             } else {
-                // 双向同步中，两边都有但不同 -> 冲突
+                // In bidirectional sync, different on both sides -> conflict
                 result.conflicts.append(path)
             }
         }
     }
 
-    /// 比较两个文件是否相同
+    /// Compare if two files are identical
     private func areFilesIdentical(
         _ source: FileMetadata,
         _ dest: FileMetadata,
         options: DiffOptions
     ) -> Bool {
-        // 大小必须相同
+        // Size must be identical
         if source.size != dest.size {
             return false
         }
 
-        // 比较修改时间（有容差）
+        // Compare modification time (with tolerance)
         let timeDiff = abs(source.modifiedTime.timeIntervalSince(dest.modifiedTime))
         if timeDiff > options.timeTolerance {
             return false
         }
 
-        // 如果启用校验和比较且都有校验和
+        // If checksum comparison enabled and both have checksums
         if options.compareChecksums,
            let sourceChecksum = source.checksum,
            let destChecksum = dest.checksum {
             return sourceChecksum.lowercased() == destChecksum.lowercased()
         }
 
-        // 比较权限（可选）
+        // Compare permissions (optional)
         if !options.ignorePermissions && source.permissions != dest.permissions {
             return false
         }
@@ -373,13 +373,13 @@ class DiffEngine {
         return true
     }
 
-    /// 检测文件移动
+    /// Detect file moves
     private func detectMoves(
         result: inout DiffResult,
         sourceFiles: [String: FileMetadata],
         destFiles: [String: FileMetadata]
     ) {
-        // 构建校验和索引
+        // Build checksum index
         var destChecksumIndex: [String: [String]] = [:]
         for (path, meta) in destFiles {
             if let checksum = meta.checksum, !meta.isDirectory {
@@ -390,16 +390,16 @@ class DiffEngine {
         var detectedMoves: [(from: String, to: String)] = []
         var movedPaths: Set<String> = []
 
-        // 检测从"新增"变为"移动"
+        // Detect "new" becoming "moved"
         for path in result.toCopy {
             guard let meta = sourceFiles[path],
                   let checksum = meta.checksum,
                   let candidates = destChecksumIndex[checksum] else { continue }
 
-            // 查找待删除列表中是否有相同校验和的文件
+            // Check if deletion list contains file with same checksum
             for candidate in candidates {
                 if result.toDelete.contains(candidate) && !movedPaths.contains(candidate) {
-                    // 检测到移动
+                    // Move detected
                     detectedMoves.append((from: candidate, to: path))
                     movedPaths.insert(candidate)
                     movedPaths.insert(path)
@@ -408,11 +408,11 @@ class DiffEngine {
             }
         }
 
-        // 更新结果
+        // Update result
         if !detectedMoves.isEmpty {
             result.moves = detectedMoves
 
-            // 从复制和删除列表中移除已检测为移动的项
+            // Remove detected moves from copy and delete lists
             let movedFromPaths = Set(detectedMoves.map { $0.from })
             let movedToPaths = Set(detectedMoves.map { $0.to })
 
@@ -421,7 +421,7 @@ class DiffEngine {
         }
     }
 
-    /// 确定冲突类型
+    /// Determine conflict type
     private func determineConflictType(
         local: FileMetadata?,
         external: FileMetadata?
@@ -439,10 +439,10 @@ class DiffEngine {
     }
 }
 
-// MARK: - 便捷方法
+// MARK: - Convenience Methods
 
 extension DiffEngine {
-    /// 快速比较两个目录
+    /// Quick compare two directories
     static func quickCompare(
         source: URL,
         destination: URL,

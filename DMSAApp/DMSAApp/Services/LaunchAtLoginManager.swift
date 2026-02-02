@@ -1,49 +1,49 @@
 import Foundation
 import ServiceManagement
 
-/// 登录启动管理器
+/// Launch at login manager
 final class LaunchAtLoginManager {
     static let shared = LaunchAtLoginManager()
 
     private init() {}
 
-    /// 检查是否启用了登录启动
+    /// Check if launch at login is enabled
     var isEnabled: Bool {
         if #available(macOS 13.0, *) {
             return SMAppService.mainApp.status == .enabled
         } else {
-            // macOS 12 及以下使用旧 API
+            // macOS 12 and below use legacy API
             return legacyIsEnabled
         }
     }
 
-    /// 设置登录启动状态
+    /// Set launch at login state
     func setEnabled(_ enabled: Bool) {
         if #available(macOS 13.0, *) {
             do {
                 if enabled {
                     try SMAppService.mainApp.register()
-                    Logger.shared.info("已启用登录时自动启动")
+                    Logger.shared.info("Launch at login enabled")
                 } else {
                     try SMAppService.mainApp.unregister()
-                    Logger.shared.info("已禁用登录时自动启动")
+                    Logger.shared.info("Launch at login disabled")
                 }
             } catch {
-                Logger.shared.error("设置登录启动失败: \(error.localizedDescription)")
+                Logger.shared.error("Failed to set launch at login: \(error.localizedDescription)")
             }
         } else {
-            // macOS 12 及以下使用旧 API
+            // macOS 12 and below use legacy API
             legacySetEnabled(enabled)
         }
     }
 
-    // MARK: - Legacy API (macOS 12 及以下)
+    // MARK: - Legacy API (macOS 12 and below)
 
     private var legacyIsEnabled: Bool {
         guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return false }
 
-        // 使用 deprecated API 检查状态
-        // 注意: 这在 macOS 13+ 已废弃，但为了兼容性保留
+        // Using deprecated API to check status
+        // Note: deprecated in macOS 13+, kept for compatibility
         let jobDicts = SMCopyAllJobDictionaries(kSMDomainUserLaunchd)?.takeRetainedValue() as? [[String: Any]] ?? []
         return jobDicts.contains { dict in
             (dict["Label"] as? String) == bundleIdentifier
@@ -52,16 +52,16 @@ final class LaunchAtLoginManager {
 
     private func legacySetEnabled(_ enabled: Bool) {
         guard let bundleIdentifier = Bundle.main.bundleIdentifier else {
-            Logger.shared.error("无法获取 Bundle Identifier")
+            Logger.shared.error("Unable to get Bundle Identifier")
             return
         }
 
-        // 使用 LaunchAgent plist 方式
+        // Use LaunchAgent plist approach
         let launchAgentPath = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/LaunchAgents/\(bundleIdentifier).plist")
 
         if enabled {
-            // 创建 LaunchAgent plist
+            // Create LaunchAgent plist
             let plist: [String: Any] = [
                 "Label": bundleIdentifier,
                 "ProgramArguments": [Bundle.main.executablePath ?? ""],
@@ -72,19 +72,19 @@ final class LaunchAtLoginManager {
             do {
                 let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
                 try data.write(to: launchAgentPath)
-                Logger.shared.info("已创建 LaunchAgent: \(launchAgentPath.path)")
+                Logger.shared.info("Created LaunchAgent: \(launchAgentPath.path)")
             } catch {
-                Logger.shared.error("创建 LaunchAgent 失败: \(error.localizedDescription)")
+                Logger.shared.error("Failed to create LaunchAgent: \(error.localizedDescription)")
             }
         } else {
-            // 删除 LaunchAgent plist
+            // Delete LaunchAgent plist
             do {
                 if FileManager.default.fileExists(atPath: launchAgentPath.path) {
                     try FileManager.default.removeItem(at: launchAgentPath)
-                    Logger.shared.info("已删除 LaunchAgent")
+                    Logger.shared.info("Deleted LaunchAgent")
                 }
             } catch {
-                Logger.shared.error("删除 LaunchAgent 失败: \(error.localizedDescription)")
+                Logger.shared.error("Failed to delete LaunchAgent: \(error.localizedDescription)")
             }
         }
     }

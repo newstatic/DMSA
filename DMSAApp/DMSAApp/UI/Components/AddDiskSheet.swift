@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 添加硬盘 Sheet
+/// Add Disk Sheet
 struct AddDiskSheet: View {
     let onAdd: (DiskConfig) -> Void
     let existingDiskNames: Set<String>

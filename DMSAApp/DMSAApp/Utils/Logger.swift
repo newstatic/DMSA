@@ -2,7 +2,7 @@ import Foundation
 import os.log
 import Combine
 
-/// 日志条目
+/// Log entry
 struct LogEntry: Identifiable, Equatable {
     let id: UUID
     let timestamp: Date
@@ -31,7 +31,7 @@ struct LogEntry: Identifiable, Equatable {
     }
 }
 
-/// 日志管理器
+/// Logger
 final class Logger: ObservableObject {
     static let shared = Logger()
 
@@ -70,21 +70,21 @@ final class Logger: ObservableObject {
         }
     }
 
-    // MARK: - 实时日志订阅
+    // MARK: - Live Log Subscription
 
-    /// 最近的日志条目 (最多 1000 条)
+    /// Recent log entries (max 1000)
     @Published private(set) var latestEntries: [LogEntry] = []
 
-    /// 日志更新发布者
+    /// Log update publisher
     let logPublisher = PassthroughSubject<LogEntry, Never>()
 
-    /// 最大保留条目数
+    /// Max retained entries
     private let maxEntries = 1000
 
-    /// 节流机制：待发布的日志条目缓冲
+    /// Throttle: pending log entry buffer
     private var pendingEntries: [LogEntry] = []
     private var isFlushScheduled = false
-    private let flushInterval: TimeInterval = 0.1  // 100ms 批量更新一次
+    private let flushInterval: TimeInterval = 0.1  // Batch update every 100ms
 
     private init() {
         logsDir = FileManager.default.homeDirectoryForCurrentUser
@@ -98,7 +98,7 @@ final class Logger: ObservableObject {
         logDateFormatter = DateFormatter()
         logDateFormatter.dateFormat = "yyyy-MM-dd"
 
-        // 打开今日日志文件
+        // Open today's log file
         let today = logDateFormatter.string(from: Date())
         currentLogDate = today
         logFileURL = logsDir.appendingPathComponent("app-\(today).log")
@@ -109,11 +109,11 @@ final class Logger: ObservableObject {
         fileHandle = FileHandle(forWritingAtPath: logFileURL.path)
         fileHandle?.seekToEndOfFile()
 
-        // 清理旧日志
+        // Clean up old logs
         cleanupOldLogs()
     }
 
-    /// 按天轮转日志文件 (在 queue 中调用)
+    /// Rotate log file daily (called within queue)
     private func rotateLogFileIfNeeded() {
         let today = logDateFormatter.string(from: Date())
         guard today != currentLogDate else { return }
@@ -129,7 +129,7 @@ final class Logger: ObservableObject {
         fileHandle?.seekToEndOfFile()
     }
 
-    /// 清理超过保留天数的旧日志
+    /// Clean up logs older than retention period
     private func cleanupOldLogs() {
         let fm = FileManager.default
         guard let files = try? fm.contentsOfDirectory(atPath: logsDir.path) else { return }
@@ -145,7 +145,7 @@ final class Logger: ObservableObject {
             }
         }
 
-        // 清理旧的不带日期的日志文件
+        // Clean up legacy log files without date suffix
         let oldLog = logsDir.appendingPathComponent("app.log")
         if fm.fileExists(atPath: oldLog.path) {
             try? fm.removeItem(at: oldLog)
@@ -158,7 +158,7 @@ final class Logger: ObservableObject {
         let formattedTimestamp = self.dateFormatter.string(from: timestamp)
         let logMessage = "[\(formattedTimestamp)] [\(level.rawValue)] [\(fileName):\(line)] \(message)\n"
 
-        // 创建日志条目
+        // Create log entry
         let entry = LogEntry(
             timestamp: timestamp,
             level: level,
@@ -167,17 +167,17 @@ final class Logger: ObservableObject {
             message: message
         )
 
-        // 使用节流机制批量更新 UI
+        // Use throttle mechanism for batch UI updates
         queue.async { [weak self] in
             guard let self = self else { return }
 
-            // 检查是否需要按天轮转
+            // Check if daily rotation is needed
             self.rotateLogFileIfNeeded()
 
-            // 添加到待发布缓冲
+            // Add to pending buffer
             self.pendingEntries.append(entry)
 
-            // 调度批量刷新
+            // Schedule batch flush
             if !self.isFlushScheduled {
                 self.isFlushScheduled = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + self.flushInterval) { [weak self] in
@@ -185,7 +185,7 @@ final class Logger: ObservableObject {
                 }
             }
 
-            // 同步写入控制台和文件
+            // Write to console and file synchronously
             print(logMessage, terminator: "")
 
             if let data = logMessage.data(using: .utf8) {
@@ -194,7 +194,7 @@ final class Logger: ObservableObject {
         }
     }
 
-    /// 批量刷新待发布的日志条目到主线程
+    /// Batch flush pending log entries to main thread
     private func flushPendingEntries() {
         queue.async { [weak self] in
             guard let self = self else { return }
@@ -210,12 +210,12 @@ final class Logger: ObservableObject {
 
                 self.latestEntries.append(contentsOf: entriesToFlush)
 
-                // 保持在最大条目数以内
+                // Keep within max entry count
                 if self.latestEntries.count > self.maxEntries {
                     self.latestEntries.removeFirst(self.latestEntries.count - self.maxEntries)
                 }
 
-                // 只发送最后一个条目的通知，减少订阅者处理次数
+                // Only send notification for last entry to reduce subscriber processing
                 if let lastEntry = entriesToFlush.last {
                     self.logPublisher.send(lastEntry)
                 }
@@ -235,7 +235,7 @@ final class Logger: ObservableObject {
         log(message, level: .warn, file: file, line: line)
     }
 
-    /// warning 是 warn 的别名，为了兼容性
+    /// warning is an alias for warn, for compatibility
     func warning(_ message: String, file: String = #file, line: Int = #line) {
         warn(message, file: file, line: line)
     }
@@ -244,14 +244,14 @@ final class Logger: ObservableObject {
         log(message, level: .error, file: file, line: line)
     }
 
-    // MARK: - 日志文件操作
+    // MARK: - Log File Operations
 
-    /// 获取日志文件 URL
+    /// Get log file URL
     var logFileLocation: URL {
         logFileURL
     }
 
-    /// 清空日志文件
+    /// Clear log file
     func clearLogFile() {
         queue.async { [weak self] in
             guard let self = self else { return }
@@ -263,12 +263,12 @@ final class Logger: ObservableObject {
         }
     }
 
-    /// 读取日志文件内容
+    /// Read log file contents
     func readLogFile() -> String? {
         try? String(contentsOf: logFileURL, encoding: .utf8)
     }
 
-    /// 获取日志文件大小
+    /// Get log file size
     func getLogFileSize() -> Int64 {
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: logFileURL.path),
               let size = attrs[.size] as? Int64 else {
@@ -277,7 +277,7 @@ final class Logger: ObservableObject {
         return size
     }
 
-    /// 过滤日志条目
+    /// Filter log entries
     func filteredEntries(level: Level? = nil, searchText: String = "") -> [LogEntry] {
         var entries = latestEntries
 

@@ -1,25 +1,25 @@
 import Foundation
 
-/// 通知操作类型
+/// Notification action type
 public enum NotificationActionType: String, Codable, CaseIterable, Sendable {
-    case openSettings          // 打开设置页面
-    case openDiskSettings      // 打开硬盘设置
-    case openSyncPairSettings  // 打开同步对设置
-    case openLogs              // 打开日志
-    case openHistory           // 打开历史
-    case none                  // 无操作
+    case openSettings          // Open settings page
+    case openDiskSettings      // Open disk settings
+    case openSyncPairSettings  // Open sync pair settings
+    case openLogs              // Open logs
+    case openHistory           // Open history
+    case none                  // No action
 }
 
-/// 通知记录数据模型 (共享版本)
+/// Notification record data model (shared version)
 public struct NotificationRecord: Identifiable, Codable, Sendable {
     public var id: UInt64
-    public var type: String               // 通知类型 (NotificationType.rawValue)
-    public var title: String              // 通知标题
-    public var body: String               // 通知内容
-    public var createdAt: Date            // 创建时间
-    public var isRead: Bool               // 是否已读
-    public var userInfo: [String: String] // 附加信息 (diskId, syncPairId, error 等)
-    public var actionType: NotificationActionType // 跳转类型
+    public var type: String               // Notification type (NotificationType.rawValue)
+    public var title: String              // Notification title
+    public var body: String               // Notification content
+    public var createdAt: Date            // Creation time
+    public var isRead: Bool               // Whether read
+    public var userInfo: [String: String] // Additional info (diskId, syncPairId, error, etc.)
+    public var actionType: NotificationActionType // Navigation type
 
     public init(
         id: UInt64 = 0,
@@ -41,15 +41,15 @@ public struct NotificationRecord: Identifiable, Codable, Sendable {
         self.actionType = actionType
     }
 
-    /// 根据通知类型和 userInfo 自动确定跳转类型
+    /// Determine navigation type based on notification type and userInfo
     public static func determineActionType(type: String, userInfo: [String: String]) -> NotificationActionType {
-        // 检查是否有配置相关错误
+        // Check for config-related errors
         let hasConfigError = userInfo["configError"] != nil
 
         switch type {
         case "sync_failed", "error":
             if hasConfigError {
-                // 配置错误跳转设置
+                // Config errors navigate to settings
                 if userInfo["diskId"] != nil {
                     return .openDiskSettings
                 } else if userInfo["syncPairId"] != nil {
@@ -57,11 +57,11 @@ public struct NotificationRecord: Identifiable, Codable, Sendable {
                 }
                 return .openSettings
             }
-            // 其他错误跳转日志
+            // Other errors navigate to logs
             return .openLogs
 
         case "cache_warning":
-            return .openSettings // 跳转缓存设置
+            return .openSettings // Navigate to cache settings
 
         case "disk_connected", "disk_disconnected":
             return .openDiskSettings

@@ -1,23 +1,23 @@
 import Foundation
 import CryptoKit
 
-/// 文件校验计算器 - 支持 MD5、SHA256、xxHash
+/// File Checksum Calculator - Supports MD5, SHA256, xxHash
 actor FileHasher {
-    // MARK: - 配置
+    // MARK: - Configuration
 
-    /// 缓冲区大小 (默认 1MB)
+    /// Buffer size (default 1MB)
     private let bufferSize: Int
 
-    /// 是否已取消
+    /// Whether cancelled
     private var isCancelled: Bool = false
 
     // MARK: - Logger
 
     private let logger = Logger.forService("FileHasher")
 
-    // MARK: - 类型定义
+    // MARK: - Type Definitions
 
-    /// 哈希算法
+    /// Hash algorithm
     enum HashAlgorithm: String, Codable {
         case md5 = "md5"
         case sha256 = "sha256"
@@ -32,19 +32,19 @@ actor FileHasher {
         }
     }
 
-    /// 进度回调
+    /// Progress callback
     typealias FileProgressHandler = (Int64, Int64) -> Void
     typealias BatchProgressHandler = (Int, Int, String) -> Void
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     init(bufferSize: Int = 1024 * 1024) {
         self.bufferSize = bufferSize
     }
 
-    // MARK: - 公共方法
+    // MARK: - Public Methods
 
-    /// 计算单个文件的校验和
+    /// Calculate checksum for a single file
     func hash(
         file: URL,
         algorithm: HashAlgorithm = .md5,
@@ -62,7 +62,7 @@ actor FileHasher {
 
         defer { try? fileHandle.close() }
 
-        // 获取文件大小
+        // Get file size
         let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
         let fileSize = (attributes[.size] as? Int64) ?? 0
 
@@ -76,7 +76,7 @@ actor FileHasher {
         }
     }
 
-    /// 批量计算文件校验和
+    /// Batch calculate file checksums
     func hashFiles(
         files: [URL],
         algorithm: HashAlgorithm = .md5,
@@ -98,15 +98,15 @@ actor FileHasher {
                 let checksum = try await hash(file: file, algorithm: algorithm)
                 results[file] = checksum
             } catch {
-                logger.warning("计算校验和失败: \(file.path), 错误: \(error)")
-                // 继续处理其他文件
+                logger.warning("Failed to calculate checksum: \(file.path), error: \(error)")
+                // Continue processing other files
             }
         }
 
         return results
     }
 
-    /// 批量计算文件校验和 (并行版本)
+    /// Batch calculate file checksums (parallel version)
     func hashFilesParallel(
         files: [URL],
         algorithm: HashAlgorithm = .md5,
@@ -120,7 +120,7 @@ actor FileHasher {
             var resultDict: [URL: String] = [:]
             var pending = files[...]
 
-            // 启动初始批次
+            // Start initial batch
             for _ in 0..<min(maxConcurrent, files.count) {
                 if let file = pending.popFirst() {
                     group.addTask {
@@ -134,7 +134,7 @@ actor FileHasher {
                 }
             }
 
-            // 处理完成的任务并添加新任务
+            // Process completed tasks and add new ones
             for await (file, checksum) in group {
                 completed += 1
                 if let checksum = checksum {
@@ -143,7 +143,7 @@ actor FileHasher {
 
                 progressHandler?(completed, files.count, file.lastPathComponent)
 
-                // 添加下一个待处理文件
+                // Add next pending file
                 if let nextFile = pending.popFirst() {
                     group.addTask {
                         do {
@@ -162,7 +162,7 @@ actor FileHasher {
         return results
     }
 
-    /// 验证文件校验和
+    /// Verify file checksum
     func verify(
         file: URL,
         expectedChecksum: String,
@@ -172,20 +172,20 @@ actor FileHasher {
         return actualChecksum.lowercased() == expectedChecksum.lowercased()
     }
 
-    /// 取消计算
+    /// Cancel calculation
     func cancel() {
         isCancelled = true
     }
 
-    // MARK: - 私有方法
+    // MARK: - Private Methods
 
-    /// 单文件哈希 (用于并行处理)
+    /// Single file hash (for parallel processing)
     private func hashSingle(file: URL, algorithm: HashAlgorithm) async throws -> String {
         guard !isCancelled else { throw HasherError.cancelled }
         return try await hash(file: file, algorithm: algorithm)
     }
 
-    /// MD5 哈希
+    /// MD5 hash
     private func hashMD5(
         fileHandle: FileHandle,
         fileSize: Int64,
@@ -206,7 +206,7 @@ actor FileHasher {
                 }
             }
 
-            // 检查是否到达文件末尾
+            // Check if end of file reached
             if fileHandle.offsetInFile >= fileSize {
                 break
             }
@@ -216,7 +216,7 @@ actor FileHasher {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    /// SHA-256 哈希
+    /// SHA-256 hash
     private func hashSHA256(
         fileHandle: FileHandle,
         fileSize: Int64,
@@ -246,13 +246,13 @@ actor FileHasher {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    /// xxHash64 哈希 (快速非加密哈希)
+    /// xxHash64 hash (fast non-cryptographic hash)
     private func hashXXHash64(
         fileHandle: FileHandle,
         fileSize: Int64,
         progressHandler: FileProgressHandler?
     ) async throws -> String {
-        // 使用简化的 xxHash64 实现
+        // Simplified xxHash64 implementation
         var hash: UInt64 = 0
         let prime1: UInt64 = 11400714785074694791
         let prime2: UInt64 = 14029467366897019727
@@ -285,7 +285,7 @@ actor FileHasher {
             }
         }
 
-        // 最终混合
+        // Final mix
         hash = hash ^ (hash >> 33)
         hash = hash &* prime2
         hash = hash ^ (hash >> 29)
@@ -296,7 +296,7 @@ actor FileHasher {
     }
 }
 
-// MARK: - 哈希器错误
+// MARK: - Hasher Errors
 
 enum HasherError: Error, LocalizedError {
     case fileNotFound(String)
@@ -307,21 +307,21 @@ enum HasherError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .fileNotFound(let path):
-            return "文件不存在: \(path)"
+            return "File not found: \(path)"
         case .cannotOpenFile(let path):
-            return "无法打开文件: \(path)"
+            return "Cannot open file: \(path)"
         case .readError(let path):
-            return "读取文件失败: \(path)"
+            return "Failed to read file: \(path)"
         case .cancelled:
-            return "校验计算已取消"
+            return "Checksum calculation cancelled"
         }
     }
 }
 
-// MARK: - 便捷扩展
+// MARK: - Convenience Extensions
 
 extension FileMetadata {
-    /// 计算并更新校验和
+    /// Calculate and update checksum
     mutating func computeChecksum(
         baseURL: URL,
         algorithm: FileHasher.HashAlgorithm = .md5
@@ -335,7 +335,7 @@ extension FileMetadata {
 }
 
 extension DirectorySnapshot {
-    /// 批量计算校验和
+    /// Batch calculate checksums
     mutating func computeChecksums(
         algorithm: FileHasher.HashAlgorithm = .md5,
         progressHandler: FileHasher.BatchProgressHandler? = nil
@@ -343,7 +343,7 @@ extension DirectorySnapshot {
         let hasher = FileHasher()
         let baseURL = URL(fileURLWithPath: rootPath)
 
-        // 只对文件计算校验和，跳过目录
+        // Only calculate checksums for files, skip directories
         let filesToHash = files.values.filter { !$0.isDirectory }
         let fileURLs = filesToHash.map { baseURL.appendingPathComponent($0.relativePath) }
 
@@ -353,7 +353,7 @@ extension DirectorySnapshot {
             progressHandler: progressHandler
         )
 
-        // 更新元数据
+        // Update metadata
         for (url, checksum) in checksums {
             let relativePath = url.path.replacingOccurrences(of: rootPath + "/", with: "")
             if var metadata = files[relativePath] {

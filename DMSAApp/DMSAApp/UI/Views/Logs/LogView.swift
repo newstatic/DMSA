@@ -9,9 +9,9 @@ struct LogView: View {
     @State private var autoScroll: Bool = true
     @State private var showClearConfirmation: Bool = false
 
-    /// 节流：上次滚动时间
+    /// Throttle: last scroll time
     @State private var lastScrollTime: Date = .distantPast
-    /// 节流间隔 (秒)
+    /// Throttle interval (seconds)
     private let scrollThrottleInterval: TimeInterval = 0.3
 
     private var filteredEntries: [LogEntry] {
@@ -108,7 +108,7 @@ struct LogView: View {
             .background(Color(.textBackgroundColor))
             .cornerRadius(6)
             .onChange(of: logger.latestEntries.count) { _ in
-                // 节流：避免频繁触发滚动动画
+                // Throttle: avoid triggering scroll animations too frequently
                 let now = Date()
                 guard autoScroll,
                       now.timeIntervalSince(lastScrollTime) >= scrollThrottleInterval,
@@ -118,7 +118,7 @@ struct LogView: View {
 
                 lastScrollTime = now
 
-                // 使用无动画滚动提高性能
+                // Use non-animated scroll for better performance
                 proxy.scrollTo(lastEntry.id, anchor: .bottom)
             }
         }
@@ -152,12 +152,12 @@ struct LogView: View {
                 if FileManager.default.fileExists(atPath: serviceLogPath) {
                     NSWorkspace.shared.selectFile(serviceLogPath, inFileViewerRootedAtPath: "")
                 } else {
-                    // 如果文件不存在，打开服务日志目录
+                    // If file doesn't exist, open the service log directory
                     let serviceLogDir = Constants.Paths.serviceLogDir
                     if FileManager.default.fileExists(atPath: serviceLogDir.path) {
                         NSWorkspace.shared.open(serviceLogDir)
                     } else {
-                        // 回退到 App 日志目录
+                        // Fall back to the app log directory
                         NSWorkspace.shared.open(Constants.Paths.logs)
                     }
                 }

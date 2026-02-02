@@ -1,33 +1,34 @@
 import Foundation
 
-// MARK: - DMSAService 入口点
-// 统一后台服务，合并 VFS + Sync + Helper 功能
-// 作为 LaunchDaemon 以 root 权限运行
+// MARK: - DMSAService Entry Point
+// Unified background service, combining VFS + Sync + Helper functionality
+// Runs as LaunchDaemon with root privileges
 
 // ============================================================
-// 重要: macFUSE fork 兼容性设置
+// Important: macFUSE fork compatibility settings
 // ============================================================
-// macFUSE 的 mount 内部会调用 fork() 创建子进程
-// 在多线程环境下，如果子进程尝试初始化 Objective-C 类，会触发:
-// "*** multi-threaded process forked ***" 崩溃
+// macFUSE's mount internally calls fork() to create child processes.
+// In a multi-threaded environment, if the child process attempts to
+// initialize Objective-C classes, it triggers:
+// "*** multi-threaded process forked ***" crash
 //
-// 解决方案:
-// 1. 设置 OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES (部分缓解)
-// 2. 在任何多线程操作之前，预先加载 macFUSE framework
-// 3. 预初始化所有可能用到的 Objective-C 类
+// Solutions:
+// 1. Set OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES (partial mitigation)
+// 2. Pre-load macFUSE framework before any multi-threaded operations
+// 3. Pre-initialize all potentially used Objective-C classes
 // ============================================================
 
-// 必须在任何代码执行之前设置
+// Must be set before any code executes
 setenv("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES", 1)
 
-// 预加载 macFUSE framework (在创建任何线程之前)
+// Pre-load macFUSE framework (before creating any threads)
 _ = {
-    // 加载 macFUSE framework
+    // Load macFUSE framework
     if let bundle = Bundle(path: "/Library/Frameworks/macFUSE.framework") {
         try? bundle.loadAndReturnError()
     }
 
-    // 预初始化关键类
+    // Pre-initialize critical classes
     _ = NSObject.self
     _ = NSString.self
     _ = NSArray.self
@@ -45,21 +46,21 @@ _ = {
     _ = DispatchQueue.main
     _ = DispatchQueue.global()
 
-    // 预初始化 GMUserFileSystem 类
+    // Pre-initialize GMUserFileSystem class
     if let gmClass = NSClassFromString("GMUserFileSystem") {
         _ = gmClass.description()
     }
 }()
 
-// 设置日志全局状态提供者 (在创建 logger 之前)
-// 参考文档: SERVICE_FLOW/16_日志规范.md
+// Set up logger global state provider (before creating logger)
+// Reference: SERVICE_FLOW/16_LoggingSpec.md
 Logger.globalStateProvider = {
-    // 使用简化的同步获取方式
-    // 注意: 由于 ServiceStateManager 是 actor，这里使用缓存值避免死锁
+    // Use simplified synchronous retrieval
+    // Note: Since ServiceStateManager is an actor, use cached value to avoid deadlocks
     return LoggerStateCache.currentState
 }
 
-// 日志状态缓存 (用于避免 actor 死锁)
+// Logger state cache (to avoid actor deadlocks)
 enum LoggerStateCache {
     static var currentState: String = "STARTING"
 
@@ -71,25 +72,25 @@ enum LoggerStateCache {
 let logger = Logger.forService("Main")
 
 logger.info("========================================")
-logger.info("DMSAService v\(Constants.appVersion) 启动")
+logger.info("DMSAService v\(Constants.appVersion) starting")
 logger.info("PID: \(ProcessInfo.processInfo.processIdentifier)")
 logger.info("UID: \(getuid())")
 logger.info("========================================")
 
-// 输出环境变量配置
+// Output environment variable configuration
 let env = ProcessInfo.processInfo.environment
-logger.info("环境变量:")
-logger.info("  DMSA_USER_HOME: \(env["DMSA_USER_HOME"] ?? "(未设置)")")
-logger.info("  DMSA_USER_NAME: \(env["DMSA_USER_NAME"] ?? "(未设置)")")
-logger.info("  DMSA_LOGS_DIR: \(env["DMSA_LOGS_DIR"] ?? "(未设置)")")
-logger.info("  DMSA_DATA_DIR: \(env["DMSA_DATA_DIR"] ?? "(未设置)")")
-logger.info("路径配置:")
+logger.info("Environment variables:")
+logger.info("  DMSA_USER_HOME: \(env["DMSA_USER_HOME"] ?? "(not set)")")
+logger.info("  DMSA_USER_NAME: \(env["DMSA_USER_NAME"] ?? "(not set)")")
+logger.info("  DMSA_LOGS_DIR: \(env["DMSA_LOGS_DIR"] ?? "(not set)")")
+logger.info("  DMSA_DATA_DIR: \(env["DMSA_DATA_DIR"] ?? "(not set)")")
+logger.info("Path configuration:")
 logger.info("  userHome: \(Constants.Paths.appSupport.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().path)")
 logger.info("  logs: \(Constants.Paths.logs.path)")
 logger.info("  appSupport: \(Constants.Paths.appSupport.path)")
 logger.info("========================================")
 
-// MARK: - 目录设置
+// MARK: - Directory Setup
 
 func setupDirectories() {
     let fm = FileManager.default
@@ -105,134 +106,134 @@ func setupDirectories() {
         if !fm.fileExists(atPath: path) {
             do {
                 try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-                logger.info("创建目录: \(path)")
+                logger.info("Created directory: \(path)")
             } catch {
-                logger.error("创建目录失败: \(path) - \(error)")
+                logger.error("Failed to create directory: \(path) - \(error)")
             }
         }
     }
 }
 
-// MARK: - 信号处理
+// MARK: - Signal Handling
 
 func setupSignalHandlers() {
-    // SIGTERM: 优雅关闭
+    // SIGTERM: Graceful shutdown
     signal(SIGTERM) { _ in
-        logger.info("收到 SIGTERM，准备关闭...")
+        logger.info("Received SIGTERM, preparing to shut down...")
         Task {
             await ServiceDelegate.shared?.prepareForShutdown()
-            logger.info("DMSAService 已安全关闭")
+            logger.info("DMSAService shut down safely")
             exit(0)
         }
     }
 
-    // SIGHUP: 重新加载配置
+    // SIGHUP: Reload configuration
     signal(SIGHUP) { _ in
-        logger.info("收到 SIGHUP，重新加载配置...")
+        logger.info("Received SIGHUP, reloading configuration...")
         Task {
             await ServiceDelegate.shared?.reloadConfiguration()
         }
     }
 
-    // SIGINT: 中断 (调试用)
+    // SIGINT: Interrupt (for debugging)
     signal(SIGINT) { _ in
-        logger.info("收到 SIGINT，准备关闭...")
+        logger.info("Received SIGINT, preparing to shut down...")
         Task {
             await ServiceDelegate.shared?.prepareForShutdown()
-            logger.info("DMSAService 已安全关闭")
+            logger.info("DMSAService shut down safely")
             exit(0)
         }
     }
 }
 
-// MARK: - 主流程
+// MARK: - Main Flow
 
-// 0. 执行预启动检查 (检查 root 权限、环境变量、macFUSE 等)
-// 参考文档: SERVICE_FLOW/17_检查清单.md
+// 0. Run preflight checks (root privileges, environment variables, macFUSE, etc.)
+// Reference: SERVICE_FLOW/17_Checklist.md
 let preflightReport = StartupChecker.runPreflightChecks()
 
-// 检查是否有严重错误
+// Check for critical failures
 if !preflightReport.criticalFailures.isEmpty {
-    logger.error("预启动检查发现严重错误，服务无法启动")
+    logger.error("Preflight check found critical errors, service cannot start")
     for failure in preflightReport.criticalFailures {
         logger.error("  - \(failure.name): \(failure.message)")
     }
     exit(1)
 }
 
-// 1. 设置目录
+// 1. Set up directories
 setupDirectories()
 
-// 2. 设置信号处理
+// 2. Set up signal handlers
 setupSignalHandlers()
 
-// 3. 创建服务委托
+// 3. Create service delegate
 let delegate = ServiceDelegate()
 
-// 4. 创建 XPC 监听器
+// 4. Create XPC listener
 let listener = NSXPCListener(machServiceName: Constants.XPCService.service)
 listener.delegate = delegate
 listener.resume()
 
-// 设置 XPC_READY 状态，启用通知队列刷新
+// Set XPC_READY state, enable notification queue flushing
 Task {
     await ServiceStateManager.shared.setState(.xpcReady)
 }
 
-logger.info("XPC 监听器已启动: \(Constants.XPCService.service)")
+logger.info("XPC listener started: \(Constants.XPCService.service)")
 
 // ============================================================
-// FUSE 挂载策略
+// FUSE Mount Strategy
 // ============================================================
-// macFUSE 在 mount 时会调用 fork()。在多线程环境下 fork 后的
-// 子进程初始化 Objective-C 类时可能崩溃。
+// macFUSE calls fork() during mount. In a multi-threaded environment,
+// the child process may crash when initializing Objective-C classes.
 //
-// 缓解措施:
-// 1. 设置 OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES (已在 plist 和上面设置)
-// 2. 预初始化关键的 Objective-C 类 (已在上面完成)
-// 3. 延迟一小段时间让进程稳定后再挂载
+// Mitigations:
+// 1. Set OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES (already set in plist and above)
+// 2. Pre-initialize critical Objective-C classes (already done above)
+// 3. Delay briefly to let the process stabilize before mounting
 // ============================================================
 
-// 5. 启动电源监控 (sleep/wake)
+// 5. Start power monitoring (sleep/wake)
 let powerMonitor = ServicePowerMonitor()
 powerMonitor.onSystemWillSleep = {
-    logger.info("系统即将休眠，暂停同步...")
+    logger.info("System will sleep, pausing sync...")
     await delegate.implementation.pauseSyncForSleep()
 }
 powerMonitor.onSystemWake = {
-    logger.info("系统唤醒，检查 FUSE 挂载状态...")
+    logger.info("System woke up, checking FUSE mount status...")
     await delegate.implementation.checkAndRecoverAfterWake()
 }
 powerMonitor.start()
 
-// 6. 启动后台任务
+// 6. Start background tasks
 Task {
-    // 短暂延迟，让进程初始化完成
-    try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 秒
+    // Brief delay to let process initialization complete
+    try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 seconds
 
-    // 先启动同步调度器，确保 SyncManager 有配置
-    // 这样在 autoMount 过程中如果收到 syncNow 请求就能正常处理
+    // Start sync scheduler first to ensure SyncManager has configuration
+    // This way syncNow requests during autoMount can be handled properly
     await delegate.startScheduler()
 
-    // 自动挂载 VFS
-    // 注意: VFSManager.mount() 内部会:
-    // 1. 设置 INDEXING 状态
-    // 2. 构建索引
-    // 3. 设置 READY 状态并发送 stateChanged 通知
-    // 4. 发送 indexReady 通知
+    // Auto-mount VFS
+    // Note: VFSManager.mount() internally will:
+    // 1. Set INDEXING state
+    // 2. Build index
+    // 3. Set READY state and send stateChanged notification
+    // 4. Send indexReady notification
     await delegate.autoMount()
 
-    // autoMount 完成后，VFSManager 已经设置了 READY 状态
-    // 如果没有同步对需要挂载，我们需要手动设置 READY 状态
+    // After autoMount completes, VFSManager has already set READY state
+    // If no sync pairs need mounting, manually set READY state
     let currentState = await ServiceStateManager.shared.getState()
     if currentState != .ready {
-        logger.info("所有挂载完成，手动设置 READY 状态")
+        logger.info("All mounts complete, manually setting READY state")
         await ServiceStateManager.shared.setState(.ready)
     } else {
-        logger.info("VFSManager 已设置 READY 状态")
+        logger.info("VFSManager has already set READY state")
     }
 }
 
-// 6. 运行主事件循环
-logger.info("DMSAService 就绪，等待连接...")
+// 6. Run main event loop
+logger.info("DMSAService ready, awaiting connections...")
 RunLoop.main.run()

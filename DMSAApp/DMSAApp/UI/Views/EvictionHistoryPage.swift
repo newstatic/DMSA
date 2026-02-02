@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 淘汰历史全量查询页面
+/// Eviction history full query page
 struct EvictionHistoryPage: View {
     @ObservedObject private var stateManager = StateManager.shared
     private let serviceClient = ServiceClient.shared

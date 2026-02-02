@@ -1,6 +1,6 @@
 import Foundation
 
-/// 应用配置
+/// App configuration
 public struct AppConfig: Codable, Sendable {
     public var version: String = "4.0"
     public var general: GeneralConfig = GeneralConfig()
@@ -75,12 +75,12 @@ public struct SyncPairConfig: Codable, Identifiable, Equatable, Hashable, Sendab
     public var enabled: Bool
     public var excludePatterns: [String]
 
-    // MARK: - 淘汰配置 (per SyncPair)
-    /// 本地缓存最大大小 (字节)，超过此大小触发淘汰
+    // MARK: - Eviction Config (per SyncPair)
+    /// Max local cache size (bytes), eviction triggered when exceeded
     public var maxLocalCacheSize: Int64
-    /// 淘汰后目标保留空间 (字节)
+    /// Target free space after eviction (bytes)
     public var targetFreeSpace: Int64
-    /// 是否启用自动淘汰
+    /// Whether auto eviction is enabled
     public var autoEvictionEnabled: Bool
 
     public var name: String {
@@ -96,8 +96,8 @@ public struct SyncPairConfig: Codable, Identifiable, Equatable, Hashable, Sendab
         self.createSymlink = true
         self.enabled = true
         self.excludePatterns = []
-        self.maxLocalCacheSize = 10 * 1024 * 1024 * 1024  // 默认 10GB
-        self.targetFreeSpace = 5 * 1024 * 1024 * 1024     // 默认 5GB
+        self.maxLocalCacheSize = 10 * 1024 * 1024 * 1024  // Default 10GB
+        self.targetFreeSpace = 5 * 1024 * 1024 * 1024     // Default 5GB
         self.autoEvictionEnabled = true
     }
 
@@ -128,29 +128,29 @@ public struct SyncPairConfig: Codable, Identifiable, Equatable, Hashable, Sendab
         return SyncPairConfig.expandTilde(localPath)
     }
 
-    // MARK: - VFS 属性 (v4.0)
+    // MARK: - VFS Properties (v4.0)
 
-    /// TARGET_DIR - VFS 挂载点 (用户访问入口)
-    /// 使用 UserPathManager 确保在 root 身份下也能正确解析
+    /// TARGET_DIR - VFS mount point (user access entry)
+    /// Uses UserPathManager to ensure correct resolution under root
     public var targetDir: String {
         return SyncPairConfig.expandTilde(localPath)
     }
 
-    /// LOCAL_DIR - 本地热数据缓存
-    /// 在 localPath 基础上添加 _Local 后缀
+    /// LOCAL_DIR - Local hot data cache
+    /// Appends _Local suffix to localPath
     public var localDir: String {
         let path = SyncPairConfig.expandTilde(localPath)
         return path + "_Local"
     }
 
-    /// 扩展 tilde (~) 为实际用户路径
-    /// 使用 UserPathManager (如果可用) 或回退到系统方法
+    /// Expand tilde (~) to actual user path
+    /// Uses UserPathManager (if available) or falls back to system method
     private static func expandTilde(_ path: String) -> String {
-        // 尝试使用 UserPathManager (在 Service 中设置了正确的用户路径)
+        // Try UserPathManager (correct user path set in Service)
         return UserPathManager.shared.expandTilde(path)
     }
 
-    /// EXTERNAL_DIR - 外部完整数据源
+    /// EXTERNAL_DIR - External full data source
     public var externalDir: String {
         return externalRelativePath
     }
@@ -169,9 +169,9 @@ public enum SyncDirection: String, Codable, CaseIterable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .localToExternal: return "本地 → 外置"
-        case .externalToLocal: return "外置 → 本地"
-        case .bidirectional: return "双向同步"
+        case .localToExternal: return "Local -> External"
+        case .externalToLocal: return "External -> Local"
+        case .bidirectional: return "Bidirectional"
         }
     }
 
@@ -207,7 +207,7 @@ public struct FilterConfig: Codable, Equatable, Sendable {
 public struct CacheConfig: Codable, Equatable, Sendable {
     public var maxCacheSize: Int64 = 10 * 1024 * 1024 * 1024  // 10 GB
     public var reserveBuffer: Int64 = 500 * 1024 * 1024       // 500 MB
-    public var evictionCheckInterval: Int = 300               // 5 分钟
+    public var evictionCheckInterval: Int = 300               // 5 minutes
     public var autoEvictionEnabled: Bool = true
     public var evictionStrategy: EvictionStrategy = .accessTime
 
@@ -218,9 +218,9 @@ public struct CacheConfig: Codable, Equatable, Sendable {
 
         public var displayName: String {
             switch self {
-            case .modifiedTime: return "按修改时间"
-            case .accessTime: return "按访问时间 (LRU)"
-            case .sizeFirst: return "大文件优先"
+            case .modifiedTime: return "By Modified Time"
+            case .accessTime: return "By Access Time (LRU)"
+            case .sizeFirst: return "Large Files First"
             }
         }
     }
@@ -289,9 +289,9 @@ public struct UIConfig: Codable, Equatable, Sendable {
 
         public var displayName: String {
             switch self {
-            case .icon: return "仅图标"
-            case .iconText: return "图标 + 文字"
-            case .text: return "仅文字"
+            case .icon: return "Icon Only"
+            case .iconText: return "Icon + Text"
+            case .text: return "Text Only"
             }
         }
     }
@@ -303,9 +303,9 @@ public struct UIConfig: Codable, Equatable, Sendable {
 
         public var displayName: String {
             switch self {
-            case .system: return "跟随系统"
-            case .light: return "浅色"
-            case .dark: return "深色"
+            case .system: return "Follow System"
+            case .light: return "Light"
+            case .dark: return "Dark"
             }
         }
     }
@@ -337,9 +337,9 @@ public struct SyncEngineConfig: Codable, Equatable, Sendable {
 
         public var displayName: String {
             switch self {
-            case .md5: return "MD5 (推荐)"
-            case .sha256: return "SHA-256 (更安全)"
-            case .xxhash64: return "xxHash64 (最快)"
+            case .md5: return "MD5 (Recommended)"
+            case .sha256: return "SHA-256 (More Secure)"
+            case .xxhash64: return "xxHash64 (Fastest)"
             }
         }
     }
@@ -356,14 +356,14 @@ public struct SyncEngineConfig: Codable, Equatable, Sendable {
 
         public var displayName: String {
             switch self {
-            case .newerWins: return "新文件覆盖"
-            case .largerWins: return "大文件覆盖"
-            case .localWins: return "本地优先"
-            case .externalWins: return "外置优先"
-            case .localWinsWithBackup: return "本地优先 (备份)"
-            case .externalWinsWithBackup: return "外置优先 (备份)"
-            case .askUser: return "每次询问"
-            case .keepBoth: return "保留两者"
+            case .newerWins: return "Newer Overwrites"
+            case .largerWins: return "Larger Overwrites"
+            case .localWins: return "Local Priority"
+            case .externalWins: return "External Priority"
+            case .localWinsWithBackup: return "Local Priority (Backup)"
+            case .externalWinsWithBackup: return "External Priority (Backup)"
+            case .askUser: return "Always Ask"
+            case .keepBoth: return "Keep Both"
             }
         }
     }
@@ -379,14 +379,14 @@ public struct VFSConfig: Codable, Equatable, Sendable {
     public var allowOther: Bool = false
     public var readOnly: Bool = false
     public var cacheAttributes: Bool = true
-    public var attributeCacheTTL: Int = 60  // 秒
+    public var attributeCacheTTL: Int = 60  // seconds
 
     public init() {}
 }
 
-// MARK: - 状态枚举
+// MARK: - Status Enums
 
-/// 同步状态
+/// Sync status
 public enum SyncStatus: Int, Codable, Sendable {
     case pending = 0
     case inProgress = 1
@@ -397,12 +397,12 @@ public enum SyncStatus: Int, Codable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .pending: return "等待中"
-        case .inProgress: return "同步中"
-        case .completed: return "已完成"
-        case .failed: return "失败"
-        case .cancelled: return "已取消"
-        case .paused: return "已暂停"
+        case .pending: return "Pending"
+        case .inProgress: return "In Progress"
+        case .completed: return "Completed"
+        case .failed: return "Failed"
+        case .cancelled: return "Cancelled"
+        case .paused: return "Paused"
         }
     }
 
@@ -418,7 +418,7 @@ public enum SyncStatus: Int, Codable, Sendable {
     }
 }
 
-/// 文件位置
+/// File location
 public enum FileLocation: Int, Codable, Sendable {
     case notExists = 0
     case localOnly = 1
@@ -428,11 +428,11 @@ public enum FileLocation: Int, Codable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .notExists: return "不存在"
-        case .localOnly: return "仅本地"
-        case .externalOnly: return "仅外置"
-        case .both: return "两端都有"
-        case .deleted: return "已删除"
+        case .notExists: return "Not Found"
+        case .localOnly: return "Local Only"
+        case .externalOnly: return "External Only"
+        case .both: return "Both"
+        case .deleted: return "Deleted"
         }
     }
 }

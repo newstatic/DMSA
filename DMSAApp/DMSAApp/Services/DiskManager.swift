@@ -1,26 +1,26 @@
 import Cocoa
 
-/// 硬盘管理器 (App 端)
+/// Disk manager (App side)
 ///
-/// v4.6: 纯事件监听器，通过 XPC 获取配置和通知 DMSAService
-/// 核心业务逻辑在 ServiceDiskMonitor 中处理
+/// v4.6: Pure event listener, fetches config via XPC and notifies DMSAService
+/// Core business logic handled in ServiceDiskMonitor
 final class DiskManager {
     static let shared = DiskManager()
 
     private let workspace = NSWorkspace.shared
     private let fileManager = FileManager.default
 
-    /// UI 回调 (用于状态栏更新等)
+    /// UI callback (for status bar updates etc.)
     var onDiskConnected: ((DiskConfig) -> Void)?
     var onDiskDisconnected: ((DiskConfig) -> Void)?
 
-    /// 当前已连接的硬盘 (本地缓存)
+    /// Currently connected disks (local cache)
     private(set) var connectedDisks: [String: DiskConfig] = [:]
 
-    /// 缓存的磁盘配置
+    /// Cached disk config
     private var cachedDisks: [DiskConfig] = []
     private var lastConfigFetch: Date?
-    private let configCacheTimeout: TimeInterval = 30 // 30秒缓存
+    private let configCacheTimeout: TimeInterval = 30 // 30s cache
 
     private init() {
         registerNotifications()
@@ -43,33 +43,33 @@ final class DiskManager {
             object: nil
         )
 
-        Logger.shared.info("硬盘事件监听已注册")
+        Logger.shared.info("Disk event listener registered")
     }
 
     // MARK: - Config Cache
 
-    /// 获取磁盘配置 (带缓存)
+    /// Get disk config (with cache)
     private func getDisks() async -> [DiskConfig] {
-        // 检查缓存是否有效
+        // Check if cache is valid
         if let lastFetch = lastConfigFetch,
            Date().timeIntervalSince(lastFetch) < configCacheTimeout,
            !cachedDisks.isEmpty {
             return cachedDisks
         }
 
-        // 从服务获取配置
+        // Fetch config from service
         do {
             let disks = try await ServiceClient.shared.getDisks()
             cachedDisks = disks
             lastConfigFetch = Date()
             return disks
         } catch {
-            Logger.shared.error("获取磁盘配置失败: \(error)")
+            Logger.shared.error("Failed to get disk config: \(error)")
             return cachedDisks
         }
     }
 
-    /// 使配置缓存失效
+    /// Invalidate config cache
     func invalidateConfigCache() {
         cachedDisks = []
         lastConfigFetch = nil
@@ -79,26 +79,26 @@ final class DiskManager {
 
     @objc private func handleDiskMount(_ notification: Notification) {
         guard let devicePath = notification.userInfo?["NSDevicePath"] as? String else { return }
-        Logger.shared.info("硬盘挂载事件: \(devicePath)")
+        Logger.shared.info("Disk mount event: \(devicePath)")
 
-        // 异步处理
+        // Async processing
         Task {
             let disks = await getDisks()
 
-            // 查找匹配的配置硬盘 (使用精确匹配)
+            // Find matching configured disk (exact match)
             for disk in disks where disk.enabled {
                 if matchesDisk(devicePath: devicePath, disk: disk) {
-                    Logger.shared.info("目标硬盘 \(disk.name) 已连接: \(devicePath)")
+                    Logger.shared.info("Target disk \(disk.name) connected: \(devicePath)")
 
-                    // 延迟执行，等待挂载稳定
-                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2秒
+                    // Delay to wait for mount to stabilize
+                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2s
 
                     await MainActor.run {
                         self.connectedDisks[disk.id] = disk
                         self.onDiskConnected?(disk)
                     }
 
-                    // 通知 DMSAService
+                    // Notify DMSAService
                     try? await ServiceClient.shared.notifyDiskConnected(
                         diskName: disk.name,
                         mountPoint: devicePath
@@ -111,23 +111,23 @@ final class DiskManager {
 
     @objc private func handleDiskUnmount(_ notification: Notification) {
         guard let devicePath = notification.userInfo?["NSDevicePath"] as? String else { return }
-        Logger.shared.info("硬盘已卸载: \(devicePath)")
+        Logger.shared.info("Disk unmounted: \(devicePath)")
 
-        // 异步处理
+        // Async processing
         Task {
             let disks = await getDisks()
 
-            // 查找匹配的硬盘 (使用精确匹配)
+            // Find matching disk (exact match)
             for disk in disks {
                 if matchesDisk(devicePath: devicePath, disk: disk) {
-                    Logger.shared.info("目标硬盘 \(disk.name) 已断开")
+                    Logger.shared.info("Target disk \(disk.name) disconnected")
 
                     await MainActor.run {
                         self.connectedDisks.removeValue(forKey: disk.id)
                         self.onDiskDisconnected?(disk)
                     }
 
-                    // 通知 DMSAService
+                    // Notify DMSAService
                     try? await ServiceClient.shared.notifyDiskDisconnected(diskName: disk.name)
                     return
                 }
@@ -135,33 +135,33 @@ final class DiskManager {
         }
     }
 
-    // MARK: - 磁盘匹配
+    // MARK: - Disk Matching
 
-    /// 精确匹配磁盘
-    /// 优先级: 1. 完全路径匹配 2. 卷名匹配 (/Volumes/NAME)
+    /// Exact disk matching
+    /// Priority: 1. Full path match 2. Volume name match (/Volumes/NAME)
     private func matchesDisk(devicePath: String, disk: DiskConfig) -> Bool {
-        // 1. 完全路径匹配
+        // 1. Full path match
         if devicePath == disk.mountPath {
             return true
         }
 
-        // 2. 卷名匹配: /Volumes/{name}
+        // 2. Volume name match: /Volumes/{name}
         let volumePath = "/Volumes/\(disk.name)"
         if devicePath == volumePath {
             return true
         }
 
-        // 3. 路径末尾匹配 (处理 /Volumes/BACKUP-1 这种情况)
+        // 3. Path suffix match (handles /Volumes/BACKUP-1 cases)
         let pathComponents = devicePath.split(separator: "/")
         if let lastComponent = pathComponents.last {
-            // 精确匹配卷名
+            // Exact volume name match
             if String(lastComponent) == disk.name {
                 return true
             }
-            // 处理带序号的卷名 (如 BACKUP-1, BACKUP 1)
+            // Handle numbered volume names (e.g. BACKUP-1, BACKUP 1)
             let normalizedName = String(lastComponent)
                 .replacingOccurrences(of: " ", with: "-")
-            // 移除末尾数字后缀
+            // Remove trailing numeric suffix
             if let range = normalizedName.range(of: "-\\d+$", options: .regularExpression) {
                 let baseName = String(normalizedName[..<range.lowerBound])
                 if baseName == disk.name {
@@ -173,52 +173,52 @@ final class DiskManager {
         return false
     }
 
-    /// 检查初始状态
-    /// - Parameter silent: 是否静默模式（不触发 onDiskConnected 回调）
+    /// Check initial state
+    /// - Parameter silent: Whether to use silent mode (no onDiskConnected callback)
     func checkInitialState(silent: Bool = false) {
-        Logger.shared.info("检查硬盘初始状态... (silent=\(silent))")
+        Logger.shared.info("Checking initial disk state... (silent=\(silent))")
 
         Task {
             let disks = await getDisks()
 
             for disk in disks where disk.enabled {
                 if fileManager.fileExists(atPath: disk.mountPath) {
-                    Logger.shared.info("硬盘 \(disk.name) 已连接: \(disk.mountPath)")
+                    Logger.shared.info("Disk \(disk.name) connected: \(disk.mountPath)")
 
                     await MainActor.run {
                         self.connectedDisks[disk.id] = disk
-                        // 静默模式不触发回调（避免启动时弹窗）
+                        // Silent mode skips callback (avoid popup at startup)
                         if !silent {
                             self.onDiskConnected?(disk)
                         }
                     }
 
-                    // 通知 DMSAService
+                    // Notify DMSAService
                     try? await ServiceClient.shared.notifyDiskConnected(
                         diskName: disk.name,
                         mountPoint: disk.mountPath
                     )
                 } else {
-                    Logger.shared.info("硬盘 \(disk.name) 未连接")
+                    Logger.shared.info("Disk \(disk.name) not connected")
                 }
             }
         }
     }
 
-    /// 检查硬盘是否已连接
-    /// 优先检查实际文件系统，其次检查缓存
+    /// Check if a disk is connected
+    /// Checks actual filesystem first, then cache
     func isDiskConnected(_ diskId: String) -> Bool {
-        // 首先检查缓存
+        // Check cache first
         if connectedDisks[diskId] != nil {
             return true
         }
 
-        // 缓存中没有，检查实际文件系统
-        // 从已缓存的配置中查找
+        // Not in cache, check actual filesystem
+        // Search from cached config
         if let disk = cachedDisks.first(where: { $0.id == diskId }) {
             let exists = fileManager.fileExists(atPath: disk.mountPath)
             if exists {
-                // 更新缓存
+                // Update cache
                 Task { @MainActor in
                     self.connectedDisks[diskId] = disk
                 }
@@ -229,18 +229,18 @@ final class DiskManager {
         return false
     }
 
-    /// 检查任意外置硬盘是否已连接
-    /// 优先检查实际文件系统，其次检查缓存
+    /// Check if any external disk is connected
+    /// Checks actual filesystem first, then cache
     var isAnyExternalConnected: Bool {
-        // 首先检查缓存
+        // Check cache first
         if !connectedDisks.isEmpty {
             return true
         }
 
-        // 缓存为空，检查实际文件系统
+        // Cache empty, check actual filesystem
         for disk in cachedDisks where disk.enabled {
             if fileManager.fileExists(atPath: disk.mountPath) {
-                // 更新缓存
+                // Update cache
                 Task { @MainActor in
                     self.connectedDisks[disk.id] = disk
                 }
@@ -251,12 +251,12 @@ final class DiskManager {
         return false
     }
 
-    /// 检查给定磁盘列表中是否有任意磁盘已连接
-    /// 用于 UI 层传入配置进行检查，避免缓存问题
+    /// Check if any disk from the given list is connected
+    /// For UI layer to check with config, avoiding cache issues
     func isAnyDiskConnected(from disks: [DiskConfig]) -> Bool {
         for disk in disks where disk.enabled {
             if fileManager.fileExists(atPath: disk.mountPath) {
-                // 更新缓存
+                // Update cache
                 if connectedDisks[disk.id] == nil {
                     connectedDisks[disk.id] = disk
                 }
@@ -266,12 +266,12 @@ final class DiskManager {
         return false
     }
 
-    /// 获取已连接磁盘数量
+    /// Get connected disk count
     func connectedDiskCount(from disks: [DiskConfig]) -> Int {
         var count = 0
         for disk in disks where disk.enabled {
             if fileManager.fileExists(atPath: disk.mountPath) {
-                // 更新缓存
+                // Update cache
                 if connectedDisks[disk.id] == nil {
                     connectedDisks[disk.id] = disk
                 }
@@ -281,7 +281,7 @@ final class DiskManager {
         return count
     }
 
-    /// 获取磁盘空间信息
+    /// Get disk space info
     func getDiskInfo(at path: String) -> (total: Int64, available: Int64, used: Int64)? {
         do {
             let attrs = try fileManager.attributesOfFileSystem(forPath: path)
@@ -291,7 +291,7 @@ final class DiskManager {
             }
             return (total: total, available: free, used: total - free)
         } catch {
-            Logger.shared.error("获取磁盘信息失败: \(error)")
+            Logger.shared.error("Failed to get disk info: \(error)")
             return nil
         }
     }

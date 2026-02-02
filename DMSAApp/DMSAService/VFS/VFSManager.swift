@@ -1,6 +1,6 @@
 import Foundation
 
-/// VFS 挂载点信息 (内存中)
+/// VFS mount point info (in-memory)
 struct VFSMountPoint {
     let syncPairId: String
     var localDir: String
@@ -9,18 +9,18 @@ struct VFSMountPoint {
     var isExternalOnline: Bool
     var isReadOnly: Bool
     var mountedAt: Date
-    var fuseFileSystem: FUSEFileSystem?  // 使用实际的 FUSE 文件系统
+    var fuseFileSystem: FUSEFileSystem?  // Actual FUSE filesystem instance
 }
 
-/// VFS 管理器
-/// - 使用 ServiceDatabaseManager 持久化文件索引
-/// - 使用 ServiceConfigManager 保存挂载状态
+/// VFS Manager
+/// - Uses ServiceDatabaseManager for persistent file indexing
+/// - Uses ServiceConfigManager to save mount state
 actor VFSManager {
 
     private let logger = Logger.forService("VFS")
     private var mountPoints: [String: VFSMountPoint] = [:]
 
-    // 数据持久化
+    // Data persistence
     private let database = ServiceDatabaseManager.shared
     private let configManager = ServiceConfigManager.shared
 
@@ -28,19 +28,19 @@ actor VFSManager {
         return mountPoints.count
     }
 
-    // MARK: - 挂载管理
+    // MARK: - Mount Management
 
     func mount(syncPairId: String,
                localDir: String,
                externalDir: String?,
                targetDir: String) async throws {
 
-        // 检查是否已挂载
+        // Check if already mounted
         if mountPoints[syncPairId] != nil {
             throw VFSError.alreadyMounted(targetDir)
         }
 
-        // 验证路径
+        // Validate paths
         guard PathValidator.isAllowed(localDir) else {
             throw VFSError.invalidPath(localDir)
         }
@@ -51,106 +51,106 @@ actor VFSManager {
         let fm = FileManager.default
 
         // ============================================================
-        // 步骤 0: 检查并清理现有的 FUSE 挂载
+        // Step 0: Check and clean up existing FUSE mount
         // ============================================================
 
         if isPathMounted(targetDir) {
-            logger.warning("发现现有挂载，尝试卸载: \(targetDir)")
+            logger.warning("Found existing mount, attempting unmount: \(targetDir)")
             do {
                 try unmountPath(targetDir)
-                // 等待卸载完成
-                try await Task.sleep(nanoseconds: 500_000_000)  // 0.5 秒
+                // Wait for unmount to complete
+                try await Task.sleep(nanoseconds: 500_000_000)  // 0.5s
             } catch {
-                logger.error("卸载现有挂载失败: \(error)")
-                // 继续尝试，可能会在后面的步骤中处理
+                logger.error("Failed to unmount existing mount: \(error)")
+                // Continue trying, may be handled in later steps
             }
         }
 
         // ============================================================
-        // 步骤 1: 检查 TARGET_DIR 状态并处理
+        // Step 1: Check TARGET_DIR state and handle
         // ============================================================
 
         if fm.fileExists(atPath: targetDir) {
-            // 获取文件属性判断类型
+            // Get file attributes to determine type
             let attrs = try? fm.attributesOfItem(atPath: targetDir)
             let fileType = attrs?[.type] as? FileAttributeType
 
             if fileType == .typeSymbolicLink {
-                // 情况 A: TARGET_DIR 是符号链接 → 移除
+                // Case A: TARGET_DIR is a symlink -> remove
                 if let linkDest = try? fm.destinationOfSymbolicLink(atPath: targetDir) {
-                    logger.warning("TARGET_DIR 是符号链接: \(targetDir) -> \(linkDest)")
+                    logger.warning("TARGET_DIR is a symlink: \(targetDir) -> \(linkDest)")
                 }
                 try fm.removeItem(atPath: targetDir)
-                logger.info("已移除符号链接: \(targetDir)")
+                logger.info("Removed symlink: \(targetDir)")
 
             } else if fileType == .typeDirectory {
-                // 情况 B: TARGET_DIR 是普通目录 → 检查是否已是 FUSE 挂载点
-                // 通过检查 mount 命令或者尝试获取挂载信息
-                // 简单判断: 如果我们已经有这个挂载点的记录，说明已挂载
+                // Case B: TARGET_DIR is a regular directory -> check if already a FUSE mount point
+                // Check via mount command or trying to get mount info
+                // Simple check: if we already have a record for this mount point, it is mounted
                 if mountPoints.values.contains(where: { $0.targetDir == targetDir }) {
                     throw VFSError.alreadyMounted(targetDir)
                 }
 
-                // 情况 C: TARGET_DIR 是普通目录，需要重命名为 LOCAL_DIR
+                // Case C: TARGET_DIR is a regular directory, rename to LOCAL_DIR
                 if fm.fileExists(atPath: localDir) {
-                    // LOCAL_DIR 已存在，检查 TARGET_DIR 是否为空
+                    // LOCAL_DIR already exists, check if TARGET_DIR is empty
                     let targetContents = try? fm.contentsOfDirectory(atPath: targetDir)
                     if targetContents?.isEmpty == true {
-                        // TARGET_DIR 是空目录（可能是上次 FUSE 卸载后留下的），直接删除
+                        // TARGET_DIR is empty (possibly left from last FUSE unmount), delete it
                         try fm.removeItem(atPath: targetDir)
-                        logger.info("删除空的 TARGET_DIR: \(targetDir)")
+                        logger.info("Deleted empty TARGET_DIR: \(targetDir)")
                     } else {
-                        // TARGET_DIR 不为空，无法处理
-                        logger.error("冲突: TARGET_DIR(\(targetDir)) 和 LOCAL_DIR(\(localDir)) 都存在且 TARGET_DIR 不为空")
+                        // TARGET_DIR is not empty, cannot handle
+                        logger.error("Conflict: TARGET_DIR(\(targetDir)) and LOCAL_DIR(\(localDir)) both exist and TARGET_DIR is not empty")
                         throw VFSError.conflictingPaths(targetDir, localDir)
                     }
                 } else {
-                    // LOCAL_DIR 不存在，重命名 TARGET_DIR 为 LOCAL_DIR
-                    logger.info("重命名目录: \(targetDir) -> \(localDir)")
+                    // LOCAL_DIR does not exist, rename TARGET_DIR to LOCAL_DIR
+                    logger.info("Renaming directory: \(targetDir) -> \(localDir)")
                     try fm.moveItem(atPath: targetDir, toPath: localDir)
                 }
             }
         }
 
         // ============================================================
-        // 步骤 2: 确保 LOCAL_DIR 存在
+        // Step 2: Ensure LOCAL_DIR exists
         // ============================================================
 
         if !fm.fileExists(atPath: localDir) {
             try fm.createDirectory(atPath: localDir, withIntermediateDirectories: true)
-            logger.info("创建 LOCAL_DIR: \(localDir)")
+            logger.info("Created LOCAL_DIR: \(localDir)")
         }
 
         // ============================================================
-        // 步骤 3: 创建 FUSE 挂载点目录
+        // Step 3: Create FUSE mount point directory
         // ============================================================
 
         if !fm.fileExists(atPath: targetDir) {
             try fm.createDirectory(atPath: targetDir, withIntermediateDirectories: true)
-            logger.info("创建挂载点目录: \(targetDir)")
+            logger.info("Created mount point directory: \(targetDir)")
         }
 
         // ============================================================
-        // 步骤 4: 检查 EXTERNAL_DIR 状态
+        // Step 4: Check EXTERNAL_DIR state
         // ============================================================
 
         var isExternalOnline = false
         if let extDir = externalDir {
             if fm.fileExists(atPath: extDir) {
                 isExternalOnline = true
-                logger.info("EXTERNAL_DIR 已就绪: \(extDir)")
+                logger.info("EXTERNAL_DIR ready: \(extDir)")
             } else {
-                logger.warning("EXTERNAL_DIR 未就绪 (外置硬盘未挂载?): \(extDir)")
+                logger.warning("EXTERNAL_DIR not ready (external disk not mounted?): \(extDir)")
             }
         } else {
-            logger.warning("未配置 EXTERNAL_DIR，仅使用本地存储")
+            logger.warning("No EXTERNAL_DIR configured, using local storage only")
         }
 
         // ============================================================
-        // 步骤 5: 创建并执行 FUSE 挂载
+        // Step 5: Create and execute FUSE mount
         // ============================================================
 
-        // 创建 FUSE 文件系统实例
+        // Create FUSE filesystem instance
         let fuseFS = FUSEFileSystem(
             syncPairId: syncPairId,
             localDir: localDir,
@@ -159,52 +159,52 @@ actor VFSManager {
             delegate: self
         )
 
-        // 执行挂载
+        // Execute mount
         try await fuseFS.mount(at: targetDir)
 
         // ============================================================
-        // 步骤 6: 保护 LOCAL_DIR (防止用户直接访问)
+        // Step 6: Protect LOCAL_DIR (prevent direct user access)
         // ============================================================
-        // 按照 VFS_DESIGN.md 的设计:
-        // - chflags hidden: 隐藏目录
-        // - 权限 700: 仅 root 可访问
-        // - ACL deny: 拒绝所有用户访问
-        // LOCAL_DIR 和 EXTERNAL_DIR 都需要保护
+        // Per VFS_DESIGN.md design:
+        // - chflags hidden: hide directory
+        // - permissions 700: root-only access
+        // - ACL deny: deny all user access
+        // Both LOCAL_DIR and EXTERNAL_DIR need protection
 
-        logger.info("========== 保护后端目录 (步骤 6) ==========")
+        logger.info("========== Protecting backend directories (Step 6) ==========")
         logger.info("  LOCAL_DIR: \(localDir)")
         logger.info("  EXTERNAL_DIR: \(externalDir ?? "(nil)")")
         logger.info("  externalDir == nil: \(externalDir == nil)")
         logger.info("  externalDir?.isEmpty: \(externalDir?.isEmpty ?? true)")
-        logger.flush()  // 确保日志写入磁盘
+        logger.flush()  // Ensure logs are flushed to disk
 
-        logger.info("[1/2] 开始保护 LOCAL_DIR...")
+        logger.info("[1/2] Starting LOCAL_DIR protection...")
         logger.flush()
         protectBackendDir(localDir)
-        logger.info("[1/2] LOCAL_DIR 保护完成")
+        logger.info("[1/2] LOCAL_DIR protection complete")
         logger.flush()
 
-        logger.info("[2/2] 检查 EXTERNAL_DIR...")
+        logger.info("[2/2] Checking EXTERNAL_DIR...")
         logger.flush()
         if let extDir = externalDir {
-            logger.info("[2/2] extDir 解包成功: \(extDir)")
+            logger.info("[2/2] extDir unwrapped: \(extDir)")
             logger.flush()
             if !extDir.isEmpty {
-                logger.info("[2/2] extDir 非空，开始保护 EXTERNAL_DIR: \(extDir)")
+                logger.info("[2/2] extDir non-empty, protecting EXTERNAL_DIR: \(extDir)")
                 logger.flush()
                 protectBackendDir(extDir)
-                logger.info("[2/2] EXTERNAL_DIR 保护完成")
+                logger.info("[2/2] EXTERNAL_DIR protection complete")
                 logger.flush()
             } else {
-                logger.info("[2/2] 跳过: extDir 是空字符串")
+                logger.info("[2/2] Skipped: extDir is empty string")
                 logger.flush()
             }
         } else {
-            logger.info("[2/2] 跳过: externalDir 为 nil (磁盘未连接)")
+            logger.info("[2/2] Skipped: externalDir is nil (disk not connected)")
             logger.flush()
         }
 
-        // 记录挂载点
+        // Record mount point
         let mountPoint = VFSMountPoint(
             syncPairId: syncPairId,
             localDir: localDir,
@@ -219,32 +219,32 @@ actor VFSManager {
         mountPoints[syncPairId] = mountPoint
 
         // ============================================================
-        // 步骤 7: 构建文件索引 (此时 VFS 已挂载但阻塞访问)
+        // Step 7: Build file index (VFS mounted but blocking access)
         // ============================================================
-        // 注意: FUSE 挂载后 index_ready 默认为 false
-        // 在索引完成前，所有文件访问会返回 EBUSY
-        logger.info("========== 构建文件索引 (步骤 7) ==========")
-        logger.info("VFS 已挂载，开始构建索引 (此时文件访问被阻塞)")
+        // Note: After FUSE mount, index_ready defaults to false
+        // Before index is complete, all file access returns EBUSY
+        logger.info("========== Building file index (Step 7) ==========")
+        logger.info("VFS mounted, building index (file access blocked)")
 
-        // 通知状态: 索引构建中
+        // Notify state: indexing
         await ServiceStateManager.shared.setState(.indexing)
 
-        // 构建文件索引并持久化
+        // Build file index and persist
         await buildIndex(for: syncPairId)
 
         // ============================================================
-        // 步骤 8: 标记索引就绪，开放 VFS 访问
+        // Step 8: Mark index ready, open VFS access
         // ============================================================
-        logger.info("========== 索引就绪，开放访问 (步骤 8) ==========")
+        logger.info("========== Index ready, access open (Step 8) ==========")
         fuseFS.setIndexReady(true)
 
-        // 通知状态: 就绪
+        // Notify state: ready
         await ServiceStateManager.shared.setState(.ready)
 
-        // 发送索引就绪通知
+        // Send index ready notification
         await ServiceStateManager.shared.sendIndexReadyNotification(syncPairId: syncPairId)
 
-        // 保存挂载状态到配置
+        // Save mount state to config
         var mountState = MountState(syncPairId: syncPairId, targetDir: targetDir, localDir: localDir)
         mountState.externalDir = externalDir
         mountState.isMounted = true
@@ -252,7 +252,7 @@ actor VFSManager {
         mountState.mountedAt = Date()
         await configManager.setMountState(mountState)
 
-        logger.info("VFS 挂载成功: \(targetDir)")
+        logger.info("VFS mount succeeded: \(targetDir)")
     }
 
     func unmount(syncPairId: String) async throws {
@@ -260,27 +260,27 @@ actor VFSManager {
             throw VFSError.notMounted(syncPairId)
         }
 
-        // 保存文件索引到数据库
+        // Save file index to database
         await database.forceSave()
 
-        // 执行卸载
+        // Execute unmount
         if let fuseFS = mountPoint.fuseFileSystem {
             try await fuseFS.unmount()
         }
 
-        // 恢复后端目录权限 (允许用户访问)
+        // Restore backend directory permissions (allow user access)
         unprotectBackendDir(mountPoint.localDir)
         if let extDir = mountPoint.externalDir {
             unprotectBackendDir(extDir)
         }
 
-        // 移除记录
+        // Remove record
         mountPoints.removeValue(forKey: syncPairId)
 
-        // 移除挂载状态
+        // Remove mount state
         await configManager.removeMountState(syncPairId: syncPairId)
 
-        logger.info("VFS 卸载成功: \(mountPoint.targetDir)")
+        logger.info("VFS unmount succeeded: \(mountPoint.targetDir)")
     }
 
     func unmountAll() async {
@@ -288,7 +288,7 @@ actor VFSManager {
             do {
                 try await unmount(syncPairId: syncPairId)
             } catch {
-                logger.error("卸载失败: \(syncPairId) - \(error)")
+                logger.error("Unmount failed: \(syncPairId) - \(error)")
             }
         }
     }
@@ -311,7 +311,7 @@ actor VFSManager {
             info.isExternalOnline = mp.isExternalOnline
             info.mountedAt = mp.mountedAt
 
-            // 从数据库获取统计信息
+            // Get statistics from database
             let stats = await database.getIndexStats(syncPairId: mp.syncPairId)
             info.fileCount = stats.totalFiles + stats.totalDirectories
             info.totalSize = stats.totalSize
@@ -322,7 +322,7 @@ actor VFSManager {
         return results
     }
 
-    // MARK: - 配置更新
+    // MARK: - Config Update
 
     func updateExternalPath(syncPairId: String, newPath: String) async throws {
         guard var mountPoint = mountPoints[syncPairId] else {
@@ -336,15 +336,15 @@ actor VFSManager {
         mountPoint.isExternalOnline = isOnline
         mountPoints[syncPairId] = mountPoint
 
-        // 更新文件系统
+        // Update filesystem
         mountPoint.fuseFileSystem?.updateExternalDir(newPath)
 
-        // 重建索引以包含外部文件
+        // Rebuild index to include external files
         if isOnline {
             await buildIndex(for: syncPairId)
         }
 
-        logger.info("EXTERNAL 路径已更新: \(newPath), 在线: \(isOnline)")
+        logger.info("EXTERNAL path updated: \(newPath), online: \(isOnline)")
     }
 
     func setExternalOffline(syncPairId: String, offline: Bool) async {
@@ -355,7 +355,7 @@ actor VFSManager {
 
         mountPoint.fuseFileSystem?.setExternalOffline(offline)
 
-        logger.info("EXTERNAL 离线状态: \(offline)")
+        logger.info("EXTERNAL offline state: \(offline)")
     }
 
     func setReadOnly(syncPairId: String, readOnly: Bool) async {
@@ -367,7 +367,7 @@ actor VFSManager {
         mountPoint.fuseFileSystem?.setReadOnly(readOnly)
     }
 
-    // MARK: - 文件索引 (通过 ServiceDatabaseManager)
+    // MARK: - File Index (via ServiceDatabaseManager)
 
     func getFileEntry(virtualPath: String, syncPairId: String) async -> ServiceFileEntry? {
         return await database.getFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
@@ -400,7 +400,7 @@ actor VFSManager {
         return await database.getDirtyFiles(syncPairId: syncPairId)
     }
 
-    /// 获取需要同步的文件（脏文件 + 仅本地存在的文件）
+    /// Get files that need syncing (dirty files + local-only files)
     func getFilesToSync(syncPairId: String) async -> [ServiceFileEntry] {
         return await database.getFilesToSync(syncPairId: syncPairId)
     }
@@ -412,17 +412,17 @@ actor VFSManager {
     private func buildIndex(for syncPairId: String) async {
         guard let mountPoint = mountPoints[syncPairId] else { return }
 
-        // 检查数据库是否已有索引 → 增量更新; 否则全量构建
+        // Check if database has existing index -> incremental; otherwise full build
         let existingEntries = await database.getAllFileEntries(syncPairId: syncPairId)
         if !existingEntries.isEmpty {
-            logger.info("发现已有索引 (\(existingEntries.count) 条)，执行增量更新")
+            logger.info("Found existing index (\(existingEntries.count) entries), performing incremental update")
             await incrementalIndex(for: syncPairId, mountPoint: mountPoint, existingEntries: existingEntries)
         } else {
-            logger.info("无已有索引，执行全量构建")
+            logger.info("No existing index, performing full build")
             await fullIndex(for: syncPairId, mountPoint: mountPoint)
         }
 
-        // 更新挂载状态统计
+        // Update mount state statistics
         let stats = await database.getIndexStats(syncPairId: syncPairId)
         if var mountState = await configManager.getMountState(syncPairId: syncPairId) {
             mountState.fileCount = stats.totalFiles + stats.totalDirectories
@@ -430,14 +430,14 @@ actor VFSManager {
             await configManager.setMountState(mountState)
         }
 
-        // 记录索引活动
+        // Record index activity
         let totalFiles = stats.totalFiles + stats.totalDirectories
-        let indexType = existingEntries.isEmpty ? "全量构建" : "增量更新"
+        let indexType = existingEntries.isEmpty ? "full build" : "incremental update"
         let sizeStr = ByteCountFormatter.string(fromByteCount: stats.totalSize, countStyle: .file)
         let activity = ActivityRecord(
             type: .indexRebuilt,
-            title: "索引\(indexType)完成",
-            detail: "\(totalFiles) 个条目, \(sizeStr)",
+            title: "Index \(indexType) complete",
+            detail: "\(totalFiles) entries, \(sizeStr)",
             syncPairId: syncPairId,
             filesCount: totalFiles,
             bytesCount: stats.totalSize
@@ -445,21 +445,21 @@ actor VFSManager {
         await ActivityManager.shared.addActivity(activity)
     }
 
-    /// 增量索引: 基于已有数据库条目，只更新变化的部分
+    /// Incremental index: based on existing DB entries, only update changes
     private func incrementalIndex(for syncPairId: String, mountPoint: VFSMountPoint, existingEntries: [ServiceFileEntry]) async {
         let fm = FileManager.default
         let startTime = Date()
 
-        // 构建旧索引字典 (virtualPath → entry)
+        // Build old index dictionary (virtualPath -> entry)
         var oldIndex: [String: ServiceFileEntry] = [:]
         for entry in existingEntries {
             oldIndex[entry.virtualPath] = entry
         }
 
-        // 扫描当前文件系统
+        // Scan current filesystem
         var currentPaths: [String: ServiceFileEntry] = [:]
 
-        // 扫描 LOCAL_DIR
+        // Scan LOCAL_DIR
         if let localContents = try? fm.subpathsOfDirectory(atPath: mountPoint.localDir) {
             for relativePath in localContents {
                 if shouldExclude(path: relativePath) { continue }
@@ -481,7 +481,7 @@ actor VFSManager {
             }
         }
 
-        // 扫描 EXTERNAL_DIR
+        // Scan EXTERNAL_DIR
         if mountPoint.isExternalOnline, let externalDir = mountPoint.externalDir {
             if let externalContents = try? fm.subpathsOfDirectory(atPath: externalDir) {
                 for relativePath in externalContents {
@@ -509,7 +509,7 @@ actor VFSManager {
             }
         }
 
-        // 差异计算
+        // Diff calculation
         var added = 0
         var updated = 0
         var removed = 0
@@ -517,14 +517,14 @@ actor VFSManager {
         var entriesToSave: [ServiceFileEntry] = []
         var entriesToRemove: [ServiceFileEntry] = []
 
-        // 新增 + 更新
+        // Added + Updated
         for (vpath, newEntry) in currentPaths {
             if let oldEntry = oldIndex[vpath] {
-                // 检查是否变化: 大小、修改时间、位置
+                // Check for changes: size, modification time, location
                 if oldEntry.size != newEntry.size ||
                    oldEntry.location != newEntry.location ||
                    abs(oldEntry.modifiedAt.timeIntervalSince(newEntry.modifiedAt)) > 1.0 {
-                    // 保留旧条目的 id、isDirty、lockState、accessedAt 等运行时状态
+                    // Preserve old entry runtime state: id, isDirty, lockState, accessedAt, etc.
                     var merged = newEntry
                     merged.id = oldEntry.id
                     merged.isDirty = oldEntry.isDirty
@@ -542,13 +542,13 @@ actor VFSManager {
             }
         }
 
-        // 删除 (oldIndex 中剩余的条目已不在文件系统中)
+        // Deleted (remaining oldIndex entries no longer exist in filesystem)
         for (_, oldEntry) in oldIndex {
             entriesToRemove.append(oldEntry)
             removed += 1
         }
 
-        // 批量保存/删除
+        // Batch save/delete
         if !entriesToSave.isEmpty {
             await database.saveFileEntries(entriesToSave)
         }
@@ -557,20 +557,20 @@ actor VFSManager {
         }
 
         let elapsed = Date().timeIntervalSince(startTime)
-        logger.info("========== 增量索引完成 ==========")
+        logger.info("========== Incremental index complete ==========")
         logger.info("  syncPairId: \(syncPairId)")
-        logger.info("  耗时: \(String(format: "%.2f", elapsed)) 秒")
-        logger.info("  新增: \(added), 更新: \(updated), 删除: \(removed), 未变: \(unchanged)")
+        logger.info("  elapsed: \(String(format: "%.2f", elapsed))s")
+        logger.info("  added: \(added), updated: \(updated), removed: \(removed), unchanged: \(unchanged)")
         logIndexStats(Array(currentPaths.values))
     }
 
-    /// 全量索引: 生产者扫描 + 消费者分批写入 (每批 1 万条)
+    /// Full index: producer scan + consumer batch write (10k per batch)
     private func fullIndex(for syncPairId: String, mountPoint: VFSMountPoint) async {
         let fm = FileManager.default
         let startTime = Date()
         let batchSize = 10000
 
-        // 清除旧索引
+        // Clear old index
         await database.clearFileEntries(syncPairId: syncPairId)
 
         var buffer: [ServiceFileEntry] = []
@@ -578,7 +578,7 @@ actor VFSManager {
         var totalCount = 0
         var localPaths: [String: ServiceFileEntry] = [:]
 
-        // 生产者: 扫描 LOCAL_DIR
+        // Producer: scan LOCAL_DIR
         if let localContents = try? fm.subpathsOfDirectory(atPath: mountPoint.localDir) {
             for relativePath in localContents {
                 if shouldExclude(path: relativePath) { continue }
@@ -599,7 +599,7 @@ actor VFSManager {
             }
         }
 
-        // 生产者: 扫描 EXTERNAL_DIR，合并
+        // Producer: scan EXTERNAL_DIR, merge
         if mountPoint.isExternalOnline, let externalDir = mountPoint.externalDir {
             if let externalContents = try? fm.subpathsOfDirectory(atPath: externalDir) {
                 for relativePath in externalContents {
@@ -628,35 +628,35 @@ actor VFSManager {
         }
 
         let scanElapsed = Date().timeIntervalSince(startTime)
-        logger.info("文件扫描完成: \(localPaths.count) 条, 耗时 \(String(format: "%.2f", scanElapsed)) 秒")
+        logger.info("File scan complete: \(localPaths.count) entries, elapsed \(String(format: "%.2f", scanElapsed))s")
 
-        // 消费者: 分批写入
+        // Consumer: batch write
         for (_, entry) in localPaths {
             buffer.append(entry)
 
             if buffer.count >= batchSize {
                 await database.saveFileEntries(buffer)
                 totalCount += buffer.count
-                logger.info("索引写入进度: \(totalCount)/\(localPaths.count)")
+                logger.info("Index write progress: \(totalCount)/\(localPaths.count)")
                 buffer.removeAll(keepingCapacity: true)
             }
         }
 
-        // flush 尾巴
+        // Flush remaining
         if !buffer.isEmpty {
             await database.saveFileEntries(buffer)
             totalCount += buffer.count
         }
 
         let elapsed = Date().timeIntervalSince(startTime)
-        logger.info("========== 全量索引完成 ==========")
+        logger.info("========== Full index complete ==========")
         logger.info("  syncPairId: \(syncPairId)")
-        logger.info("  总条目: \(totalCount)")
-        logger.info("  耗时: \(String(format: "%.2f", elapsed)) 秒 (扫描: \(String(format: "%.2f", scanElapsed)) 秒)")
+        logger.info("  total entries: \(totalCount)")
+        logger.info("  elapsed: \(String(format: "%.2f", elapsed))s (scan: \(String(format: "%.2f", scanElapsed))s)")
         logger.info("===================================")
     }
 
-    /// 打印索引统计
+    /// Print index statistics
     private func logIndexStats(_ entries: [ServiceFileEntry]) {
         var localOnlyCount = 0
         var externalOnlyCount = 0
@@ -674,9 +674,9 @@ actor VFSManager {
             }
         }
 
-        logger.info("  总条目: \(entries.count) (文件: \(filesCount), 目录: \(directoriesCount))")
-        logger.info("  位置分布: localOnly=\(localOnlyCount), externalOnly=\(externalOnlyCount), both=\(bothCount)")
-        logger.info("  需要同步: \(entries.filter { $0.needsSync && !$0.isDirectory }.count)")
+        logger.info("  total entries: \(entries.count) (files: \(filesCount), directories: \(directoriesCount))")
+        logger.info("  location distribution: localOnly=\(localOnlyCount), externalOnly=\(externalOnlyCount), both=\(bothCount)")
+        logger.info("  needs sync: \(entries.filter { $0.needsSync && !$0.isDirectory }.count)")
         logger.info("===================================")
     }
 
@@ -694,7 +694,7 @@ actor VFSManager {
 
     private func matchPattern(_ pattern: String, name: String) -> Bool {
         if pattern.contains("*") {
-            // 简单通配符匹配
+            // Simple wildcard matching
             let regex = pattern
                 .replacingOccurrences(of: ".", with: "\\.")
                 .replacingOccurrences(of: "*", with: ".*")
@@ -705,20 +705,20 @@ actor VFSManager {
         }
     }
 
-    // MARK: - 文件操作回调
+    // MARK: - File Operation Callbacks
 
     func onFileWritten(virtualPath: String, syncPairId: String) async {
-        // 更新数据库中的索引
+        // Update index in database
         await database.markFileDirty(virtualPath: virtualPath, syncPairId: syncPairId, dirty: true)
 
-        // 更新共享状态并通知 Sync Service
+        // Update shared state and notify Sync Service
         SharedState.update { state in
             state.lastWrittenPath = virtualPath
             state.lastWrittenSyncPair = syncPairId
             state.lastWrittenTime = Date()
         }
 
-        // 发送通知
+        // Send notification
         DistributedNotificationCenter.default().postNotificationName(
             NSNotification.Name(Constants.Notifications.fileWritten),
             object: nil,
@@ -726,32 +726,32 @@ actor VFSManager {
             deliverImmediately: true
         )
 
-        logger.debug("文件写入: \(virtualPath)")
+        logger.debug("File written: \(virtualPath)")
     }
 
     func onFileRead(virtualPath: String, syncPairId: String) async {
-        // 更新访问时间 (LRU)
+        // Update access time (LRU)
         await database.updateAccessTime(virtualPath: virtualPath, syncPairId: syncPairId)
     }
 
     func onFileDeleted(virtualPath: String, syncPairId: String) async {
         await database.deleteFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
-        logger.debug("文件删除: \(virtualPath)")
+        logger.debug("File deleted: \(virtualPath)")
     }
 
-    /// 淘汰文件: both → externalOnly，保留索引条目
+    /// Evict file: both -> externalOnly, preserve index entry
     func onFileEvicted(virtualPath: String, syncPairId: String) async {
         if let entry = await database.getFileEntry(virtualPath: virtualPath, syncPairId: syncPairId) {
             entry.localPath = nil
             entry.location = FileLocation.externalOnly.rawValue
             entry.isDirty = false
             await database.saveFileEntry(entry)
-            logger.debug("文件淘汰: \(virtualPath) (both → externalOnly)")
+            logger.debug("File evicted: \(virtualPath) (both -> externalOnly)")
         }
     }
 
     func onFileCreated(virtualPath: String, syncPairId: String, localPath: String, isDirectory: Bool = false) async {
-        // 新文件创建
+        // New file created
         var entry = ServiceFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
         entry.localPath = localPath
         entry.location = FileLocation.localOnly.rawValue
@@ -766,47 +766,47 @@ actor VFSManager {
         }
 
         await database.saveFileEntry(entry)
-        logger.debug("文件创建: \(virtualPath)")
+        logger.debug("File created: \(virtualPath)")
     }
 
-    // MARK: - FUSE 意外退出恢复
+    // MARK: - FUSE Unexpected Exit Recovery
 
-    /// 最大自动恢复尝试次数
+    /// Maximum auto-recovery attempts
     private var remountAttempts: [String: Int] = [:]
     private let maxRemountAttempts = 3
-    /// 恢复冷却时间 (秒)，防止快速循环重启
-    private let remountCooldown: UInt64 = 3_000_000_000  // 3 秒
+    /// Recovery cooldown (seconds), prevents rapid restart loops
+    private let remountCooldown: UInt64 = 3_000_000_000  // 3s
 
-    /// FUSE 意外退出后尝试自动恢复挂载
+    /// Attempt auto-recovery mount after unexpected FUSE exit
     func handleUnexpectedFUSEExit(syncPairId: String) async {
         guard let mountPoint = mountPoints[syncPairId] else {
-            logger.error("[恢复] 未找到挂载点记录: \(syncPairId)")
+            logger.error("[Recovery] Mount point record not found: \(syncPairId)")
             return
         }
 
         let attempts = remountAttempts[syncPairId] ?? 0
         if attempts >= maxRemountAttempts {
-            logger.error("[恢复] 已达到最大重试次数 (\(maxRemountAttempts))，放弃恢复: \(syncPairId)")
-            // 清理挂载点记录
+            logger.error("[Recovery] Max retry count reached (\(maxRemountAttempts)), giving up recovery: \(syncPairId)")
+            // Clean up mount point record
             mountPoints.removeValue(forKey: syncPairId)
             await ServiceStateManager.shared.setState(.error)
             return
         }
 
         remountAttempts[syncPairId] = attempts + 1
-        logger.warning("[恢复] FUSE 意外退出，尝试恢复 (\(attempts + 1)/\(maxRemountAttempts)): \(mountPoint.targetDir)")
+        logger.warning("[Recovery] FUSE exited unexpectedly, attempting recovery (\(attempts + 1)/\(maxRemountAttempts)): \(mountPoint.targetDir)")
 
-        // 等待冷却时间
+        // Wait for cooldown
         try? await Task.sleep(nanoseconds: remountCooldown)
 
-        // 清理旧的挂载点记录 (但保留配置信息)
+        // Clean up old mount point record (keep config info)
         let localDir = mountPoint.localDir
         let externalDir = mountPoint.externalDir
         let targetDir = mountPoint.targetDir
         mountPoints.removeValue(forKey: syncPairId)
 
         do {
-            // 重新挂载
+            // Remount
             try await mount(
                 syncPairId: syncPairId,
                 localDir: localDir,
@@ -814,45 +814,45 @@ actor VFSManager {
                 targetDir: targetDir
             )
 
-            // 恢复成功，重置计数器
+            // Recovery succeeded, reset counter
             remountAttempts[syncPairId] = 0
-            logger.info("[恢复] FUSE 重新挂载成功: \(targetDir)")
+            logger.info("[Recovery] FUSE remount succeeded: \(targetDir)")
         } catch {
-            logger.error("[恢复] FUSE 重新挂载失败: \(error)")
-            // mount 内部会再次注册到 mountPoints，如果失败则不会
-            // 下次 handleUnexpectedFUSEExit 调用时会再次尝试
+            logger.error("[Recovery] FUSE remount failed: \(error)")
+            // mount() internally registers to mountPoints; if it fails, it will not
+            // Next handleUnexpectedFUSEExit call will retry
         }
     }
 
-    /// 系统唤醒后检查所有挂载点，恢复已丢失的挂载
+    /// Check all mount points after system wake, recover lost mounts
     func checkAndRecoverMounts() async {
-        logger.info("[唤醒恢复] 检查所有挂载点状态...")
+        logger.info("[Wake recovery] Checking all mount point states...")
 
         for (syncPairId, mountPoint) in mountPoints {
             let stillMounted = isPathMounted(mountPoint.targetDir)
             let fuseAlive = mountPoint.fuseFileSystem?.isMounted ?? false
 
             if stillMounted && fuseAlive {
-                logger.info("[唤醒恢复] 挂载正常: \(mountPoint.targetDir)")
+                logger.info("[Wake recovery] Mount OK: \(mountPoint.targetDir)")
             } else {
-                logger.warning("[唤醒恢复] 挂载已丢失: \(mountPoint.targetDir) (system=\(stillMounted), fuse=\(fuseAlive))")
-                // 重置恢复计数器（唤醒恢复不算入意外退出计数）
+                logger.warning("[Wake recovery] Mount lost: \(mountPoint.targetDir) (system=\(stillMounted), fuse=\(fuseAlive))")
+                // Reset recovery counter (wake recovery does not count as unexpected exit)
                 remountAttempts[syncPairId] = 0
                 await handleUnexpectedFUSEExit(syncPairId: syncPairId)
             }
         }
     }
 
-    // MARK: - 健康检查
+    // MARK: - Health Check
 
     func healthCheck() -> Bool {
-        // 检查所有挂载点是否正常
-        return !mountPoints.isEmpty || true  // 空挂载点也认为是正常的
+        // Check if all mount points are healthy
+        return !mountPoints.isEmpty || true  // Empty mount list is also considered healthy
     }
 
-    // MARK: - 挂载点管理
+    // MARK: - Mount Point Management
 
-    /// 检查路径是否已被挂载
+    /// Check if path is already mounted
     private nonisolated func isPathMounted(_ path: String) -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/sbin/mount")
@@ -867,7 +867,7 @@ actor VFSManager {
 
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             if let output = String(data: data, encoding: .utf8) {
-                // 检查是否有挂载到这个路径
+                // Check if there is a mount at this path
                 return output.contains("on \(path) ")
             }
         } catch {
@@ -877,11 +877,11 @@ actor VFSManager {
         return false
     }
 
-    /// 强制卸载指定路径
+    /// Force unmount the specified path
     private nonisolated func unmountPath(_ path: String) throws {
         let logger = Logger.forService("VFS")
 
-        // 先尝试正常卸载
+        // Try normal unmount first
         let umount = Process()
         umount.executableURL = URL(fileURLWithPath: "/sbin/umount")
         umount.arguments = [path]
@@ -893,12 +893,12 @@ actor VFSManager {
         umount.waitUntilExit()
 
         if umount.terminationStatus == 0 {
-            logger.info("正常卸载成功: \(path)")
+            logger.info("Normal unmount succeeded: \(path)")
             return
         }
 
-        // 如果失败，尝试强制卸载
-        logger.warning("正常卸载失败，尝试强制卸载...")
+        // If failed, try force unmount
+        logger.warning("Normal unmount failed, trying force unmount...")
 
         let forceUmount = Process()
         forceUmount.executableURL = URL(fileURLWithPath: "/sbin/umount")
@@ -908,7 +908,7 @@ actor VFSManager {
         forceUmount.waitUntilExit()
 
         if forceUmount.terminationStatus != 0 {
-            // 最后尝试 diskutil
+            // Last resort: try diskutil
             let diskutil = Process()
             diskutil.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
             diskutil.arguments = ["unmount", "force", path]
@@ -921,61 +921,61 @@ actor VFSManager {
             }
         }
 
-        logger.info("强制卸载成功: \(path)")
+        logger.info("Force unmount succeeded: \(path)")
     }
 
-    // MARK: - 目录保护
+    // MARK: - Directory Protection
 
-    /// 保护后端目录 (LOCAL_DIR 或 EXTERNAL_DIR) - 完全拒绝所有访问
-    /// 使用三重保护:
-    /// 1. 权限 700: 仅 root 可访问
-    /// 2. ACL deny: 明确拒绝当前用户的所有权限
-    /// 3. chflags hidden: 隐藏目录 (心理防护)
-    /// 注意: 不使用 chflags uchg，因为我们的 Service 需要能够操作这个目录
+    /// Protect backend directory (LOCAL_DIR or EXTERNAL_DIR) - deny all access
+    /// Uses triple protection:
+    /// 1. Permissions 700: root-only access
+    /// 2. ACL deny: explicitly deny all permissions for current user
+    /// 3. chflags hidden: hide directory (psychological deterrent)
+    /// Note: Not using chflags uchg since our Service needs to operate on this directory
     private nonisolated func protectBackendDir(_ path: String) {
         let logger = Logger.forService("VFS")
-        logger.info("========== 保护后端目录开始 ==========")
-        logger.info("路径: \(path)")
+        logger.info("========== Backend directory protection start ==========")
+        logger.info("Path: \(path)")
         logger.flush()
 
-        // 检查路径是否存在
+        // Check if path exists
         let fm = FileManager.default
         guard fm.fileExists(atPath: path) else {
-            logger.warning("后端目录不存在，跳过保护: \(path)")
+            logger.warning("Backend directory not found, skipping protection: \(path)")
             return
         }
 
-        // 显示当前状态
-        logger.info("[步骤0] 获取当前权限...")
+        // Show current state
+        logger.info("[Step 0] Getting current permissions...")
         logger.flush()
         if let attrs = try? fm.attributesOfItem(atPath: path) {
             let perms = attrs[.posixPermissions] as? Int ?? 0
-            logger.info("当前权限: \(String(perms, radix: 8))")
+            logger.info("Current permissions: \(String(perms, radix: 8))")
             logger.flush()
         }
 
-        // 1. 设置权限为 700 (仅 root 可访问)
-        logger.info("[步骤1] 设置权限 700...")
+        // 1. Set permissions to 700 (root-only access)
+        logger.info("[Step 1] Setting permissions 700...")
         logger.flush()
         do {
             let attrs: [FileAttributeKey: Any] = [
                 .posixPermissions: 0o700  // rwx------
             ]
             try fm.setAttributes(attrs, ofItemAtPath: path)
-            logger.info("目录权限已设置为 700: \(path)")
+            logger.info("Directory permissions set to 700: \(path)")
         } catch {
-            logger.error("设置目录权限失败: \(error)")
+            logger.error("Failed to set directory permissions: \(error)")
         }
 
-        // 2. 添加 ACL deny 规则 - 拒绝所有用户访问
-        logger.info("[步骤2] 添加 ACL deny 规则...")
+        // 2. Add ACL deny rules - deny all user access
+        logger.info("[Step 2] Adding ACL deny rules...")
         logger.flush()
-        // 获取目录所有者用户名
+        // Get directory owner username
         if let attrs = try? fm.attributesOfItem(atPath: path),
            let ownerAccountName = attrs[.ownerAccountName] as? String {
-            logger.info("目录所有者: \(ownerAccountName)")
+            logger.info("Directory owner: \(ownerAccountName)")
 
-            // 使用 chmod +a 添加 ACL deny 规则
+            // Use chmod +a to add ACL deny rule
             let aclProcess = Process()
             aclProcess.executableURL = URL(fileURLWithPath: "/bin/chmod")
             // deny read,write,execute,delete,append,readattr,writeattr,readextattr,writeextattr,readsecurity,writesecurity,chown,list,search,add_file,add_subdirectory,delete_child
@@ -994,15 +994,15 @@ actor VFSManager {
                 let errorOutput = String(data: errorData, encoding: .utf8) ?? ""
 
                 if aclProcess.terminationStatus == 0 {
-                    logger.info("ACL deny 规则已添加: 用户 \(ownerAccountName) 被拒绝所有访问")
+                    logger.info("ACL deny rule added: user \(ownerAccountName) denied all access")
                 } else {
-                    logger.warning("ACL 设置失败, 状态: \(aclProcess.terminationStatus), 错误: \(errorOutput)")
+                    logger.warning("ACL setup failed, status: \(aclProcess.terminationStatus), error: \(errorOutput)")
                 }
             } catch {
-                logger.warning("执行 chmod +a 失败: \(error)")
+                logger.warning("Failed to execute chmod +a: \(error)")
             }
 
-            // 同时拒绝 everyone 组
+            // Also deny everyone group
             let everyoneProcess = Process()
             everyoneProcess.executableURL = URL(fileURLWithPath: "/bin/chmod")
             everyoneProcess.arguments = ["+a", "everyone deny read,write,execute,delete,append,readattr,writeattr,readextattr,writeextattr,readsecurity,list,search,add_file,add_subdirectory,delete_child", path]
@@ -1017,17 +1017,17 @@ actor VFSManager {
                 everyoneProcess.waitUntilExit()
 
                 if everyoneProcess.terminationStatus == 0 {
-                    logger.info("ACL deny 规则已添加: everyone 被拒绝所有访问")
+                    logger.info("ACL deny rule added: everyone denied all access")
                 }
             } catch {
-                logger.warning("执行 chmod +a (everyone) 失败: \(error)")
+                logger.warning("Failed to execute chmod +a (everyone): \(error)")
             }
         }
 
-        // 3. 设置隐藏标志 (chflags hidden)
-        logger.info("[步骤3] 设置隐藏标志...")
+        // 3. Set hidden flag (chflags hidden)
+        logger.info("[Step 3] Setting hidden flag...")
         logger.flush()
-        logger.info("执行: chflags hidden \(path)")
+        logger.info("Executing: chflags hidden \(path)")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/chflags")
         process.arguments = ["hidden", path]
@@ -1045,75 +1045,75 @@ actor VFSManager {
             let errorOutput = String(data: errorData, encoding: .utf8) ?? ""
 
             if process.terminationStatus == 0 {
-                logger.info("目录已设置为隐藏: \(path)")
+                logger.info("Directory set to hidden: \(path)")
             } else {
-                logger.warning("chflags hidden 失败, 状态: \(process.terminationStatus), 错误: \(errorOutput)")
+                logger.warning("chflags hidden failed, status: \(process.terminationStatus), error: \(errorOutput)")
             }
         } catch {
-            logger.warning("执行 chflags 失败: \(error)")
+            logger.warning("Failed to execute chflags: \(error)")
         }
 
-        // 4. 验证保护状态 (使用 stat 代替 ls，避免卡住)
-        logger.info("[步骤4] 验证保护状态...")
+        // 4. Verify protection state (using stat instead of ls to avoid hanging)
+        logger.info("[Step 4] Verifying protection state...")
         logger.flush()
 
-        // 使用 FileManager 验证，避免 Process 可能的阻塞
+        // Use FileManager to verify, avoid potential Process blocking
         if let attrs = try? fm.attributesOfItem(atPath: path) {
             let perms = attrs[.posixPermissions] as? Int ?? 0
             let owner = attrs[.ownerAccountName] as? String ?? "unknown"
-            logger.info("验证结果: 权限=\(String(perms, radix: 8)), 所有者=\(owner)")
+            logger.info("Verification: permissions=\(String(perms, radix: 8)), owner=\(owner)")
             logger.flush()
         } else {
-            logger.warning("无法获取目录属性进行验证")
+            logger.warning("Failed to get directory attributes for verification")
             logger.flush()
         }
 
-        logger.info("========== 保护后端目录完成 ==========")
+        logger.info("========== Backend directory protection complete ==========")
         logger.flush()
     }
 
-    /// 取消保护后端目录 (卸载时调用)
+    /// Unprotect backend directory (called during unmount)
     private nonisolated func unprotectBackendDir(_ path: String) {
         let logger = Logger.forService("VFS")
-        logger.info("========== 取消保护后端目录开始 ==========")
-        logger.info("路径: \(path)")
+        logger.info("========== Backend directory unprotection start ==========")
+        logger.info("Path: \(path)")
 
-        // 检查路径是否存在
+        // Check if path exists
         guard FileManager.default.fileExists(atPath: path) else {
-            logger.warning("后端目录不存在，跳过取消保护: \(path)")
+            logger.warning("Backend directory not found, skipping unprotection: \(path)")
             return
         }
 
-        // 1. 移除所有 ACL 规则
+        // 1. Remove all ACL rules
         let aclProcess = Process()
         aclProcess.executableURL = URL(fileURLWithPath: "/bin/chmod")
-        aclProcess.arguments = ["-N", path]  // -N 移除所有 ACL
+        aclProcess.arguments = ["-N", path]  // -N removes all ACLs
 
         do {
             try aclProcess.run()
             aclProcess.waitUntilExit()
 
             if aclProcess.terminationStatus == 0 {
-                logger.info("ACL 规则已移除: \(path)")
+                logger.info("ACL rules removed: \(path)")
             } else {
-                logger.warning("移除 ACL 返回非零状态: \(aclProcess.terminationStatus)")
+                logger.warning("ACL removal returned non-zero status: \(aclProcess.terminationStatus)")
             }
         } catch {
-            logger.warning("移除 ACL 失败: \(error)")
+            logger.warning("ACL removal failed: \(error)")
         }
 
-        // 2. 恢复权限为 755
+        // 2. Restore permissions to 755
         do {
             let attrs: [FileAttributeKey: Any] = [
                 .posixPermissions: 0o755  // rwxr-xr-x
             ]
             try FileManager.default.setAttributes(attrs, ofItemAtPath: path)
-            logger.info("目录权限已恢复为 755: \(path)")
+            logger.info("Directory permissions restored to 755: \(path)")
         } catch {
-            logger.warning("恢复目录权限失败: \(error)")
+            logger.warning("Failed to restore directory permissions: \(error)")
         }
 
-        // 3. 取消隐藏标志 (chflags nohidden)
+        // 3. Remove hidden flag (chflags nohidden)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/chflags")
         process.arguments = ["nohidden", path]
@@ -1123,15 +1123,15 @@ actor VFSManager {
             process.waitUntilExit()
 
             if process.terminationStatus == 0 {
-                logger.info("目录隐藏标志已取消: \(path)")
+                logger.info("Directory hidden flag removed: \(path)")
             } else {
-                logger.warning("chflags nohidden 返回非零状态: \(process.terminationStatus)")
+                logger.warning("chflags nohidden returned non-zero status: \(process.terminationStatus)")
             }
         } catch {
-            logger.warning("取消目录隐藏标志失败: \(error)")
+            logger.warning("Failed to remove directory hidden flag: \(error)")
         }
 
-        logger.info("========== 取消保护后端目录完成 ==========")
+        logger.info("========== Backend directory unprotection complete ==========")
     }
 }
 

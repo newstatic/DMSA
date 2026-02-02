@@ -2,8 +2,8 @@ import SwiftUI
 
 // MARK: - Status Ring Component
 
-/// 状态环组件 - 显示状态图标和可选进度
-/// 用于仪表盘状态横幅和同步页面
+/// Status ring component - displays status icon and optional progress
+/// Used in dashboard status banner and sync page
 struct StatusRing: View {
     let size: CGFloat
     let icon: String
@@ -84,7 +84,7 @@ struct StatusRing: View {
 // MARK: - Status Ring Styles
 
 extension StatusRing {
-    /// 就绪状态
+    /// Ready state
     static func ready(size: CGFloat) -> StatusRing {
         StatusRing(
             size: size,
@@ -94,7 +94,7 @@ extension StatusRing {
         )
     }
 
-    /// 同步中状态
+    /// Syncing state
     static func syncing(size: CGFloat, progress: Double) -> StatusRing {
         StatusRing(
             size: size,
@@ -105,7 +105,7 @@ extension StatusRing {
         )
     }
 
-    /// 暂停状态
+    /// Paused state
     static func paused(size: CGFloat, progress: Double) -> StatusRing {
         StatusRing(
             size: size,
@@ -115,7 +115,7 @@ extension StatusRing {
         )
     }
 
-    /// 错误状态
+    /// Error state
     static func error(size: CGFloat) -> StatusRing {
         StatusRing(
             size: size,
@@ -124,7 +124,7 @@ extension StatusRing {
         )
     }
 
-    /// 有冲突状态
+    /// Has conflicts state
     static func hasConflicts(size: CGFloat) -> StatusRing {
         StatusRing(
             size: size,
@@ -134,7 +134,7 @@ extension StatusRing {
         )
     }
 
-    /// 服务不可用
+    /// Service unavailable
     static func unavailable(size: CGFloat) -> StatusRing {
         StatusRing(
             size: size,
@@ -146,7 +146,7 @@ extension StatusRing {
 
 // MARK: - Small Status Dot
 
-/// 小型状态点 - 用于列表项
+/// Small status dot - used in list items
 struct StatusDot: View {
     let color: Color
     var size: CGFloat = 8
@@ -160,7 +160,7 @@ struct StatusDot: View {
 
 // MARK: - Status Badge
 
-/// 状态徽章 - 用于显示连接状态等
+/// Status badge - used to display connection status, etc.
 struct StatusBadge: View {
     let text: String
     let color: Color

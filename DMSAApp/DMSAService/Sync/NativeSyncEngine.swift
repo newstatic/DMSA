@@ -1,58 +1,58 @@
 import Foundation
 import Combine
 
-/// 原生同步引擎 - 替代 rsync 的完整同步解决方案
+/// Native Sync Engine - Complete sync solution replacing rsync
 class NativeSyncEngine: ObservableObject {
 
-    // MARK: - 配置
+    // MARK: - Configuration
 
     struct Config {
-        /// 是否启用校验和
+        /// Whether to enable checksums
         var enableChecksum: Bool = true
 
-        /// 校验算法
+        /// Checksum algorithm
         var checksumAlgorithm: FileHasher.HashAlgorithm = .md5
 
-        /// 复制后验证
+        /// Verify after copy
         var verifyAfterCopy: Bool = true
 
-        /// 冲突策略
+        /// Conflict strategy
         var conflictStrategy: ConflictStrategy = .localWinsWithBackup
 
-        /// 备份后缀
+        /// Backup suffix
         var backupSuffix: String = "_backup"
 
-        /// 启用删除
+        /// Enable deletion
         var enableDelete: Bool = true
 
-        /// 缓冲区大小
+        /// Buffer size
         var bufferSize: Int = 1024 * 1024
 
-        /// 并行操作数
+        /// Parallel operations count
         var parallelOperations: Int = 4
 
-        /// 排除模式
+        /// Exclude patterns
         var excludePatterns: [String] = []
 
-        /// 包含隐藏文件
+        /// Include hidden files
         var includeHidden: Bool = false
 
-        /// 最大文件大小
+        /// Maximum file size
         var maxFileSize: Int64? = nil
 
-        /// 跟随符号链接
+        /// Follow symbolic links
         var followSymlinks: Bool = false
 
-        /// 启用暂停/恢复
+        /// Enable pause/resume
         var enablePauseResume: Bool = true
 
-        /// 状态检查点间隔
+        /// State checkpoint interval
         var stateCheckpointInterval: Int = 50
 
         static var `default`: Config { Config() }
     }
 
-    // MARK: - 组件
+    // MARK: - Components
 
     private let scanner: FileScanner
     private let hasher: FileHasher
@@ -62,45 +62,45 @@ class NativeSyncEngine: ObservableObject {
     private let conflictResolver: ConflictResolver
     private let lockManager = LockManager.shared
 
-    // MARK: - 状态
+    // MARK: - State
 
-    /// 同步进度
+    /// Sync progress
     @Published var progress: ServiceSyncProgress
 
-    /// 当前同步计划
+    /// Current sync plan
     @Published var currentPlan: SyncPlan?
 
-    /// 当前状态
+    /// Current state
     var currentState: SyncStateManager.SyncState?
 
-    /// 是否已暂停
+    /// Whether paused
     @Published var isPaused: Bool = false
 
-    /// 是否已取消
+    /// Whether cancelled
     @Published var isCancelled: Bool = false
 
-    /// 是否正在同步
+    /// Whether syncing
     @Published var isSyncing: Bool = false
 
-    /// 配置
+    /// Configuration
     var config: Config
 
-    /// 当前锁定的文件路径 (用于同步完成后释放锁)
+    /// Currently locked file paths (for releasing locks after sync completes)
     private var lockedPaths: Set<String> = []
     private let lockedPathsLock = NSLock()
 
-    // MARK: - 进度回调节流
+    // MARK: - Progress Callback Throttling
 
-    /// 上次进度回调时间
+    /// Last progress callback time
     private var lastProgressCallbackTime: Date = .distantPast
 
-    /// 进度回调最小间隔 (秒)
+    /// Minimum progress callback interval (seconds)
     private let progressCallbackInterval: TimeInterval = 0.1
 
-    /// 上次报告的进度值
+    /// Last reported progress value
     private var lastReportedProgress: Double = -1
 
-    // MARK: - 委托
+    // MARK: - Delegate
 
     weak var delegate: NativeSyncEngineDelegate?
 
@@ -108,13 +108,13 @@ class NativeSyncEngine: ObservableObject {
 
     private let logger = Logger.forService("NativeSyncEngine")
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     init(config: Config = .default) {
         self.config = config
         self.progress = ServiceSyncProgress()
 
-        // 初始化组件
+        // Initialize components
         self.scanner = FileScanner(
             excludePatterns: config.excludePatterns,
             includeHidden: config.includeHidden,
@@ -137,9 +137,9 @@ class NativeSyncEngine: ObservableObject {
         )
     }
 
-    // MARK: - 主要方法
+    // MARK: - Main Methods
 
-    /// 执行同步任务
+    /// Execute sync task
     func execute(_ task: SyncTask) async throws -> SyncResult {
         guard !isSyncing else {
             throw NativeSyncError.alreadyInProgress
@@ -159,25 +159,25 @@ class NativeSyncEngine: ObservableObject {
             progress.updateElapsedTime()
         }
 
-        // 通知开始
+        // Notify start
         delegate?.nativeSyncEngine(self, didStartTask: task)
 
         do {
-            // 检查是否有可恢复的状态
+            // Check for resumable state
             if config.enablePauseResume,
                let savedState = try stateManager.loadState(for: task.syncPair.id),
                savedState.isResumable {
-                logger.info("检测到可恢复的同步状态，从断点继续")
+                logger.info("Detected resumable sync state, continuing from checkpoint")
                 return try await resumeSync(from: savedState, task: task)
             }
 
-            // 阶段 1: 扫描
+            // Phase 1: Scan
             let (sourceSnapshot, destSnapshot) = try await scanPhase(task: task)
 
-            // 检查取消
+            // Check cancelled
             try checkCancelled()
 
-            // 阶段 2: 计算校验和
+            // Phase 2: Calculate checksums
             var sourceWithChecksum = sourceSnapshot
             var destWithChecksum = destSnapshot
 
@@ -188,10 +188,10 @@ class NativeSyncEngine: ObservableObject {
                 )
             }
 
-            // 检查取消
+            // Check cancelled
             try checkCancelled()
 
-            // 阶段 3: 计算差异
+            // Phase 3: Calculate diff
             let plan = try await diffPhase(
                 task: task,
                 source: sourceWithChecksum,
@@ -200,9 +200,9 @@ class NativeSyncEngine: ObservableObject {
 
             currentPlan = plan
 
-            // 检查是否有变化
+            // Check if there are changes
             if plan.summary.isEmpty {
-                logger.info("无需同步: \(task.syncPair.id)")
+                logger.info("No sync needed: \(task.syncPair.id)")
                 progress.setPhase(.completed)
 
                 return SyncResult(
@@ -222,30 +222,30 @@ class NativeSyncEngine: ObservableObject {
                 )
             }
 
-            // 阶段 4: 解决冲突
+            // Phase 4: Resolve conflicts
             var resolvedPlan = plan
             if !plan.conflicts.isEmpty {
                 resolvedPlan = try await resolveConflictsPhase(plan: plan)
             }
 
-            // 检查取消
+            // Check cancelled
             try checkCancelled()
 
-            // 创建状态（用于暂停/恢复）
+            // Create state (for pause/resume)
             if config.enablePauseResume {
                 currentState = stateManager.createState(for: resolvedPlan)
             }
 
-            // 阶段 5: 执行同步
+            // Phase 5: Execute sync
             let copyResult = try await syncPhase(plan: resolvedPlan)
 
-            // 阶段 6: 验证（如果启用）
+            // Phase 6: Verify (if enabled)
             var verificationFailures = 0
             if config.verifyAfterCopy {
                 verificationFailures = try await verifyPhase(plan: resolvedPlan)
             }
 
-            // 清除状态
+            // Clear state
             if config.enablePauseResume {
                 try? stateManager.clearState(for: task.syncPair.id)
             }
@@ -276,7 +276,7 @@ class NativeSyncEngine: ObservableObject {
             return result
 
         } catch {
-            // 确保释放所有锁
+            // Ensure all locks are released
             releaseAllLocks()
 
             progress.setPhase(isCancelled ? .cancelled : .failed)
@@ -303,7 +303,7 @@ class NativeSyncEngine: ObservableObject {
         }
     }
 
-    /// 暂停同步
+    /// Pause sync
     func pause() {
         guard isSyncing else { return }
         isPaused = true
@@ -313,26 +313,26 @@ class NativeSyncEngine: ObservableObject {
             await copier.pause()
         }
 
-        // 保存状态
+        // Save state
         if var state = currentState {
             stateManager.updatePhase(state: &state, phase: .paused)
             try? stateManager.saveState(state)
         }
 
-        logger.info("同步已暂停")
+        logger.info("Sync paused")
     }
 
-    /// 恢复同步
+    /// Resume sync
     func resume() async throws {
         guard isPaused else { return }
         isPaused = false
 
         await copier.resume()
 
-        logger.info("同步已恢复")
+        logger.info("Sync resumed")
     }
 
-    /// 取消同步
+    /// Cancel sync
     func cancel() {
         isCancelled = true
         isPaused = false
@@ -344,18 +344,18 @@ class NativeSyncEngine: ObservableObject {
             await copier.cancel()
         }
 
-        // 释放所有锁
+        // Release all locks
         releaseAllLocks()
 
-        logger.info("同步已取消")
+        logger.info("Sync cancelled")
     }
 
-    /// 预览同步计划（不执行）
+    /// Preview sync plan (without executing)
     func preview(_ task: SyncTask) async throws -> SyncPlan {
-        // 扫描
+        // Scan
         let (sourceSnapshot, destSnapshot) = try await scanPhase(task: task)
 
-        // 计算校验和（如果启用）
+        // Calculate checksums (if enabled)
         var sourceWithChecksum = sourceSnapshot
         var destWithChecksum = destSnapshot
 
@@ -366,7 +366,7 @@ class NativeSyncEngine: ObservableObject {
             )
         }
 
-        // 计算差异并生成计划
+        // Calculate diff and generate plan
         return try await diffPhase(
             task: task,
             source: sourceWithChecksum,
@@ -374,12 +374,12 @@ class NativeSyncEngine: ObservableObject {
         )
     }
 
-    /// 检查是否有可恢复的同步
+    /// Check if there is a resumable sync
     func hasResumableSync(for syncPairId: String) -> Bool {
         return stateManager.hasResumableSync(for: syncPairId)
     }
 
-    /// 获取可恢复同步的摘要
+    /// Get resumable sync summary
     func getResumeSummary(for syncPairId: String) -> String? {
         guard let state = try? stateManager.loadState(for: syncPairId) else {
             return nil
@@ -387,43 +387,43 @@ class NativeSyncEngine: ObservableObject {
         return stateManager.getResumeSummary(from: state)
     }
 
-    // MARK: - 私有方法 - 各阶段实现
+    // MARK: - Private Methods - Phase Implementations
 
-    /// 扫描阶段
+    /// Scan phase
     private func scanPhase(task: SyncTask) async throws -> (DirectorySnapshot, DirectorySnapshot) {
         progress.setPhase(.scanning)
-        logger.info("开始扫描: \(task.syncPair.id)")
+        logger.info("Starting scan: \(task.syncPair.id)")
 
         let sourceURL = URL(fileURLWithPath: task.syncPair.expandedLocalPath)
         let destURL = URL(fileURLWithPath: task.syncPair.externalFullPath(diskMountPath: task.disk.mountPath))
 
-        // 并行扫描源和目标
+        // Parallel scan source and destination
         async let sourceTask = scanner.scan(directory: sourceURL) { [weak self] count, file in
             self?.progress.currentFile = file
-            self?.throttledProgressCallback(message: "扫描源: \(file)", progress: 0)
+            self?.throttledProgressCallback(message: "Scanning source: \(file)", progress: 0)
         }
 
         async let destTask = scanner.scan(directory: destURL) { [weak self] count, file in
             self?.progress.currentFile = file
-            self?.throttledProgressCallback(message: "扫描目标: \(file)", progress: 0)
+            self?.throttledProgressCallback(message: "Scanning destination: \(file)", progress: 0)
         }
 
         let (sourceSnapshot, destSnapshot) = try await (sourceTask, destTask)
 
         progress.totalFiles = sourceSnapshot.fileCount
 
-        logger.info("扫描完成: 源 \(sourceSnapshot.fileCount) 文件, 目标 \(destSnapshot.fileCount) 文件")
+        logger.info("Scan completed: source \(sourceSnapshot.fileCount) files, destination \(destSnapshot.fileCount) files")
 
         return (sourceSnapshot, destSnapshot)
     }
 
-    /// 校验和阶段
+    /// Checksum phase
     private func checksumPhase(
         source: DirectorySnapshot,
         destination: DirectorySnapshot
     ) async throws -> (DirectorySnapshot, DirectorySnapshot) {
         progress.setPhase(.checksumming)
-        logger.info("开始计算校验和")
+        logger.info("Starting checksum calculation")
 
         var sourceWithChecksum = source
         var destWithChecksum = destination
@@ -434,21 +434,21 @@ class NativeSyncEngine: ObservableObject {
 
         progress.totalFilesToChecksum = totalFiles
 
-        // 计算源目录校验和
+        // Calculate source directory checksums
         try await sourceWithChecksum.computeChecksums(
             algorithm: config.checksumAlgorithm
         ) { [weak self] completed, total, file in
             processedFiles = completed
             self?.progress.checksummedFiles = processedFiles
             self?.progress.checksumProgress = Double(processedFiles) / Double(totalFiles)
-            self?.progress.checksumPhase = "源: \(file)"
+            self?.progress.checksumPhase = "Source: \(file)"
             self?.throttledProgressCallback(
-                message: "校验源: \(file)",
+                message: "Checksumming source: \(file)",
                 progress: self?.progress.checksumProgress ?? 0
             )
         }
 
-        // 计算目标目录校验和
+        // Calculate destination directory checksums
         let sourceCount = source.files.values.filter { !$0.isDirectory }.count
         try await destWithChecksum.computeChecksums(
             algorithm: config.checksumAlgorithm
@@ -456,26 +456,26 @@ class NativeSyncEngine: ObservableObject {
             processedFiles = sourceCount + completed
             self?.progress.checksummedFiles = processedFiles
             self?.progress.checksumProgress = Double(processedFiles) / Double(totalFiles)
-            self?.progress.checksumPhase = "目标: \(file)"
+            self?.progress.checksumPhase = "Destination: \(file)"
             self?.throttledProgressCallback(
-                message: "校验目标: \(file)",
+                message: "Checksumming destination: \(file)",
                 progress: self?.progress.checksumProgress ?? 0
             )
         }
 
-        logger.info("校验和计算完成")
+        logger.info("Checksum calculation completed")
 
         return (sourceWithChecksum, destWithChecksum)
     }
 
-    /// 差异计算阶段
+    /// Diff calculation phase
     private func diffPhase(
         task: SyncTask,
         source: DirectorySnapshot,
         destination: DirectorySnapshot
     ) async throws -> SyncPlan {
         progress.setPhase(.calculating)
-        logger.info("开始计算差异")
+        logger.info("Starting diff calculation")
 
         let options = DiffEngine.DiffOptions(
             compareChecksums: config.enableChecksum,
@@ -492,7 +492,7 @@ class NativeSyncEngine: ObservableObject {
             options: options
         )
 
-        logger.info("差异计算完成: \(diffResult.summary)")
+        logger.info("Diff calculation completed: \(diffResult.summary)")
 
         let plan = diffEngine.createSyncPlan(
             from: diffResult,
@@ -502,17 +502,17 @@ class NativeSyncEngine: ObservableObject {
             direction: task.direction
         )
 
-        // 更新进度统计
+        // Update progress statistics
         progress.totalFiles = plan.totalFiles
         progress.totalBytes = plan.totalBytes
 
         return plan
     }
 
-    /// 冲突解决阶段
+    /// Conflict resolution phase
     private func resolveConflictsPhase(plan: SyncPlan) async throws -> SyncPlan {
         progress.setPhase(.resolving)
-        logger.info("开始解决 \(plan.conflicts.count) 个冲突")
+        logger.info("Starting to resolve \(plan.conflicts.count) conflicts")
 
         let resolvedConflicts = await conflictResolver.resolve(conflicts: plan.conflicts)
 
@@ -520,45 +520,44 @@ class NativeSyncEngine: ObservableObject {
         updatedPlan.conflicts = resolvedConflicts
         updatedPlan.applyConflictResolutions()
 
-        logger.info("冲突解决完成")
+        logger.info("Conflict resolution completed")
 
         return updatedPlan
     }
 
-    /// 同步执行阶段
+    /// Sync execution phase
     private func syncPhase(plan: SyncPlan) async throws -> FileCopier.CopyResult {
         progress.setPhase(.syncing)
         progress.processedFiles = 0
         progress.processedBytes = 0
-        logger.info("开始同步: \(plan.totalFiles) 文件, \(ByteCountFormatter.string(fromByteCount: plan.totalBytes, countStyle: .file))")
+        logger.info("Starting sync: \(plan.totalFiles) files, \(ByteCountFormatter.string(fromByteCount: plan.totalBytes, countStyle: .file))")
 
-        // 创建目录
+        // Create directories
         for action in plan.actions {
             if case .createDirectory(let path) = action {
                 try await copier.createDirectory(at: URL(fileURLWithPath: path))
             }
         }
 
-        // 执行冲突解决
+        // Execute conflict resolutions
         if !plan.conflicts.isEmpty {
             let conflictResult = try await conflictResolver.executeResolutions(
                 plan.conflicts,
                 copier: copier
             ) { [weak self] completed, total, file in
                 self?.throttledProgressCallback(
-                    message: "解决冲突: \(file)",
+                    message: "Resolving conflict: \(file)",
                     progress: Double(completed) / Double(total)
                 )
             }
-            logger.info("冲突解决执行完成: \(conflictResult.summary)")
+            logger.info("Conflict resolution execution completed: \(conflictResult.summary)")
         }
 
-        // 获取需要复制的文件的虚拟路径并加锁
+        // Get virtual paths of files to copy and acquire locks
         let filesToLock = plan.actions.compactMap { action -> (virtualPath: String, sourcePath: String, direction: SyncLockDirection)? in
             switch action {
             case .copy(let source, _, _), .update(let source, _, _):
-                // 根据同步方向确定虚拟路径和锁方向
-                // 假设 plan.direction 表示同步方向
+                // Determine virtual path and lock direction based on sync direction
                 let virtualPath = extractVirtualPath(from: source)
                 let direction: SyncLockDirection = plan.direction == .localToExternal ? .localToExternal : .externalToLocal
                 return (virtualPath, source, direction)
@@ -567,17 +566,17 @@ class NativeSyncEngine: ObservableObject {
             }
         }
 
-        // 批量获取锁
+        // Batch acquire locks
         for file in filesToLock {
             if lockManager.acquireLock(file.virtualPath, direction: file.direction, sourcePath: file.sourcePath) {
                 addLockedPath(file.virtualPath)
-                logger.debug("获取同步锁: \(file.virtualPath)")
+                logger.debug("Acquired sync lock: \(file.virtualPath)")
             } else {
-                logger.warning("无法获取同步锁，文件可能正在被其他操作使用: \(file.virtualPath)")
+                logger.warning("Cannot acquire sync lock, file may be in use by another operation: \(file.virtualPath)")
             }
         }
 
-        // 复制文件
+        // Copy files
         let copyOptions = FileCopier.CopyOptions(
             preserveAttributes: true,
             verifyAfterCopy: config.verifyAfterCopy,
@@ -597,7 +596,7 @@ class NativeSyncEngine: ObservableObject {
                 progress: progress.overallProgress
             )
 
-            // 更新状态
+            // Update state
             if self?.config.enablePauseResume == true,
                var state = self?.currentState {
                 self?.stateManager.updateProgress(
@@ -609,10 +608,10 @@ class NativeSyncEngine: ObservableObject {
             }
         }
 
-        // 释放所有锁
+        // Release all locks
         releaseAllLocks()
 
-        // 执行删除
+        // Execute deletions
         if config.enableDelete {
             for action in plan.actions {
                 if case .delete(let path, _) = action {
@@ -621,22 +620,22 @@ class NativeSyncEngine: ObservableObject {
             }
         }
 
-        logger.info("同步执行完成: 成功 \(result.succeeded), 失败 \(result.failed.count)")
+        logger.info("Sync execution completed: succeeded \(result.succeeded), failed \(result.failed.count)")
 
         return result
     }
 
-    // MARK: - 锁管理辅助方法
+    // MARK: - Lock Management Helpers
 
-    /// 从文件路径提取虚拟路径
+    /// Extract virtual path from file path
     private func extractVirtualPath(from path: String) -> String {
-        // 尝试从 Downloads_Local 路径提取
+        // Try to extract from Downloads_Local path
         let downloadsLocalPath = Constants.Paths.downloadsLocal.path
         if path.hasPrefix(downloadsLocalPath) {
             return String(path.dropFirst(downloadsLocalPath.count + 1))
         }
 
-        // 尝试从 EXTERNAL 路径提取 (去掉 /Volumes/XXX/Downloads/ 前缀)
+        // Try to extract from EXTERNAL path (strip /Volumes/XXX/Downloads/ prefix)
         if path.hasPrefix("/Volumes/") {
             let components = path.split(separator: "/", maxSplits: 4)
             if components.count >= 4 {
@@ -645,18 +644,18 @@ class NativeSyncEngine: ObservableObject {
             }
         }
 
-        // 默认返回原路径
+        // Default: return original path
         return path
     }
 
-    /// 添加锁定的路径
+    /// Add locked path
     private func addLockedPath(_ path: String) {
         lockedPathsLock.lock()
         defer { lockedPathsLock.unlock() }
         lockedPaths.insert(path)
     }
 
-    /// 释放所有锁
+    /// Release all locks
     private func releaseAllLocks() {
         lockedPathsLock.lock()
         let pathsToRelease = lockedPaths
@@ -665,18 +664,18 @@ class NativeSyncEngine: ObservableObject {
 
         for path in pathsToRelease {
             lockManager.releaseLock(path)
-            logger.debug("释放同步锁: \(path)")
+            logger.debug("Released sync lock: \(path)")
         }
 
         if !pathsToRelease.isEmpty {
-            logger.info("已释放 \(pathsToRelease.count) 个同步锁")
+            logger.info("Released \(pathsToRelease.count) sync locks")
         }
     }
 
-    /// 验证阶段
+    /// Verify phase
     private func verifyPhase(plan: SyncPlan) async throws -> Int {
         progress.setPhase(.verifying)
-        logger.info("开始验证")
+        logger.info("Starting verification")
 
         var failures = 0
         let filesToVerify = plan.actions.compactMap { action -> (String, String)? in
@@ -702,41 +701,41 @@ class NativeSyncEngine: ObservableObject {
             if sourceChecksum != destChecksum {
                 failures += 1
                 progress.verificationFailures += 1
-                logger.error("验证失败: \(dest)")
+                logger.error("Verification failed: \(dest)")
             }
 
             progress.verifiedFiles = index + 1
             progress.verificationProgress = Double(index + 1) / Double(filesToVerify.count)
 
             throttledProgressCallback(
-                message: "验证: \(destURL.lastPathComponent)",
+                message: "Verifying: \(destURL.lastPathComponent)",
                 progress: progress.verificationProgress ?? 0
             )
         }
 
-        logger.info("验证完成: \(filesToVerify.count) 文件, \(failures) 失败")
+        logger.info("Verification completed: \(filesToVerify.count) files, \(failures) failures")
 
         return failures
     }
 
-    /// 从保存的状态恢复同步
+    /// Resume sync from saved state
     private func resumeSync(
         from state: SyncStateManager.SyncState,
         task: SyncTask
     ) async throws -> SyncResult {
         let startTime = Date()
 
-        // 恢复进度
+        // Restore progress
         progress = stateManager.restoreProgress(from: state)
         currentState = state
         currentPlan = state.plan
 
-        logger.info("从断点恢复: 已完成 \(state.completedActionIndices.count)/\(state.plan.actions.count)")
+        logger.info("Resuming from checkpoint: completed \(state.completedActionIndices.count)/\(state.plan.actions.count)")
 
-        // 获取剩余动作
+        // Get pending actions
         let pendingActions = stateManager.getPendingActions(from: state)
 
-        // 执行剩余同步
+        // Execute remaining sync
         progress.setPhase(.syncing)
 
         let copyOptions = FileCopier.CopyOptions(
@@ -759,7 +758,7 @@ class NativeSyncEngine: ObservableObject {
             )
         }
 
-        // 清除状态
+        // Clear state
         try? stateManager.clearState(for: task.syncPair.id)
 
         progress.setPhase(.completed)
@@ -785,22 +784,22 @@ class NativeSyncEngine: ObservableObject {
         )
     }
 
-    /// 检查是否已取消
+    /// Check if cancelled
     private func checkCancelled() throws {
         if isCancelled {
             throw NativeSyncError.cancelled
         }
     }
 
-    /// 节流进度回调 - 避免频繁调用导致 UI 卡顿
+    /// Throttled progress callback - Avoids frequent calls causing UI lag
     private func throttledProgressCallback(message: String, progress: Double) {
         let now = Date()
 
-        // 检查时间间隔和进度变化
+        // Check time interval and progress change
         let timeSinceLastCallback = now.timeIntervalSince(lastProgressCallbackTime)
         let progressDelta = abs(progress - lastReportedProgress)
 
-        // 仅在时间间隔足够长或进度变化显著时才回调
+        // Only callback when enough time has elapsed or progress changed significantly
         guard timeSinceLastCallback >= progressCallbackInterval || progressDelta >= 0.05 else {
             return
         }
@@ -811,30 +810,30 @@ class NativeSyncEngine: ObservableObject {
         delegate?.nativeSyncEngine(self, didUpdateProgress: message, progress: progress)
     }
 
-    /// 重置进度回调节流状态
+    /// Reset progress callback throttle state
     private func resetProgressThrottle() {
         lastProgressCallbackTime = .distantPast
         lastReportedProgress = -1
     }
 }
 
-// MARK: - 委托协议
+// MARK: - Delegate Protocol
 
 protocol NativeSyncEngineDelegate: AnyObject {
-    /// 同步任务开始
+    /// Sync task started
     func nativeSyncEngine(_ engine: NativeSyncEngine, didStartTask task: SyncTask)
 
-    /// 同步进度更新
+    /// Sync progress updated
     func nativeSyncEngine(_ engine: NativeSyncEngine, didUpdateProgress message: String, progress: Double)
 
-    /// 同步任务完成
+    /// Sync task completed
     func nativeSyncEngine(_ engine: NativeSyncEngine, didCompleteTask task: SyncTask, result: SyncResult)
 
-    /// 同步任务失败
+    /// Sync task failed
     func nativeSyncEngine(_ engine: NativeSyncEngine, didFailTask task: SyncTask, error: Error)
 }
 
-// MARK: - 错误类型
+// MARK: - Error Types
 
 enum NativeSyncError: Error, LocalizedError {
     case alreadyInProgress
@@ -849,23 +848,23 @@ enum NativeSyncError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .alreadyInProgress:
-            return "同步任务已在进行中"
+            return "Sync task already in progress"
         case .cancelled:
-            return "同步已取消"
+            return "Sync cancelled"
         case .sourceNotFound(let path):
-            return "源目录不存在: \(path)"
+            return "Source directory not found: \(path)"
         case .destinationNotFound(let path):
-            return "目标目录不存在: \(path)"
+            return "Destination directory not found: \(path)"
         case .permissionDenied(let path):
-            return "权限不足: \(path)"
+            return "Permission denied: \(path)"
         case .insufficientSpace(let required, let available):
             let reqStr = ByteCountFormatter.string(fromByteCount: required, countStyle: .file)
             let availStr = ByteCountFormatter.string(fromByteCount: available, countStyle: .file)
-            return "磁盘空间不足: 需要 \(reqStr), 可用 \(availStr)"
+            return "Insufficient disk space: required \(reqStr), available \(availStr)"
         case .verificationFailed(let path):
-            return "验证失败: \(path)"
+            return "Verification failed: \(path)"
         case .configurationError(let message):
-            return "配置错误: \(message)"
+            return "Configuration error: \(message)"
         }
     }
 }

@@ -1,29 +1,29 @@
 import Foundation
 
-/// 冲突解决器 - 处理同步冲突
+/// Conflict Resolver - Handles sync conflicts
 class ConflictResolver {
 
-    // MARK: - 属性
+    // MARK: - Properties
 
-    /// 默认策略
+    /// Default strategy
     var defaultStrategy: ConflictStrategy = .localWinsWithBackup
 
-    /// 备份文件后缀
+    /// Backup file suffix
     var backupSuffix: String = "_backup"
 
-    /// 是否自动解决冲突
+    /// Whether to auto-resolve conflicts
     var autoResolve: Bool = true
 
-    /// 用户解决冲突的回调
+    /// User conflict resolution callback
     var userResolutionHandler: (([ConflictInfo]) async -> [ConflictInfo])?
 
-    /// 文件管理器
+    /// File manager
     private let fileManager = FileManager.default
 
     /// Logger
     private let logger = Logger.forService("ConflictResolver")
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     init(
         defaultStrategy: ConflictStrategy = .localWinsWithBackup,
@@ -35,9 +35,9 @@ class ConflictResolver {
         self.autoResolve = autoResolve
     }
 
-    // MARK: - 公共方法
+    // MARK: - Public Methods
 
-    /// 解决冲突列表
+    /// Resolve conflict list
     func resolve(conflicts: [ConflictInfo]) async -> [ConflictInfo] {
         if autoResolve {
             return autoResolveConflicts(conflicts)
@@ -48,7 +48,7 @@ class ConflictResolver {
         }
     }
 
-    /// 自动解决冲突
+    /// Auto-resolve conflicts
     func autoResolveConflicts(_ conflicts: [ConflictInfo]) -> [ConflictInfo] {
         return conflicts.map { conflict in
             var resolved = conflict
@@ -59,7 +59,7 @@ class ConflictResolver {
         }
     }
 
-    /// 使用指定策略解决单个冲突
+    /// Resolve single conflict with specified strategy
     func resolveWithStrategy(_ conflict: ConflictInfo, strategy: ConflictStrategy) -> ConflictResolution {
         switch strategy {
         case .newerWins:
@@ -81,7 +81,7 @@ class ConflictResolver {
             return .externalWinsWithBackup
 
         case .askUser:
-            // 如果策略是询问用户但没有处理程序，使用推荐方案
+            // If strategy is ask user but no handler, use recommended resolution
             return conflict.recommendedResolution()
 
         case .keepBoth:
@@ -89,7 +89,7 @@ class ConflictResolver {
         }
     }
 
-    /// 执行冲突解决方案
+    /// Execute conflict resolution
     func executeResolution(_ conflict: ConflictInfo, copier: FileCopier) async throws {
         guard let resolution = conflict.resolution else {
             throw ConflictError.unresolved(conflict.relativePath)
@@ -97,32 +97,32 @@ class ConflictResolver {
 
         switch resolution {
         case .keepLocal:
-            // 用本地版本覆盖外置版本
+            // Overwrite external version with local version
             try await copyLocalToExternal(conflict, copier: copier)
 
         case .keepExternal:
-            // 用外置版本覆盖本地版本
+            // Overwrite local version with external version
             try await copyExternalToLocal(conflict, copier: copier)
 
         case .localWinsWithBackup:
-            // 备份外置文件，然后用本地覆盖
+            // Backup external file, then overwrite with local
             try await backupAndCopyLocalToExternal(conflict, copier: copier)
 
         case .externalWinsWithBackup:
-            // 备份本地文件，然后用外置覆盖
+            // Backup local file, then overwrite with external
             try await backupAndCopyExternalToLocal(conflict, copier: copier)
 
         case .keepBoth:
-            // 两个版本都保留，重命名
+            // Keep both versions, rename
             try await keepBothVersions(conflict, copier: copier)
 
         case .skip:
-            // 不做任何操作
-            logger.info("跳过冲突: \(conflict.relativePath)")
+            // No action
+            logger.info("Skipping conflict: \(conflict.relativePath)")
         }
     }
 
-    /// 批量执行冲突解决
+    /// Batch execute conflict resolutions
     func executeResolutions(
         _ conflicts: [ConflictInfo],
         copier: FileCopier,
@@ -143,16 +143,16 @@ class ConflictResolver {
                 result.resolved.append(conflict)
             } catch {
                 result.failed.append((conflict, error))
-                logger.error("解决冲突失败: \(conflict.relativePath), 错误: \(error)")
+                logger.error("Failed to resolve conflict: \(conflict.relativePath), error: \(error)")
             }
         }
 
         return result
     }
 
-    // MARK: - 私有方法
+    // MARK: - Private Methods
 
-    /// 新文件优先策略
+    /// Newer file wins strategy
     private func resolveNewerWins(_ conflict: ConflictInfo) -> ConflictResolution {
         guard let localTime = conflict.localModifiedTime,
               let externalTime = conflict.externalModifiedTime else {
@@ -162,12 +162,12 @@ class ConflictResolver {
         return localTime > externalTime ? .localWinsWithBackup : .externalWinsWithBackup
     }
 
-    /// 大文件优先策略
+    /// Larger file wins strategy
     private func resolveLargerWins(_ conflict: ConflictInfo) -> ConflictResolution {
         return conflict.localSize >= conflict.externalSize ? .keepLocal : .keepExternal
     }
 
-    /// 复制本地到外置
+    /// Copy local to external
     private func copyLocalToExternal(_ conflict: ConflictInfo, copier: FileCopier) async throws {
         let localURL = URL(fileURLWithPath: conflict.localPath)
         let externalURL = URL(fileURLWithPath: conflict.externalPath)
@@ -175,7 +175,7 @@ class ConflictResolver {
         try await copier.copy(from: localURL, to: externalURL)
     }
 
-    /// 复制外置到本地
+    /// Copy external to local
     private func copyExternalToLocal(_ conflict: ConflictInfo, copier: FileCopier) async throws {
         let localURL = URL(fileURLWithPath: conflict.localPath)
         let externalURL = URL(fileURLWithPath: conflict.externalPath)
@@ -183,57 +183,57 @@ class ConflictResolver {
         try await copier.copy(from: externalURL, to: localURL)
     }
 
-    /// 备份外置文件并用本地覆盖
+    /// Backup external file and overwrite with local
     private func backupAndCopyLocalToExternal(_ conflict: ConflictInfo, copier: FileCopier) async throws {
         let localURL = URL(fileURLWithPath: conflict.localPath)
         let externalURL = URL(fileURLWithPath: conflict.externalPath)
 
-        // 备份外置文件
+        // Backup external file
         if fileManager.fileExists(atPath: externalURL.path) {
             let backupURL = try await copier.createBackup(of: externalURL, suffix: backupSuffix)
-            logger.info("已备份: \(externalURL.lastPathComponent) → \(backupURL.lastPathComponent)")
+            logger.info("Backed up: \(externalURL.lastPathComponent) -> \(backupURL.lastPathComponent)")
         }
 
-        // 复制本地到外置
+        // Copy local to external
         try await copier.copy(from: localURL, to: externalURL)
     }
 
-    /// 备份本地文件并用外置覆盖
+    /// Backup local file and overwrite with external
     private func backupAndCopyExternalToLocal(_ conflict: ConflictInfo, copier: FileCopier) async throws {
         let localURL = URL(fileURLWithPath: conflict.localPath)
         let externalURL = URL(fileURLWithPath: conflict.externalPath)
 
-        // 备份本地文件
+        // Backup local file
         if fileManager.fileExists(atPath: localURL.path) {
             let backupURL = try await copier.createBackup(of: localURL, suffix: backupSuffix)
-            logger.info("已备份: \(localURL.lastPathComponent) → \(backupURL.lastPathComponent)")
+            logger.info("Backed up: \(localURL.lastPathComponent) -> \(backupURL.lastPathComponent)")
         }
 
-        // 复制外置到本地
+        // Copy external to local
         try await copier.copy(from: externalURL, to: localURL)
     }
 
-    /// 保留两个版本
+    /// Keep both versions
     private func keepBothVersions(_ conflict: ConflictInfo, copier: FileCopier) async throws {
         let localURL = URL(fileURLWithPath: conflict.localPath)
         let externalURL = URL(fileURLWithPath: conflict.externalPath)
 
-        // 重命名本地文件
+        // Rename local file
         let localRenamed = generateVersionedPath(localURL, suffix: "_local")
         if fileManager.fileExists(atPath: localURL.path) {
             try fileManager.moveItem(at: localURL, to: localRenamed)
         }
 
-        // 重命名外置文件（如果在同一目录）
+        // Rename external file (if in same directory)
         let externalRenamed = generateVersionedPath(externalURL, suffix: "_external")
         if fileManager.fileExists(atPath: externalURL.path) {
             try fileManager.moveItem(at: externalURL, to: externalRenamed)
         }
 
-        logger.info("保留两个版本: \(conflict.fileName)")
+        logger.info("Kept both versions: \(conflict.fileName)")
     }
 
-    /// 生成版本化路径
+    /// Generate versioned path
     private func generateVersionedPath(_ url: URL, suffix: String) -> URL {
         let directory = url.deletingLastPathComponent()
         let fileName = url.deletingPathExtension().lastPathComponent
@@ -247,16 +247,16 @@ class ConflictResolver {
     }
 }
 
-// MARK: - 冲突解决结果
+// MARK: - Conflict Resolution Result
 
 struct ConflictResolutionResult {
-    /// 已解决的冲突
+    /// Resolved conflicts
     var resolved: [ConflictInfo] = []
 
-    /// 跳过的冲突（未设置解决方案）
+    /// Skipped conflicts (no resolution set)
     var skipped: [ConflictInfo] = []
 
-    /// 失败的冲突
+    /// Failed conflicts
     var failed: [(conflict: ConflictInfo, error: Error)] = []
 
     var totalCount: Int {
@@ -269,14 +269,14 @@ struct ConflictResolutionResult {
 
     var summary: String {
         var parts: [String] = []
-        if !resolved.isEmpty { parts.append("已解决 \(resolved.count)") }
-        if !skipped.isEmpty { parts.append("跳过 \(skipped.count)") }
-        if !failed.isEmpty { parts.append("失败 \(failed.count)") }
-        return parts.isEmpty ? "无冲突" : parts.joined(separator: ", ")
+        if !resolved.isEmpty { parts.append("resolved \(resolved.count)") }
+        if !skipped.isEmpty { parts.append("skipped \(skipped.count)") }
+        if !failed.isEmpty { parts.append("failed \(failed.count)") }
+        return parts.isEmpty ? "no conflicts" : parts.joined(separator: ", ")
     }
 }
 
-// MARK: - 冲突错误
+// MARK: - Conflict Errors
 
 enum ConflictError: Error, LocalizedError {
     case unresolved(String)
@@ -287,31 +287,31 @@ enum ConflictError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unresolved(let path):
-            return "冲突未解决: \(path)"
+            return "Conflict unresolved: \(path)"
         case .backupFailed(let path, let error):
-            return "备份失败: \(path), 错误: \(error.localizedDescription)"
+            return "Backup failed: \(path), error: \(error.localizedDescription)"
         case .copyFailed(let path, let error):
-            return "复制失败: \(path), 错误: \(error.localizedDescription)"
+            return "Copy failed: \(path), error: \(error.localizedDescription)"
         case .invalidResolution(let path):
-            return "无效的解决方案: \(path)"
+            return "Invalid resolution: \(path)"
         }
     }
 }
 
-// MARK: - 便捷扩展
+// MARK: - Convenience Extensions
 
 extension Array where Element == ConflictInfo {
-    /// 按冲突类型分组
+    /// Group by conflict type
     var groupedByType: [ConflictType: [ConflictInfo]] {
         Dictionary(grouping: self) { $0.conflictType }
     }
 
-    /// 未解决的冲突
+    /// Unresolved conflicts
     var unresolved: [ConflictInfo] {
         filter { $0.resolution == nil }
     }
 
-    /// 已解决的冲突
+    /// Resolved conflicts
     var resolved: [ConflictInfo] {
         filter { $0.resolution != nil }
     }

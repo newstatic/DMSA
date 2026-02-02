@@ -1,8 +1,8 @@
 import Foundation
 import os.log
 
-/// 日志条目
-/// 参考文档: SERVICE_FLOW/16_日志规范.md
+/// Log entry
+/// Reference: SERVICE_FLOW/16_LogSpec.md
 public struct LogEntry: Identifiable, Equatable, Codable, Sendable {
     public let id: UUID
     public let timestamp: Date
@@ -42,13 +42,13 @@ public struct LogEntry: Identifiable, Equatable, Codable, Sendable {
         return formatter.string(from: timestamp)
     }
 
-    /// 旧格式 (兼容)
+    /// Legacy format (backward compatible)
     public var formattedMessage: String {
         "[\(formattedTimestamp)] [\(source)] [\(level.rawValue)] [\(file):\(line)] \(message)"
     }
 
-    /// 新格式 (符合 SERVICE_FLOW/16_日志规范.md)
-    /// 格式: [时间戳] [级别] [全局状态] [组件] [组件状态] 消息
+    /// Standard format (per SERVICE_FLOW/16_LogSpec.md)
+    /// Format: [timestamp] [level] [globalState] [component] [componentState] message
     public var standardFormattedMessage: String {
         let levelStr = level.rawValue.padding(toLength: 5, withPad: " ", startingAt: 0)
         let stateStr = (globalState ?? "--").padding(toLength: 11, withPad: " ", startingAt: 0)
@@ -58,7 +58,7 @@ public struct LogEntry: Identifiable, Equatable, Codable, Sendable {
     }
 }
 
-/// 日志级别
+/// Log level
 public enum LogLevel: String, Codable, CaseIterable, Sendable {
     case debug = "DEBUG"
     case info = "INFO"
@@ -75,46 +75,46 @@ public enum LogLevel: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// 日志管理器 (共享版本，支持多进程)
-/// 参考文档: SERVICE_FLOW/16_日志规范.md
+/// Logger (shared version, supports multi-process)
+/// Reference: SERVICE_FLOW/16_LogSpec.md
 public final class Logger: @unchecked Sendable {
     public static let shared = Logger(source: "App")
 
-    /// 创建特定来源的 Logger 实例
+    /// Create a Logger instance for a specific source
     public static func forService(_ service: String) -> Logger {
         return Logger(source: service)
     }
 
-    /// 全局状态提供者 (用于标准格式日志)
-    /// Service 端设置为 ServiceStateManager.shared.getState
+    /// Global state provider (for standard format logging)
+    /// Service side sets this to ServiceStateManager.shared.getState
     public static var globalStateProvider: (() -> String)? = nil
 
-    // MARK: - 静态共享资源 (所有 Logger 实例共用，确保写入串行化)
+    // MARK: - Static Shared Resources (shared by all Logger instances for serialized writes)
 
-    /// 全局写入队列 - 所有 Logger 实例共用
+    /// Global write queue - shared by all Logger instances
     private static let sharedQueue = DispatchQueue(label: "com.ttttt.dmsa.logger.shared", qos: .utility)
 
-    /// 共享的文件句柄 (按进程类型区分)
+    /// Shared file handle (distinguished by process type)
     private static var sharedFileHandle: FileHandle?
     private static var sharedLogFileURL: URL?
     private static var sharedUseStandardFormat: Bool = false
     private static var isInitialized = false
     private static var isRunningAsRootCached: Bool = false
 
-    /// 当前日志文件对应的日期 (用于按天轮转)
+    /// Date corresponding to current log file (for daily rotation)
     private static var currentLogDate: String = ""
 
-    /// 日期格式器 (用于生成日志文件名)
+    /// Date formatter (for generating log file names)
     private static let logDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         return f
     }()
 
-    /// 日志保留天数
+    /// Log retention days
     private static let maxLogRetentionDays = 7
 
-    /// 初始化共享资源 (只执行一次)
+    /// Initialize shared resources (executed once)
     private static func initializeSharedResources() {
         guard !isInitialized else { return }
         isInitialized = true
@@ -125,20 +125,20 @@ public final class Logger: @unchecked Sendable {
         isRunningAsRootCached = getuid() == 0
         sharedUseStandardFormat = isRunningAsRootCached
 
-        // 打开今日日志文件
+        // Open today's log file
         rotateLogFileIfNeeded()
 
-        // 清理旧日志
+        // Clean up old logs
         cleanupOldLogs()
     }
 
-    /// 按天轮转日志文件
-    /// 调用方必须持有 sharedQueue 或在初始化阶段调用
+    /// Rotate log file daily
+    /// Caller must hold sharedQueue or call during initialization
     private static func rotateLogFileIfNeeded() {
         let today = logDateFormatter.string(from: Date())
         guard today != currentLogDate else { return }
 
-        // 关闭旧文件句柄
+        // Close old file handle
         sharedFileHandle?.closeFile()
         sharedFileHandle = nil
 
@@ -156,7 +156,7 @@ public final class Logger: @unchecked Sendable {
         sharedFileHandle?.seekToEndOfFile()
     }
 
-    /// 清理超过保留天数的旧日志
+    /// Clean up logs older than retention period
     private static func cleanupOldLogs() {
         let logsDir = Constants.Paths.logs
         let prefix = isRunningAsRootCached ? "service" : "app"
@@ -168,15 +168,15 @@ public final class Logger: @unchecked Sendable {
         let cutoffStr = logDateFormatter.string(from: cutoffDate)
 
         for file in files {
-            // 匹配 service-2026-01-25.log 或 app-2026-01-25.log
+            // Match service-2026-01-25.log or app-2026-01-25.log
             guard file.hasPrefix("\(prefix)-"), file.hasSuffix(".log") else { continue }
-            let dateStr = String(file.dropFirst(prefix.count + 1).dropLast(4))  // 提取日期部分
+            let dateStr = String(file.dropFirst(prefix.count + 1).dropLast(4))  // Extract date part
             if dateStr < cutoffStr {
                 try? fm.removeItem(at: logsDir.appendingPathComponent(file))
             }
         }
 
-        // 清理旧的不带日期的日志文件 (迁移)
+        // Clean up legacy log files without date suffix (migration)
         let oldLogFile = logsDir.appendingPathComponent("\(prefix).log")
         if fm.fileExists(atPath: oldLogFile.path) {
             try? fm.removeItem(at: oldLogFile)
@@ -188,13 +188,13 @@ public final class Logger: @unchecked Sendable {
     private let timeFormatter: DateFormatter
     private let osLog: OSLog
 
-    /// 组件状态 (可动态更新)
+    /// Component state (dynamically updatable)
     public var componentState: String = "--"
 
     private init(source: String) {
         self.source = source
 
-        // 确保共享资源已初始化
+        // Ensure shared resources are initialized
         Logger.initializeSharedResources()
 
         dateFormatter = DateFormatter()
@@ -206,19 +206,19 @@ public final class Logger: @unchecked Sendable {
         osLog = OSLog(subsystem: Constants.bundleId, category: source)
     }
 
-    /// 是否使用标准格式
+    /// Whether to use standard format
     private var useStandardFormat: Bool {
         Logger.sharedUseStandardFormat
     }
 
-    /// 日志文件 URL
+    /// Log file URL
     private var logFileURL: URL {
         Logger.sharedLogFileURL ?? Constants.Paths.appLog
     }
 
-    /// 格式化日志消息
-    /// 标准格式: [时间戳] [级别] [全局状态] [组件] [组件状态] 消息
-    /// 旧格式:   [时间戳] [source] [级别] [文件:行] 消息
+    /// Format log message
+    /// Standard format: [timestamp] [level] [globalState] [component] [componentState] message
+    /// Legacy format:   [timestamp] [source] [level] [file:line] message
     private func formatMessage(_ message: String, level: LogLevel, timestamp: Date, fileName: String, line: Int) -> String {
         if useStandardFormat {
             let timeStr = timeFormatter.string(from: timestamp)
@@ -240,22 +240,22 @@ public final class Logger: @unchecked Sendable {
         let logMessage = formatMessage(message, level: level, timestamp: timestamp, fileName: fileName, line: line)
         let osLogRef = self.osLog
 
-        // 使用共享队列同步写入，确保所有 Logger 实例的日志顺序正确
+        // Use shared queue for synchronized writes, ensuring correct log order across all Logger instances
         Logger.sharedQueue.sync {
-            // 检查是否需要按天轮转
+            // Check if daily rotation is needed
             Logger.rotateLogFileIfNeeded()
 
-            // 写入文件
+            // Write to file
             if let data = logMessage.data(using: .utf8) {
                 Logger.sharedFileHandle?.write(data)
-                // 立即刷新确保写入完成
+                // Flush immediately to ensure write completion
                 Logger.sharedFileHandle?.synchronizeFile()
             }
 
-            // 写入 OS Log
+            // Write to OS Log
             os_log("%{public}@", log: osLogRef, type: level.osLogType, message)
 
-            // 控制台输出
+            // Console output
             #if DEBUG
             print(logMessage, terminator: "")
             #endif
@@ -282,12 +282,12 @@ public final class Logger: @unchecked Sendable {
         log(message, level: .error, file: file, line: line)
     }
 
-    /// 设置组件状态 (用于标准格式日志)
+    /// Set component state (for standard format logging)
     public func setComponentState(_ state: String) {
         componentState = state
     }
 
-    // MARK: - 日志文件操作
+    // MARK: - Log File Operations
 
     public var logFileLocation: URL {
         logFileURL
@@ -312,7 +312,7 @@ public final class Logger: @unchecked Sendable {
         return size
     }
 
-    /// 同步刷新日志到磁盘
+    /// Synchronously flush log to disk
     public func flush() {
         Logger.sharedQueue.sync {
             Logger.sharedFileHandle?.synchronizeFile()
@@ -320,7 +320,7 @@ public final class Logger: @unchecked Sendable {
     }
 }
 
-// MARK: - 便捷函数
+// MARK: - Convenience Functions
 
 public func log(_ message: String, file: String = #file, line: Int = #line) {
     Logger.shared.info(message, file: file, line: line)

@@ -2,9 +2,9 @@ import Foundation
 import Combine
 import SwiftUI
 
-/// 应用状态管理器
-/// 负责管理 App 全局状态，桥接 ServiceClient 通知到 UI
-/// v4.8: 合并了 AppUIState 的功能，成为唯一的状态管理器
+/// App state manager
+/// Manages App global state, bridges ServiceClient notifications to UI
+/// v4.8: Merged AppUIState functionality, now the sole state manager
 @MainActor
 final class StateManager: ObservableObject {
 
@@ -12,20 +12,20 @@ final class StateManager: ObservableObject {
 
     static let shared = StateManager()
 
-    // MARK: - 连接状态
+    // MARK: - Connection State
 
     @Published private(set) var connectionState: ConnectionState = .disconnected
 
-    // MARK: - Service 状态
+    // MARK: - Service State
 
     @Published var serviceState: ServiceState = .starting
     @Published var componentStates: [String: ComponentState] = [:]
 
-    // MARK: - UI 状态
+    // MARK: - UI State
 
     @Published private(set) var uiState: UIState = .initializing
 
-    // MARK: - 同步 UI 状态 (原 AppUIState)
+    // MARK: - Sync UI State (formerly AppUIState)
 
     @Published var syncStatus: SyncUIStatus = .ready
     @Published var conflictCount: Int = 0
@@ -33,7 +33,7 @@ final class StateManager: ObservableObject {
     @Published var connectedDiskCount: Int = 0
     @Published var totalDiskCount: Int = 0
 
-    // MARK: - 同步进度详情
+    // MARK: - Sync Progress Details
 
     @Published var currentSyncFile: String?
     @Published var syncSpeed: Int64 = 0
@@ -43,31 +43,31 @@ final class StateManager: ObservableObject {
     @Published var totalFilesCount: Int = 0
     @Published var syncProgressValue: Double = 0
 
-    // MARK: - 数据状态
+    // MARK: - Data State
 
     @Published var syncPairs: [SyncPairConfig] = []
     @Published var disks: [DiskConfig] = []
 
-    // MARK: - 进度状态
+    // MARK: - Progress State
 
     @Published var indexProgress: IndexProgress?
     @Published var syncProgress: SyncProgressInfo?
     @Published var evictionProgress: EvictionProgress?
 
-    // MARK: - 错误状态
+    // MARK: - Error State
 
     @Published var lastError: AppError?
     @Published var pendingConflicts: Int = 0
 
-    // MARK: - 统计
+    // MARK: - Statistics
 
     @Published var statistics: AppStatistics = AppStatistics()
 
-    // MARK: - 最近活动
+    // MARK: - Recent Activities
 
     @Published var recentActivities: [ActivityRecord] = []
 
-    // MARK: - 同步 UI 状态枚举
+    // MARK: - Sync UI State Enum
 
     enum SyncUIStatus: Equatable {
         case ready
@@ -119,13 +119,13 @@ final class StateManager: ObservableObject {
         }
     }
 
-    // MARK: - 计算属性
+    // MARK: - Computed Properties
 
     var isReady: Bool {
         let connected = connectionState.isConnected
         let normal = serviceState.isNormal
         let result = connected && normal
-        // 仅在状态变化时记录，避免日志过多
+        // Only log on state change to avoid excessive logs
         if result != _lastIsReadyValue {
             Logger.shared.debug("[StateManager] isReady: \(result) (connected=\(connected), serviceState=\(serviceState.name), isNormal=\(normal))")
             _lastIsReadyValue = result
@@ -144,18 +144,18 @@ final class StateManager: ObservableObject {
         return false
     }
 
-    // MARK: - 私有属性
+    // MARK: - Private Properties
 
     private let serviceClient = ServiceClient.shared
     private var cancellables = Set<AnyCancellable>()
     private var stateRefreshTimer: Timer?
-    private let stateRefreshInterval: TimeInterval = 30 // 30秒刷新一次
+    private let stateRefreshInterval: TimeInterval = 30 // 30s refresh interval
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     private init() {
         setupNotificationObservers()
-        // 注册为 ServiceClient 的通知代理
+        // Register as ServiceClient notification delegate
         ServiceClient.shared.progressDelegate = self
     }
 
@@ -163,9 +163,9 @@ final class StateManager: ObservableObject {
         stateRefreshTimer?.invalidate()
     }
 
-    // MARK: - 公共方法
+    // MARK: - Public Methods
 
-    /// 连接到 Service 并同步状态
+    /// Connect to Service and sync state
     func connect() async {
         updateConnectionState(.connecting)
 
@@ -180,7 +180,7 @@ final class StateManager: ObservableObject {
         }
     }
 
-    /// 断开连接
+    /// Disconnect
     func disconnect() {
         stateRefreshTimer?.invalidate()
         serviceClient.disconnect()
@@ -188,32 +188,32 @@ final class StateManager: ObservableObject {
         updateUIState(.serviceUnavailable)
     }
 
-    /// 同步完整状态
+    /// Sync full state
     func syncFullState() async {
         guard connectionState.isConnected else { return }
 
         do {
-            // 1. 首先获取服务完整状态 (包括 ServiceState)
+            // 1. First get full service state (including ServiceState)
             if let fullState = try await serviceClient.getFullState() {
                 self.serviceState = fullState.globalState
                 updateSyncStatusFromServiceState(fullState.globalState)
-                Logger.shared.info("同步 ServiceState: \(fullState.globalState.name)")
+                Logger.shared.info("Syncing ServiceState: \(fullState.globalState.name)")
             }
 
-            // 2. 获取配置
+            // 2. Get config
             let config = try await serviceClient.getConfig()
             self.disks = config.disks
             self.syncPairs = config.syncPairs
             self.totalDiskCount = config.disks.count
             self.connectedDiskCount = config.disks.filter { $0.isConnected }.count
 
-            // 3. 获取同步状态 (仅在服务就绪且当前不在同步中时才更新)
+            // 3. Get sync status (only update when service ready and not syncing)
             let allStatus = try await serviceClient.getAllSyncStatus()
             if let status = allStatus.first, serviceState.isNormal, syncStatus != .syncing {
                 updateSyncStatusFromInfo(status)
             }
 
-            // 获取索引统计并更新
+            // Get index stats and update
             var totalFiles = 0
             var totalSize: Int64 = 0
             var dirtyFiles = 0
@@ -227,52 +227,52 @@ final class StateManager: ObservableObject {
                     dirtyFiles += stats.dirtyCount
                     localFiles += stats.localOnlyCount + stats.bothCount
                 } catch {
-                    Logger.shared.warning("获取索引统计失败: \(syncPair.id) - \(error)")
+                    Logger.shared.warning("Failed to get index stats: \(syncPair.id) - \(error)")
                 }
             }
 
-            // 更新统计 (添加日志便于调试)
+            // Update statistics (with debug logging)
             statistics.totalFiles = totalFiles
             statistics.totalSize = totalSize
             statistics.dirtyFiles = dirtyFiles
             statistics.localFiles = localFiles
-            Logger.shared.debug("[StateManager] statistics 更新: totalFiles=\(totalFiles), totalSize=\(totalSize)")
+            Logger.shared.debug("[StateManager] statistics updated: totalFiles=\(totalFiles), totalSize=\(totalSize)")
 
-            // 4. 获取最近活动
+            // 4. Get recent activities
             if let activities = try? await serviceClient.getRecentActivities() {
                 self.recentActivities = activities
             }
 
-            // 更新 UI 状态 (仅在服务就绪且非同步状态时)
+            // Update UI state (only when service is ready and not syncing)
             if case .syncing = uiState {
-                // 保持同步状态
+                // Keep sync state
             } else if syncStatus == .syncing {
-                // 保持同步状态 (由 XPC 回调控制)
+                // Keep sync state (controlled by XPC callbacks)
             } else if serviceState.isNormal {
                 updateUIState(.ready)
             }
 
-            Logger.shared.debug("状态同步完成")
+            Logger.shared.debug("State sync complete")
         } catch {
-            Logger.shared.error("状态同步失败: \(error)")
+            Logger.shared.error("State sync failed: \(error)")
             lastError = AppError(
                 code: 1001,
-                message: "状态同步失败: \(error.localizedDescription)",
+                message: "State sync failed: \(error.localizedDescription)",
                 severity: .warning,
                 isRecoverable: true
             )
         }
     }
 
-    /// 保存状态到缓存 (用于后台切换)
+    /// Save state to cache (for background switching)
     func saveToCache() {
         UserDefaults.standard.set(statistics.lastSyncTime?.timeIntervalSince1970, forKey: "lastSyncTime")
         UserDefaults.standard.set(pendingConflicts, forKey: "pendingConflicts")
         UserDefaults.standard.set(conflictCount, forKey: "conflictCount")
-        Logger.shared.debug("状态已保存到缓存")
+        Logger.shared.debug("State saved to cache")
     }
 
-    /// 从缓存恢复状态
+    /// Restore state from cache
     func restoreFromCache() {
         if let lastSyncTimestamp = UserDefaults.standard.object(forKey: "lastSyncTime") as? TimeInterval {
             statistics.lastSyncTime = Date(timeIntervalSince1970: lastSyncTimestamp)
@@ -280,14 +280,14 @@ final class StateManager: ObservableObject {
         }
         pendingConflicts = UserDefaults.standard.integer(forKey: "pendingConflicts")
         conflictCount = UserDefaults.standard.integer(forKey: "conflictCount")
-        Logger.shared.debug("状态已从缓存恢复")
+        Logger.shared.debug("State restored from cache")
     }
 
-    // MARK: - 状态更新方法
+    // MARK: - State Update Methods
 
     func updateConnectionState(_ state: ConnectionState) {
         connectionState = state
-        Logger.shared.debug("连接状态更新: \(state.description)")
+        Logger.shared.debug("Connection state updated: \(state.description)")
 
         switch state {
         case .connected:
@@ -304,7 +304,7 @@ final class StateManager: ObservableObject {
     func updateUIState(_ state: UIState) {
         let previousStatus = syncStatus
         uiState = state
-        Logger.shared.debug("UI 状态更新: \(state)")
+        Logger.shared.debug("UI state updated: \(state)")
 
         switch state {
         case .ready:
@@ -320,9 +320,9 @@ final class StateManager: ObservableObject {
             break
         }
 
-        // 如果状态变化，发送通知更新菜单栏
+        // If status changed, post notification to update menu bar
         if previousStatus != syncStatus {
-            Logger.shared.debug("syncStatus 变化: \(previousStatus.text) -> \(syncStatus.text)")
+            Logger.shared.debug("syncStatus changed: \(previousStatus.text) -> \(syncStatus.text)")
             NotificationCenter.default.post(name: .syncStatusDidChange, object: nil)
         }
     }
@@ -331,7 +331,7 @@ final class StateManager: ObservableObject {
         syncProgress = progress
         updateUIState(.syncing(progress: progress.progress, currentFile: progress.currentFile))
 
-        // 更新进度详情
+        // Update progress details
         syncProgressValue = progress.progress
         processedFiles = progress.processedFiles
         totalFilesCount = progress.totalFiles
@@ -365,11 +365,11 @@ final class StateManager: ObservableObject {
         }
     }
 
-    /// 根据 ServiceState 更新 UI 状态
+    /// Update UI state based on ServiceState
     func updateSyncStatusFromServiceState(_ state: ServiceState) {
-        // 如果当前正在同步，不要覆盖状态
+        // If currently syncing, do not override state
         if syncStatus == .syncing {
-            Logger.shared.debug("当前正在同步，跳过 ServiceState 更新")
+            Logger.shared.debug("Currently syncing, skipping ServiceState update")
             return
         }
 
@@ -385,16 +385,16 @@ final class StateManager: ObservableObject {
         case .error:
             syncStatus = .error("service.error".localized)
         }
-        Logger.shared.debug("syncStatus 已更新为: \(syncStatus.text)")
+        Logger.shared.debug("syncStatus updated to: \(syncStatus.text)")
 
-        // 发送通知更新菜单栏
+        // Post notification to update menu bar
         NotificationCenter.default.post(name: .syncStatusDidChange, object: nil)
     }
 
-    // MARK: - 私有方法
+    // MARK: - Private Methods
 
     private func setupNotificationObservers() {
-        // 监听 XPC 状态变更通知
+        // Listen for XPC state change notifications
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("DMSAServiceStateChanged"),
             object: nil,
@@ -405,10 +405,10 @@ final class StateManager: ObservableObject {
 
             self?.serviceState = newServiceState
             self?.updateSyncStatusFromServiceState(newServiceState)
-            Logger.shared.info("[StateManager] 收到状态变更: \(newServiceState.name)")
+            Logger.shared.info("[StateManager] Received state change: \(newServiceState.name)")
         }
 
-        // 监听磁盘变更通知
+        // Listen for disk change notifications
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("DMSADiskChanged"),
             object: nil,
@@ -418,15 +418,15 @@ final class StateManager: ObservableObject {
                   let diskName = userInfo["diskName"] as? String,
                   let isConnected = userInfo["isConnected"] as? Bool else { return }
 
-            Logger.shared.info("[StateManager] 磁盘变更: \(diskName) -> \(isConnected ? "连接" : "断开")")
+            Logger.shared.info("[StateManager] Disk changed: \(diskName) -> \(isConnected ? "connected" : "disconnected")")
 
-            // 刷新完整状态以获取最新的磁盘连接状态
+            // Refresh full state to get latest disk connection status
             Task { @MainActor in
                 await self?.syncFullState()
             }
         }
 
-        // 监听活动更新通知
+        // Listen for activity update notifications
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("DMSAActivitiesUpdated"),
             object: nil,
@@ -437,7 +437,7 @@ final class StateManager: ObservableObject {
             self?.recentActivities = activities
         }
 
-        // 监听组件错误通知
+        // Listen for component error notifications
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("DMSAComponentError"),
             object: nil,
@@ -448,7 +448,7 @@ final class StateManager: ObservableObject {
                   let message = userInfo["message"] as? String,
                   let isCritical = userInfo["isCritical"] as? Bool else { return }
 
-            Logger.shared.warning("[StateManager] 组件错误: \(component) - \(message)")
+            Logger.shared.warning("[StateManager] Component error: \(component) - \(message)")
 
             if isCritical {
                 let error = AppError(
@@ -462,7 +462,7 @@ final class StateManager: ObservableObject {
             }
         }
 
-        // 监听索引进度通知
+        // Listen for index progress notifications
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("DMSAIndexProgressUpdated"),
             object: nil,
@@ -475,7 +475,7 @@ final class StateManager: ObservableObject {
             self?.indexProgress = progress
         }
 
-        // 监听冲突检测通知
+        // Listen for conflict detection notifications
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("DMSAConflictDetected"),
             object: nil,
@@ -489,10 +489,10 @@ final class StateManager: ObservableObject {
             self?.conflictCount = conflicts.count
             self?.pendingConflicts = conflicts.filter { $0["requiresUserAction"] as? Bool == true }.count
 
-            Logger.shared.warning("[StateManager] 检测到 \(conflicts.count) 个冲突")
+            Logger.shared.warning("[StateManager] Detected \(conflicts.count)  conflicts")
         }
 
-        Logger.shared.debug("StateManager 通知监听已设置 (XPC 回调)")
+        Logger.shared.debug("StateManager notification listeners configured (XPC callbacks)")
     }
 
     private func startStateRefreshTimer() {
@@ -520,7 +520,7 @@ final class StateManager: ObservableObject {
         case .failed:
             let error = AppError(
                 code: 2001,
-                message: "同步错误",
+                message: "Sync error",
                 severity: .warning,
                 isRecoverable: true
             )
@@ -549,7 +549,7 @@ extension StateManager: SyncProgressDelegate {
         let oldStatus = syncStatus
 
         syncStatus = newStatus
-        // 使用字节计算进度更准确
+        // Use bytes for more accurate progress
         if progress.totalBytes > 0 {
             syncProgressValue = Double(progress.processedBytes) / Double(progress.totalBytes)
         } else {
@@ -564,9 +564,9 @@ extension StateManager: SyncProgressDelegate {
 
         Logger.shared.debug("[StateManager] syncProgressDidUpdate: status=\(newStatus.text), progress=\(Int(syncProgressValue * 100))%, files=\(processedFiles)/\(totalFilesCount)")
 
-        // 日志和通知
+        // Logging and notifications
         if oldStatus != newStatus {
-            Logger.shared.debug("[StateManager] syncStatus 变化: \(oldStatus.text) -> \(newStatus.text)")
+            Logger.shared.debug("[StateManager] syncStatus changed: \(oldStatus.text) -> \(newStatus.text)")
             NotificationCenter.default.post(name: .syncStatusDidChange, object: nil)
         }
     }
@@ -590,7 +590,7 @@ extension StateManager: SyncProgressDelegate {
 
         Logger.shared.debug("[StateManager] syncStatusDidChange: \(oldStatus.text) -> \(syncStatus.text) (SyncStatus: \(status))")
 
-        // 发送通知更新 UI
+        // Post notification to update UI
         if oldStatus != syncStatus {
             NotificationCenter.default.post(name: .syncStatusDidChange, object: nil)
         }
@@ -601,18 +601,18 @@ extension StateManager: SyncProgressDelegate {
     }
 
     func configDidUpdate() {
-        Logger.shared.debug("配置已更新，刷新状态")
+        Logger.shared.debug("Config updated, refreshing state")
         Task {
             await syncFullState()
         }
     }
 }
 
-// MARK: - SyncStatusInfo 扩展
+// MARK: - SyncStatusInfo Extension
 
 extension SyncStatusInfo {
     var progress: Double {
-        // SyncStatusInfo 没有 totalFiles 属性，使用其他方式计算
+        // SyncStatusInfo has no totalFiles property, use alternative calculation
         return 0
     }
 }

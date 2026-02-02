@@ -1,395 +1,393 @@
-# DMSA 项目记忆文档
+# DMSA Project Memory Document
 
-> 此文档供 Claude Code 跨会话持续参考，保持项目上下文记忆。
-> 详细会话记录见 `CLAUDE_SESSIONS.md`。
-> 版本: 5.3 | 更新日期: 2026-01-28
-
----
-
-## 快速上下文
-
-当用户提到以下内容时的参考:
-
-| 用户说 | 指的是 |
-|--------|--------|
-| "应用" / "DMSA" | macOS 菜单栏应用 `DMSA.app` |
-| "同步" | 原生增量同步，单向 LOCAL → EXTERNAL |
-| "硬盘" | 外置硬盘 (可配置多个，如 BACKUP、PORTABLE) |
-| "VFS" | 虚拟文件系统层，FUSE 挂载 |
-| "LOCAL_DIR" | 本地热数据目录 `~/Downloads_Local`，用户不直接访问 |
-| "EXTERNAL_DIR" | 外置硬盘后端 `/Volumes/{DiskName}/Downloads/`，完整数据源 |
-| "TARGET_DIR" | VFS 挂载的 `~/Downloads`，用户唯一访问入口 |
-| "Downloads_Local" | LOCAL_DIR 的别名 |
-| "虚拟 Downloads" | TARGET_DIR 的别名 |
-| "EXTERNAL" | EXTERNAL_DIR 的简称 |
-| "配置" | JSON 配置文件 `~/Library/Application Support/DMSA/config.json` |
-| "数据库" | ObjectBox 数据库 `~/Library/Application Support/DMSA/Database/` |
-| "淘汰" | LRU 淘汰机制，基于访问时间清理本地缓存 |
-| "版本文件" | `.FUSE/db.json`，存储文件树版本和元数据 |
-| "树版本" | 文件树状态的版本号，用于检测变更 |
-| "日志" | `~/Library/Logs/DMSA/app.log` |
-| "状态栏" | macOS 顶部菜单栏图标 |
-| "编译" | Xcode 编译或 `swift build` |
-| "脏数据" | 已写入 LOCAL_DIR 但尚未同步到 EXTERNAL_DIR 的文件 |
-| "智能合并" | TARGET_DIR 显示 LOCAL_DIR + EXTERNAL_DIR 的并集 |
-| "Service" | `DMSAService` 统一后台服务 (root 权限) |
-| "XPC" | App 与 Service 的通信机制 |
-| "ServiceClient" | App 端 XPC 客户端 `ServiceClient.swift` |
-| "pbxproj_tool" | Xcode 项目管理工具 `pbxproj_tool.rb` (Ruby)，支持 list/add/remove/check/fix/smart-fix |
-| "smart-fix" | pbxproj_tool 智能修复命令，自动检测并添加缺失文件 |
-
-**添加条件:**
-- 用户多次用某个词指代特定文件/组件
-- 新增了重要模块/功能
-- 发现了容易混淆的概念
+> This document serves as persistent cross-session context for Claude Code.
+> Detailed session records: `doc/CLAUDE_SESSIONS.md`
+> Version: 5.4 | Updated: 2026-02-02
 
 ---
 
-## 项目基本信息
+## Quick Context
 
-| 属性 | 值 |
-|------|-----|
-| **项目名称** | Delt MACOS Sync App (DMSA) |
-| **项目路径** | `/Users/ttttt/Documents/xcodeProjects/DMSA` |
+Reference when the user mentions:
+
+| User says | Refers to |
+|-----------|-----------|
+| "app" / "DMSA" | macOS menu bar app `DMSA.app` |
+| "sync" | Native incremental sync, one-way LOCAL → EXTERNAL |
+| "disk" | External drive (configurable, e.g. BACKUP, PORTABLE) |
+| "VFS" | Virtual file system layer, FUSE mount |
+| "LOCAL_DIR" | Local hot data directory `~/Downloads_Local`, not directly accessed by user |
+| "EXTERNAL_DIR" | External drive backend `/Volumes/{DiskName}/Downloads/`, full data source |
+| "TARGET_DIR" | VFS-mounted `~/Downloads`, user's sole access point |
+| "Downloads_Local" | Alias for LOCAL_DIR |
+| "virtual Downloads" | Alias for TARGET_DIR |
+| "EXTERNAL" | Short for EXTERNAL_DIR |
+| "config" | JSON config file `~/Library/Application Support/DMSA/config.json` |
+| "database" | ObjectBox database `~/Library/Application Support/DMSA/Database/` |
+| "eviction" | LRU eviction mechanism, cleans local cache based on access time |
+| "version file" | `.FUSE/db.json`, stores file tree version and metadata |
+| "tree version" | Version number of file tree state, used for change detection |
+| "log" | `~/Library/Logs/DMSA/app.log` |
+| "status bar" | macOS top menu bar icon |
+| "build" | Xcode build or `swift build` |
+| "dirty data" | Files written to LOCAL_DIR but not yet synced to EXTERNAL_DIR |
+| "smart merge" | TARGET_DIR shows union of LOCAL_DIR + EXTERNAL_DIR |
+| "Service" | `DMSAService` unified background service (root privileges) |
+| "XPC" | Communication mechanism between App and Service |
+| "ServiceClient" | App-side XPC client `ServiceClient.swift` |
+| "pbxproj_tool" | Xcode project management tool `pbxproj_tool.rb` (Ruby), supports list/add/remove/check/fix/smart-fix |
+| "smart-fix" | pbxproj_tool smart repair command, auto-detects and adds missing files |
+
+**Addition criteria:**
+- User repeatedly uses a term to refer to a specific file/component
+- New important module/feature added
+- Confusing concepts discovered
+
+---
+
+## Project Info
+
+| Property | Value |
+|----------|-------|
+| **Project Name** | Delt macOS Sync App (DMSA) |
+| **Project Path** | `/Users/ttttt/Documents/xcodeProjects/DMSA` |
 | **Bundle ID** | `com.ttttt.dmsa` |
-| **最低系统版本** | macOS 11.0 |
-| **当前版本** | 4.9 |
-| **最后更新** | 2026-01-28 |
+| **Min OS Version** | macOS 11.0 |
+| **Current Version** | 4.9 |
+| **Last Updated** | 2026-02-02 |
 
 ---
 
-## 技术栈速查
+## Tech Stack
 
 ```
-语言: Swift 5.5+
-框架: Cocoa, Foundation, SwiftUI
+Language: Swift 5.5+
+Framework: Cocoa, Foundation, SwiftUI
 VFS: macFUSE 5.1.3+ (C libfuse wrapper)
-存储: ObjectBox (高性能嵌入式数据库)
-同步: 原生 Swift 同步引擎
-构建: Xcode / Swift Package Manager
-平台: macOS (arm64 / x86_64)
-类型: 菜单栏应用 (LSUIElement)
-架构: 双进程 (App + Service)
+Storage: ObjectBox (high-performance embedded database)
+Sync: Native Swift sync engine
+Build: Xcode / Swift Package Manager
+Platform: macOS (arm64 / x86_64)
+Type: Menu bar app (LSUIElement)
+Architecture: Dual-process (App + Service)
 ```
 
 ---
 
-## 核心架构 (v4.8 - 纯 UI 架构 + 分布式通知)
+## Core Architecture (v4.8 - Pure UI + Distributed Notifications)
 
-### 系统分层
+### System Layers
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         用户态 (User Space)                          │
+│                         User Space                                   │
 │                                                                      │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │                    DMSA.app (菜单栏应用)                        │  │
-│  │                       普通用户权限                              │  │
+│  │                    DMSA.app (Menu Bar App)                      │  │
+│  │                      Normal User Privileges                     │  │
 │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐   │  │
 │  │  │   GUI   │  │Settings │  │ Status  │  │  ServiceClient  │   │  │
-│  │  │ Manager │  │  View   │  │ Display │  │  (统一 XPC)     │   │  │
+│  │  │ Manager │  │  View   │  │ Display │  │  (Unified XPC)  │   │  │
 │  │  └─────────┘  └─────────┘  └─────────┘  └─────────────────┘   │  │
 │  └───────────────────────────────────────────────────────────────┘  │
 │                                    │                                 │
-│                            XPC 通信 │                                 │
+│                        XPC Channel │                                 │
 │                                    ▼                                 │
 └─────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────┐
-│                       系统态 (System Space)                          │
+│                       System Space                                   │
 │                        LaunchDaemon (root)                          │
 │                                                                      │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │               com.ttttt.dmsa.service (统一服务)                 │  │
+│  │               com.ttttt.dmsa.service (Unified Service)         │  │
 │  │                                                                │  │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │  │
 │  │  │ VFSManager  │  │ SyncManager │  │ PrivilegedOperations│    │  │
 │  │  │  (Actor)    │  │   (Actor)   │  │     (Static)        │    │  │
 │  │  │             │  │             │  │                     │    │  │
-│  │  │• FUSE 挂载   │  │• 文件同步   │  │• 目录保护           │    │  │
-│  │  │• 智能合并   │  │• 定时调度    │  │• ACL 管理           │    │  │
-│  │  │• 读写路由   │  │• 冲突解决    │  │• 权限控制           │    │  │
+│  │  │• FUSE mount │  │• File sync  │  │• Dir protection     │    │  │
+│  │  │• Smart merge│  │• Scheduling │  │• ACL management     │    │  │
+│  │  │• R/W routing│  │• Conflict   │  │• Permissions        │    │  │
 │  │  └─────────────┘  └─────────────┘  └─────────────────────┘    │  │
 │  └───────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 双进程架构组件
+### Dual-Process Components
 
-| 组件 | 进程标识 | 权限 | 职责 |
-|------|----------|------|------|
-| **DMSA.app** | 主应用 | 用户 | 纯 UI、状态显示、用户交互 |
-| **DMSAService** | `com.ttttt.dmsa.service` | root | VFS + Sync + Privileged + 数据管理 |
+| Component | Process ID | Privileges | Responsibility |
+|-----------|-----------|------------|----------------|
+| **DMSA.app** | Main app | User | Pure UI, status display, user interaction |
+| **DMSAService** | `com.ttttt.dmsa.service` | root | VFS + Sync + Privileged + Data management |
 
-### 架构优势
+### Architecture Benefits
 
-1. **GUI 退出不影响核心服务**: 统一服务继续运行，文件始终可访问
-2. **简化 XPC 通信**: 只需一个 XPC 连接，减少复杂度
-3. **root 权限运行**: 单一 LaunchDaemon 解决所有权限问题
-4. **自动恢复**: launchd 自动重启崩溃的服务
-5. **代码职责清晰**: App = UI，Service = 业务逻辑
+1. **GUI exit doesn't affect core service**: Unified service keeps running, files always accessible
+2. **Simplified XPC**: Single XPC connection, reduced complexity
+3. **Root privileges**: Single LaunchDaemon solves all permission issues
+4. **Auto-recovery**: launchd auto-restarts crashed service
+5. **Clear separation**: App = UI, Service = Business logic
 
 ---
 
-## 核心目录结构
+## Directory Structure
 
 ```
 DMSA/
 ├── DMSAApp/
-│   ├── DMSAApp.xcodeproj/         # Xcode 项目
-│   ├── DMSAApp/                    # 主应用 (纯 UI)
-│   │   ├── App/AppDelegate.swift   # 生命周期管理
-│   │   ├── Models/                 # 数据模型
-│   │   ├── Services/               # 10 个服务文件
-│   │   │   ├── ServiceClient.swift # XPC 客户端 (核心)
+│   ├── DMSAApp.xcodeproj/         # Xcode project
+│   ├── DMSAApp/                    # Main app (pure UI)
+│   │   ├── App/AppDelegate.swift   # Lifecycle management
+│   │   ├── Models/                 # Data models
+│   │   ├── Services/               # 10 service files
+│   │   │   ├── ServiceClient.swift # XPC client (core)
 │   │   │   ├── ConfigManager.swift
 │   │   │   ├── DiskManager.swift
 │   │   │   └── VFS/FUSEManager.swift
-│   │   ├── UI/                     # SwiftUI 界面
-│   │   └── Utils/                  # 工具类
+│   │   ├── UI/                     # SwiftUI views
+│   │   └── Utils/                  # Utilities
 │   │
-│   ├── DMSAService/                # 统一服务 (业务逻辑)
+│   ├── DMSAService/                # Unified service (business logic)
 │   │   ├── main.swift
 │   │   ├── ServiceImplementation.swift
-│   │   ├── VFS/                    # VFS 模块
-│   │   ├── Sync/                   # 同步模块
-│   │   ├── Data/                   # 数据管理
-│   │   ├── Monitor/                # 文件/磁盘监控
-│   │   └── Privileged/             # 特权操作
+│   │   ├── VFS/                    # VFS module
+│   │   ├── Sync/                   # Sync module
+│   │   ├── Data/                   # Data management
+│   │   ├── Monitor/                # File/disk monitoring
+│   │   └── Privileged/             # Privileged operations
 │   │
-│   └── DMSAShared/                 # 共享代码
-│       ├── Protocols/              # XPC 协议
-│       ├── Models/                 # 共享模型
-│       └── Utils/                  # 共享工具
+│   └── DMSAShared/                 # Shared code
+│       ├── Protocols/              # XPC protocols
+│       ├── Models/                 # Shared models
+│       └── Utils/                  # Shared utilities
 │
-├── CLAUDE.md                       # 本文档 (项目记忆)
-├── CLAUDE_SESSIONS.md              # 详细会话记录归档
-├── README.md                       # 项目介绍
-└── OBJECTBOX_SETUP.md              # ObjectBox 集成指南
+├── doc/                            # Documentation
+├── CLAUDE.md                       # This document (project memory)
+└── README.md                       # Project introduction
 ```
 
 ---
 
-## 关键文件速查
+## Key Files
 
-### 主应用 (DMSAApp) - 10 个服务文件
+### Main App (DMSAApp) - 10 Service Files
 
-| 文件 | 用途 |
-|------|------|
-| `ServiceClient.swift` | **XPC 客户端** (核心，所有业务通过此调用) |
-| `ConfigManager.swift` | 配置管理 |
-| `DatabaseManager.swift` | 内存缓存 (数据从 Service 获取) |
-| `DiskManager.swift` | 磁盘事件 + UI 回调 |
-| `AlertManager.swift` | UI 弹窗 |
-| `VFS/FUSEManager.swift` | macFUSE 检测/安装引导 |
+| File | Purpose |
+|------|---------|
+| `ServiceClient.swift` | **XPC client** (core, all business calls go through this) |
+| `ConfigManager.swift` | Configuration management |
+| `DatabaseManager.swift` | In-memory cache (data fetched from Service) |
+| `DiskManager.swift` | Disk events + UI callbacks |
+| `AlertManager.swift` | UI alerts |
+| `VFS/FUSEManager.swift` | macFUSE detection/install guide |
 
-### 统一服务 (DMSAService)
+### Unified Service (DMSAService)
 
-| 文件 | 用途 |
-|------|------|
-| `ServiceImplementation.swift` | XPC 协议实现 |
-| `VFS/VFSManager.swift` | VFS Actor，FUSE 挂载管理 |
-| `VFS/EvictionManager.swift` | LRU 淘汰管理 |
-| `Sync/SyncManager.swift` | 同步调度 |
-| `Sync/NativeSyncEngine.swift` | 同步引擎核心 |
-| `Data/ServiceDatabaseManager.swift` | 数据库管理 |
+| File | Purpose |
+|------|---------|
+| `ServiceImplementation.swift` | XPC protocol implementation |
+| `VFS/VFSManager.swift` | VFS Actor, FUSE mount management |
+| `VFS/EvictionManager.swift` | LRU eviction management |
+| `Sync/SyncManager.swift` | Sync scheduling |
+| `Sync/NativeSyncEngine.swift` | Sync engine core |
+| `Data/ServiceDatabaseManager.swift` | Database management |
 
-### 共享代码 (DMSAShared)
+### Shared Code (DMSAShared)
 
-| 文件 | 用途 |
-|------|------|
-| `DMSAServiceProtocol.swift` | 统一 XPC 协议 |
-| `Constants.swift` | 全局常量 |
-
----
-
-## 核心流程
-
-**智能合并 (readdir):**
-```
-TARGET_DIR = LOCAL_DIR ∪ EXTERNAL_DIR (两端文件的并集)
-```
-
-**读取流程 (零拷贝):**
-```
-读取请求 → LOCAL_DIR 有? → 是 → 从 LOCAL_DIR 读取
-                ↓ 否
-        EXTERNAL_DIR 有? → 是 → 直接重定向读取
-                ↓ 否
-        返回错误
-```
-
-**写入流程 (Write-Back):**
-```
-写入请求 → 写入 LOCAL_DIR → 标记 isDirty → 返回成功
-                                    ↓ (异步)
-                           EXTERNAL 连接? → 同步 → 清除 isDirty
-```
-
-**淘汰流程 (LRU):**
-```
-空间不足 → 获取候选文件 (BOTH + 非脏 + 按访问时间排序)
-              ↓
-    验证 EXTERNAL 存在 → 删除 LOCAL 文件 → 更新状态
-```
+| File | Purpose |
+|------|---------|
+| `DMSAServiceProtocol.swift` | Unified XPC protocol |
+| `Constants.swift` | Global constants |
 
 ---
 
-## 运行命令
+## Core Flows
+
+**Smart Merge (readdir):**
+```
+TARGET_DIR = LOCAL_DIR ∪ EXTERNAL_DIR (union of both sides)
+```
+
+**Read Flow (zero-copy):**
+```
+Read request → LOCAL_DIR exists? → Yes → Read from LOCAL_DIR
+                    ↓ No
+            EXTERNAL_DIR exists? → Yes → Redirect read
+                    ↓ No
+            Return error
+```
+
+**Write Flow (Write-Back):**
+```
+Write request → Write to LOCAL_DIR → Mark isDirty → Return success
+                                        ↓ (async)
+                               EXTERNAL connected? → Sync → Clear isDirty
+```
+
+**Eviction Flow (LRU):**
+```
+localSize > threshold → Get candidates (BOTH + non-dirty + sorted by access time)
+                            ↓
+                Verify EXTERNAL exists → Delete LOCAL file → Update to externalOnly
+```
+
+---
+
+## Build Commands
 
 ```bash
-# Xcode 编译
+# Xcode build
 cd /Users/ttttt/Documents/xcodeProjects/DMSA/DMSAApp
 xcodebuild -scheme DMSAApp -configuration Release
 
-# 查看日志
+# View logs
 tail -f ~/Library/Logs/DMSA/app.log
 ```
 
 ---
 
-## 配置路径
+## Config Paths
 
-| 用途 | 路径 |
-|------|------|
-| 配置文件 | `~/Library/Application Support/DMSA/config.json` |
-| 数据库 | `~/Library/Application Support/DMSA/Database/` |
-| 日志 | `~/Library/Logs/DMSA/app.log` |
+| Purpose | Path |
+|---------|------|
+| Config file | `~/Library/Application Support/DMSA/config.json` |
+| Database | `~/Library/Application Support/DMSA/Database/` |
+| Log | `~/Library/Logs/DMSA/app.log` |
 | LaunchDaemon | `/Library/LaunchDaemons/com.ttttt.dmsa.service.plist` |
 
 ---
 
-## 记忆采集流程
+## Memory Collection Process
 
-> **触发方式**: 用户说"采集记忆"或类似指令时手动触发
+> **Trigger**: User says "collect memory" or similar
 
-### 采集步骤
+### Steps
 
-1. **总结当前会话**
-   - 回顾本次对话的所有内容
-   - 提取完成的任务、修改的文件、关键代码
+1. **Summarize current session**
+   - Review all conversation content
+   - Extract completed tasks, modified files, key code
 
-2. **提取知识点**
-   - 实现思路和设计决策 (为什么这样做)
-   - 遇到的问题和解决方案
-   - 新增的术语映射
+2. **Extract knowledge**
+   - Design decisions and rationale
+   - Problems encountered and solutions
+   - New terminology mappings
 
-3. **读取会话属性**
-   - 执行 `ls -lt ~/.claude/projects/-Users-ttttt-Documents-xcodeProjects-DMSA/*.jsonl | head -1` 获取当前会话文件
-   - 从文件名提取 Session ID (前 8 位)
-   - 记录日期
+3. **Read session attributes**
+   - Run `ls -lt ~/.claude/projects/-Users-ttttt-Documents-xcodeProjects-DMSA/*.jsonl | head -1`
+   - Extract Session ID (first 8 chars) from filename
+   - Record date
 
-4. **检查合并条件**
-   - 查看现有会话记录
-   - 判断是否有同功能的历史会话可以合并
-   - 合并规则见下方"会话合并策略"
+4. **Check merge conditions**
+   - Review existing session records
+   - Determine if same-feature historical sessions can be merged
+   - See "Session Merge Strategy" below
 
-5. **更新记忆文件**
-   - 更新会话索引表
-   - 更新详细会话记录 (写入 `CLAUDE_SESSIONS.md`)
-   - 更新快速上下文表 (如有新术语)
+5. **Update memory files**
+   - Update session index table
+   - Update detailed session records (write to `doc/CLAUDE_SESSIONS.md`)
+   - Update quick context table (if new terms)
 
-6. **完成后通知用户**
-   - 直接修改文件，完成后告知用户已采集
+6. **Notify user on completion**
+   - Modify files directly, inform user when done
 
-**异常处理:** 如果采集失败，告知用户具体错误，不做部分修改
-
----
-
-## 会话合并策略
-
-**合并原则**: 以"功能"为单位合并，同一功能的多次会话合并为一条记录
-
-**合并规则:**
-1. **同功能判定**: 修改相同模块/实现相同功能的会话视为同功能
-2. **时间跨度**: 可以跨天合并，只要是同一功能
-3. **合并后**: 不保留原始会话的单独记录，合并为一条
-
-**内容合并规则:**
-- 任务列表: 合并去重
-- 问题与解决: 全部保留
-- 修改文件: 合并去重
-- 关键代码: 保留最终版本
+**Error handling:** If collection fails, inform user of specific error, don't make partial changes
 
 ---
 
-## 采集检查清单
+## Session Merge Strategy
 
-- [ ] 会话索引表已更新
-- [ ] 详细记录包含实现思路
-- [ ] 详细记录包含遇到的问题与解决方案
-- [ ] 检查是否有可合并的同功能会话
-- [ ] 快速上下文表已更新 (如有新术语)
+**Principle**: Merge by "feature" — multiple sessions for the same feature merge into one record
 
----
+**Rules:**
+1. **Same-feature criteria**: Sessions modifying the same module/implementing the same feature
+2. **Time span**: Can merge across days if same feature
+3. **After merge**: Don't keep original sessions separately, merge into one
 
-## 会话记录
-
-> 详细记录见: `CLAUDE_SESSIONS.md`
-
-### 会话索引表
-
-| Session ID | 日期 | 标题 | 摘要 |
-|------------|------|------|------|
-| 505f841a | 2026-01-24 | v4.5编译修复 | 修复类型错误、恢复ConfigManager、添加共享模型 |
-| eae6e63e | 2026-01-26 | 代码签名修复 | 修复 Service Team ID、macFUSE Library Validation |
-| 2a099f6b | 2026-01-26 | C FUSE Wrapper | libfuse C 实现，修复权限和保护问题 |
-| e4bd3c09 | 2026-01-27 | MD 文档清理 | 删除 13 个过时文档，保留 4 个核心文档 |
-| 50877371 | 2026-01-27 | SERVICE_FLOW 文档体系 | 创建 19 个流程文档，完整架构设计 |
-| 50877371 | 2026-01-27 | v4.9 代码修改 (P0-P3) | 状态管理/VFS阻塞/通知/错误码/启动检查/冲突检测/日志格式 |
-| 50877371 | 2026-01-27 | UI 设计规范 | 21_UI设计规范.md + HTML 原型 |
-| 4f263311 | 2026-01-27 | App 修改计划 + P0-P2 修复 | 代码审查 + App 端 P0-P2 问题修复 |
-| 4f263311 | 2026-01-27 | UI 文件清理 + pbxproj 工具 | 删除 14 个旧 UI 文件 + 创建 Xcode 项目管理工具 |
-| 4f263311 | 2026-01-28 | Ruby xcodeproj 迁移 | Python pbxproj 有 bug，切换到 Ruby xcodeproj |
-| 7ec270c8 | 2026-01-28 | DMSAApp 编译修复 | 修复 P0 类型错误，SyncStatus 枚举修复，Color 扩展 |
-| 7ec270c8 | 2026-01-28 | pbxproj_tool 完善 | Ruby 编码修复 + smart-fix 智能修复命令 |
-| 7ec270c8 | 2026-01-28 | UI + App 功能核对 | 生成 27_UI核对报告.md + 28_App功能核对报告.md |
-| 7ec270c8 | 2026-01-28 | i18n 修复 + 清理 | 添加 150+ 缺失本地化键，删除 78 个未使用键 |
-| 7ec270c8 | 2026-01-28 | 磁盘状态同步修复 | DashboardView 与 DisksPage 状态不同步问题 |
-| 7ec270c8 | 2026-01-28 | 文件级同步/淘汰记录 | ServiceSyncFileRecord 实体 + XPC + UI 展示 |
-| c2bc39ee | 2026-02-02 | 编译/i18n/解码修复 | pbxproj 路径修复、PBXVariantGroup 修复、SyncHistory CodingKeys 映射修复 |
-| b6fc182a | 2026-02-02 | 持久化+索引+淘汰+日志+FUSE | ActivityRecord持久化、增量索引、分批写入、淘汰逻辑修正(localSize+externalOnly保留)、日志轮转、FUSE恢复 |
+**Content merge rules:**
+- Task list: Merge and deduplicate
+- Problems & solutions: Keep all
+- Modified files: Merge and deduplicate
+- Key code: Keep final version
 
 ---
 
-## 已知问题与修复记录
+## Collection Checklist
 
-### UI 卡死问题 (2026-01-21 已修复)
-
-**问题现象**: 点击同步后 UI 卡死
-
-**根本原因**: 进度回调过于频繁
-
-**修复方案**:
-- 进度回调节流 100ms
-- 日志批量刷新
-- 异步数据加载
+- [ ] Session index table updated
+- [ ] Detailed record includes design rationale
+- [ ] Detailed record includes problems & solutions
+- [ ] Checked for mergeable same-feature sessions
+- [ ] Quick context table updated (if new terms)
 
 ---
 
-## 注意事项
+## Session Records
 
-1. **首次设置**:
-   - 检测 ~/Downloads 是否存在
-   - 存在则重命名为 ~/Downloads_Local
-   - 创建 FUSE 挂载点 ~/Downloads
+> Detailed records: `doc/CLAUDE_SESSIONS.md`
 
-2. **权限要求**:
-   - macFUSE 5.1.3+ (从 https://macfuse.github.io/ 下载)
-   - 完全磁盘访问权限 (TCC)
+### Session Index
 
-3. **设计原则**:
-   - App 只做 UI，不包含任何业务逻辑
-   - Service 是大脑，所有同步、VFS、数据管理都在 Service
-   - XPC 是桥梁，App 通过 ServiceClient 与 Service 通信
+| Session ID | Date | Title | Summary |
+|------------|------|-------|---------|
+| 505f841a | 2026-01-24 | v4.5 Build Fix | Fixed type errors, restored ConfigManager, added shared models |
+| eae6e63e | 2026-01-26 | Code Signing Fix | Fixed Service Team ID, macFUSE Library Validation |
+| 2a099f6b | 2026-01-26 | C FUSE Wrapper | libfuse C implementation, fixed permissions and protection |
+| e4bd3c09 | 2026-01-27 | MD Doc Cleanup | Deleted 13 outdated docs, kept 4 core docs |
+| 50877371 | 2026-01-27 | SERVICE_FLOW Docs | Created 19 flow documents, complete architecture design |
+| 50877371 | 2026-01-27 | v4.9 Code Changes (P0-P3) | State mgmt/VFS blocking/notifications/error codes/startup checks/conflict detection/log format |
+| 50877371 | 2026-01-27 | UI Design Spec | 21_ui_design_spec.md + HTML prototype |
+| 4f263311 | 2026-01-27 | App Modification Plan + P0-P2 Fix | Code review + App-side P0-P2 fixes |
+| 4f263311 | 2026-01-27 | UI File Cleanup + pbxproj Tool | Deleted 14 old UI files + created Xcode project mgmt tool |
+| 4f263311 | 2026-01-28 | Ruby xcodeproj Migration | Python pbxproj had bugs, switched to Ruby xcodeproj |
+| 7ec270c8 | 2026-01-28 | DMSAApp Build Fix | Fixed P0 type errors, SyncStatus enum, Color extension |
+| 7ec270c8 | 2026-01-28 | pbxproj_tool Improvements | Ruby encoding fix + smart-fix command |
+| 7ec270c8 | 2026-01-28 | UI + App Feature Audit | Generated verification reports |
+| 7ec270c8 | 2026-01-28 | i18n Fix + Cleanup | Added 150+ missing localization keys, deleted 78 unused keys |
+| 7ec270c8 | 2026-01-28 | Disk State Sync Fix | DashboardView & DisksPage state out-of-sync issue |
+| 7ec270c8 | 2026-01-28 | File-level Sync/Eviction Records | ServiceSyncFileRecord entity + XPC + UI display |
+| c2bc39ee | 2026-02-02 | Build/i18n/Decode Fix | pbxproj path fix, PBXVariantGroup fix, SyncHistory CodingKeys fix |
+| b6fc182a | 2026-02-02 | Persistence+Index+Eviction+Log+FUSE | ActivityRecord persistence, incremental index, batch writes, eviction logic fix, log rotation, FUSE recovery |
 
 ---
 
+## Known Issues & Fixes
 
-**预期行为说明:**
-- DMSAShared 文件在两个 target 中出现两次是**正常的** (共享代码)
-- 产物文件 (.app, .service) 不存在是**正常的** (编译后才生成)
+### UI Freeze (2026-01-21 Fixed)
+
+**Symptom**: UI freezes after clicking sync
+
+**Root cause**: Progress callbacks too frequent
+
+**Fix**:
+- Progress callback throttle 100ms
+- Batch log refresh
+- Async data loading
 
 ---
 
-*文档维护: 每次会话结束时更新会话索引表，详细记录写入 CLAUDE_SESSIONS.md*
+## Notes
+
+1. **First-time setup**:
+   - Detect if ~/Downloads exists
+   - If yes, rename to ~/Downloads_Local
+   - Create FUSE mount point at ~/Downloads
+
+2. **Permission requirements**:
+   - macFUSE 5.1.3+ (download from https://macfuse.github.io/)
+   - Full Disk Access (TCC)
+
+3. **Design principles**:
+   - App is UI-only, contains no business logic
+   - Service is the brain — all sync, VFS, data management lives there
+   - XPC is the bridge — App communicates via ServiceClient
+
+---
+
+**Expected behaviors:**
+- DMSAShared files appearing in two targets is **normal** (shared code)
+- Build artifacts (.app, .service) not existing is **normal** (generated after build)
+
+---
+
+*Document maintenance: Update session index after each session, write detailed records to doc/CLAUDE_SESSIONS.md*

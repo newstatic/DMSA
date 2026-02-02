@@ -1,9 +1,9 @@
 import Foundation
 
-// MARK: - 统一服务错误
+// MARK: - Unified Service Error
 
-/// 统一服务错误类型
-/// 参考文档: SERVICE_FLOW/15_错误处理.md
+/// Unified service error type
+/// Reference: SERVICE_FLOW/15_ErrorHandling.md
 public struct DMSAServiceError: Error, Codable, Sendable {
     public let code: Int
     public let message: String
@@ -28,23 +28,23 @@ public struct DMSAServiceError: Error, Codable, Sendable {
     }
 }
 
-// MARK: - 错误码定义
+// MARK: - Error Code Definitions
 
 extension DMSAServiceError {
 
-    // MARK: - XPC 错误 (1xxx)
+    // MARK: - XPC Errors (1xxx)
 
-    /// XPC 监听器启动失败
+    /// XPC listener start failed
     public static func xpcListenFailed(reason: String? = nil) -> DMSAServiceError {
         DMSAServiceError(
             code: 1001,
-            message: reason ?? "XPC 监听器启动失败",
+            message: reason ?? "XPC listener start failed",
             component: "XPC",
             recoverable: false
         )
     }
 
-    /// XPC 连接验证失败
+    /// XPC connection validation failed
     public static func xpcConnectionInvalid(pid: Int32? = nil) -> DMSAServiceError {
         var context: [String: String]? = nil
         if let pid = pid {
@@ -52,14 +52,14 @@ extension DMSAServiceError {
         }
         return DMSAServiceError(
             code: 1002,
-            message: "XPC 连接验证失败",
+            message: "XPC connection validation failed",
             component: "XPC",
             recoverable: true,
             context: context
         )
     }
 
-    /// XPC 调用超时
+    /// XPC call timeout
     public static func xpcTimeout(method: String? = nil) -> DMSAServiceError {
         var context: [String: String]? = nil
         if let method = method {
@@ -67,16 +67,16 @@ extension DMSAServiceError {
         }
         return DMSAServiceError(
             code: 1003,
-            message: "XPC 调用超时",
+            message: "XPC call timeout",
             component: "XPC",
             recoverable: true,
             context: context
         )
     }
 
-    // MARK: - 配置错误 (2xxx)
+    // MARK: - Config Errors (2xxx)
 
-    /// 配置文件不存在
+    /// Config file not found
     public static func configNotFound(path: String? = nil) -> DMSAServiceError {
         var context: [String: String]? = nil
         if let path = path {
@@ -84,24 +84,24 @@ extension DMSAServiceError {
         }
         return DMSAServiceError(
             code: 2001,
-            message: "配置文件不存在",
+            message: "Config file not found",
             component: "Config",
             recoverable: true,
             context: context
         )
     }
 
-    /// JSON 解析失败
+    /// JSON parse failed
     public static func configParseFailed(reason: String? = nil) -> DMSAServiceError {
         DMSAServiceError(
             code: 2002,
-            message: reason ?? "配置文件解析失败",
+            message: reason ?? "Config file parse failed",
             component: "Config",
             recoverable: true
         )
     }
 
-    /// 配置验证失败
+    /// Config validation failed
     public static func configInvalid(field: String? = nil, reason: String? = nil) -> DMSAServiceError {
         var context: [String: String]? = nil
         if let field = field {
@@ -112,139 +112,139 @@ extension DMSAServiceError {
         }
         return DMSAServiceError(
             code: 2003,
-            message: reason ?? "配置验证失败",
+            message: reason ?? "Config validation failed",
             component: "Config",
             recoverable: true,
             context: context
         )
     }
 
-    /// 配置冲突
+    /// Config conflict
     public static func configConflict(type: String, items: [String]) -> DMSAServiceError {
         DMSAServiceError(
             code: 2004,
-            message: "配置冲突: \(type)",
+            message: "Config conflict: \(type)",
             component: "Config",
             recoverable: true,
             context: ["type": type, "items": items.joined(separator: ", ")]
         )
     }
 
-    // MARK: - VFS 错误 (3xxx)
+    // MARK: - VFS Errors (3xxx)
 
-    /// macFUSE 未安装
+    /// macFUSE not installed
     public static func vfsFuseNotInstalled() -> DMSAServiceError {
         DMSAServiceError(
             code: 3001,
-            message: "macFUSE 未安装",
+            message: "macFUSE not installed",
             component: "VFS",
             recoverable: false
         )
     }
 
-    /// macFUSE 版本过低
+    /// macFUSE version too old
     public static func vfsFuseVersion(required: String, current: String) -> DMSAServiceError {
         DMSAServiceError(
             code: 3002,
-            message: "macFUSE 版本过低，需要 \(required)，当前 \(current)",
+            message: "macFUSE version too old, requires \(required), current \(current)",
             component: "VFS",
             recoverable: false,
             context: ["required": required, "current": current]
         )
     }
 
-    /// 挂载失败
+    /// Mount failed
     public static func vfsMountFailed(path: String, reason: String? = nil) -> DMSAServiceError {
         DMSAServiceError(
             code: 3003,
-            message: reason ?? "挂载失败: \(path)",
+            message: reason ?? "Mount failed: \(path)",
             component: "VFS",
             recoverable: true,
             context: ["path": path]
         )
     }
 
-    /// 权限不足
+    /// Insufficient permissions
     public static func vfsPermission(path: String) -> DMSAServiceError {
         DMSAServiceError(
             code: 3004,
-            message: "权限不足: \(path)",
+            message: "Insufficient permissions: \(path)",
             component: "VFS",
             recoverable: false,
             context: ["path": path]
         )
     }
 
-    /// 挂载点被占用
+    /// Mount point busy
     public static func vfsMountBusy(path: String) -> DMSAServiceError {
         DMSAServiceError(
             code: 3005,
-            message: "挂载点被占用: \(path)",
+            message: "Mount point busy: \(path)",
             component: "VFS",
             recoverable: true,
             context: ["path": path]
         )
     }
 
-    // MARK: - 索引错误 (4xxx)
+    // MARK: - Index Errors (4xxx)
 
-    /// 目录扫描失败
+    /// Directory scan failed
     public static func indexScanFailed(path: String, reason: String? = nil) -> DMSAServiceError {
         DMSAServiceError(
             code: 4001,
-            message: reason ?? "目录扫描失败: \(path)",
+            message: reason ?? "Directory scan failed: \(path)",
             component: "Index",
             recoverable: true,
             context: ["path": path]
         )
     }
 
-    /// 目录访问权限不足
+    /// Directory access permission denied
     public static func indexPermission(path: String) -> DMSAServiceError {
         DMSAServiceError(
             code: 4002,
-            message: "目录访问权限不足: \(path)",
+            message: "Directory access permission denied: \(path)",
             component: "Index",
             recoverable: false,
             context: ["path": path]
         )
     }
 
-    /// 索引保存失败
+    /// Index save failed
     public static func indexSaveFailed(reason: String? = nil) -> DMSAServiceError {
         DMSAServiceError(
             code: 4003,
-            message: reason ?? "索引保存失败",
+            message: reason ?? "Index save failed",
             component: "Index",
             recoverable: true
         )
     }
 
-    // MARK: - 同步错误 (5xxx)
+    // MARK: - Sync Errors (5xxx)
 
-    /// 源目录不可访问
+    /// Source directory unavailable
     public static func syncSourceUnavailable(path: String) -> DMSAServiceError {
         DMSAServiceError(
             code: 5001,
-            message: "源目录不可访问: \(path)",
+            message: "Source directory unavailable: \(path)",
             component: "Sync",
             recoverable: true,
             context: ["path": path]
         )
     }
 
-    /// 目标只读
+    /// Target read-only
     public static func syncTargetReadonly(path: String) -> DMSAServiceError {
         DMSAServiceError(
             code: 5002,
-            message: "目标只读: \(path)",
+            message: "Target read-only: \(path)",
             component: "Sync",
             recoverable: true,
             context: ["path": path]
         )
     }
 
-    /// 文件冲突
+    /// File conflict
     public static func syncConflict(file: String, localTime: Date?, externalTime: Date?) -> DMSAServiceError {
         var context: [String: String] = ["file": file]
         if let localTime = localTime {
@@ -255,18 +255,18 @@ extension DMSAServiceError {
         }
         return DMSAServiceError(
             code: 5003,
-            message: "文件冲突: \(file)",
+            message: "File conflict: \(file)",
             component: "Sync",
             recoverable: true,
             context: context
         )
     }
 
-    /// 磁盘空间不足
+    /// Disk space insufficient
     public static func syncDiskFull(path: String, required: Int64, available: Int64) -> DMSAServiceError {
         DMSAServiceError(
             code: 5004,
-            message: "磁盘空间不足",
+            message: "Insufficient disk space",
             component: "Sync",
             recoverable: true,
             context: [
@@ -277,40 +277,40 @@ extension DMSAServiceError {
         )
     }
 
-    // MARK: - 数据库错误 (6xxx)
+    // MARK: - Database Errors (6xxx)
 
-    /// 数据库打开失败
+    /// Database open failed
     public static func dbOpenFailed(reason: String? = nil) -> DMSAServiceError {
         DMSAServiceError(
             code: 6001,
-            message: reason ?? "数据库打开失败",
+            message: reason ?? "Database open failed",
             component: "Database",
             recoverable: true
         )
     }
 
-    /// 数据库损坏
+    /// Database corrupted
     public static func dbCorrupted() -> DMSAServiceError {
         DMSAServiceError(
             code: 6002,
-            message: "数据库损坏",
+            message: "Database corrupted",
             component: "Database",
             recoverable: true
         )
     }
 
-    /// 写入失败
+    /// Write failed
     public static func dbWriteFailed(reason: String? = nil) -> DMSAServiceError {
         DMSAServiceError(
             code: 6003,
-            message: reason ?? "数据库写入失败",
+            message: reason ?? "Database write failed",
             component: "Database",
             recoverable: true
         )
     }
 }
 
-// MARK: - LocalizedError 支持
+// MARK: - LocalizedError Support
 
 extension DMSAServiceError: LocalizedError {
     public var errorDescription: String? {
@@ -319,24 +319,24 @@ extension DMSAServiceError: LocalizedError {
 
     public var failureReason: String? {
         if let component = component {
-            return "组件: \(component)"
+            return "Component: \(component)"
         }
         return nil
     }
 
     public var recoverySuggestion: String? {
         if recoverable {
-            return "此错误可以自动恢复，请稍后重试"
+            return "This error can be auto-recovered, please retry later"
         } else {
-            return "此错误需要手动干预"
+            return "This error requires manual intervention"
         }
     }
 }
 
-// MARK: - 错误分类
+// MARK: - Error Classification
 
 extension DMSAServiceError {
-    /// 错误类别
+    /// Error category
     public enum Category: String {
         case xpc = "XPC"
         case config = "Config"
@@ -347,7 +347,7 @@ extension DMSAServiceError {
         case unknown = "Unknown"
     }
 
-    /// 获取错误类别
+    /// Get error category
     public var category: Category {
         switch code {
         case 1000..<2000: return .xpc
@@ -360,14 +360,14 @@ extension DMSAServiceError {
         }
     }
 
-    /// 是否为致命错误 (无法自动恢复)
+    /// Whether fatal error (cannot auto-recover)
     public var isFatal: Bool {
         switch code {
-        case 1001,  // XPC 监听器启动失败
-             3001,  // macFUSE 未安装
-             3002,  // macFUSE 版本过低
-             3004,  // VFS 权限不足
-             4002:  // 索引目录权限不足
+        case 1001,  // XPC listener start failed
+             3001,  // macFUSE not installed
+             3002,  // macFUSE version too old
+             3004,  // VFS permission denied
+             4002:  // Index directory permission denied
             return true
         default:
             return !recoverable

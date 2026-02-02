@@ -2,11 +2,11 @@ import Cocoa
 import SwiftUI
 import ServiceManagement
 
-/// 应用代理
-/// v4.6: 纯 UI 客户端，配置和业务逻辑完全由 DMSAService 处理
+/// App delegate
+/// v4.6: Pure UI client, config and business logic fully handled by DMSAService
 class AppDelegate: NSObject, NSApplicationDelegate {
 
-    // MARK: - UI 管理器
+    // MARK: - UI Managers
 
     private var menuBarManager: MenuBarManager!
     private let diskManager = DiskManager.shared
@@ -14,29 +14,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let serviceClient = ServiceClient.shared
     private let serviceInstaller = ServiceInstaller.shared
 
-    // MARK: - 状态管理
+    // MARK: - State Management
 
     private let stateManager = StateManager.shared
     private let notificationHandler = NotificationHandler.shared
 
-    // MARK: - 窗口控制器
+    // MARK: - Window Controllers
 
     private var mainWindowController: MainWindowController?
 
-    // MARK: - 刷新定时器
+    // MARK: - Refresh Timer
 
     private var stateRefreshTimer: Timer?
-    private let stateRefreshInterval: TimeInterval = 30 // 30秒刷新一次
+    private let stateRefreshInterval: TimeInterval = 30 // Refresh every 30 seconds
 
-    // MARK: - 配置缓存
+    // MARK: - Config Cache
 
     private var cachedConfig: AppConfig?
     private var lastConfigFetch: Date?
-    private let configCacheTimeout: TimeInterval = 30 // 30秒缓存
-    private let configLock = NSLock() // 配置缓存锁，防止竞态条件
-    private var isConfigFetching = false // 防止并发获取
+    private let configCacheTimeout: TimeInterval = 30 // 30-second cache
+    private let configLock = NSLock() // Config cache lock to prevent race conditions
+    private var isConfigFetching = false // Prevent concurrent fetching
 
-    // MARK: - 同步控制属性
+    // MARK: - Sync Control Properties
 
     var isAutoSyncEnabled: Bool {
         get {
@@ -56,85 +56,85 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     lastConfigFetch = Date()
                     configLock.unlock()
 
-                    Logger.shared.info("自动同步开关: \(newValue ? "开启" : "关闭")")
+                    Logger.shared.info("Auto sync toggle: \(newValue ? "enabled" : "disabled")")
                 } catch {
-                    Logger.shared.error("更新自动同步配置失败: \(error)")
+                    Logger.shared.error("Failed to update auto sync config: \(error)")
                 }
             }
         }
     }
 
-    // MARK: - 生命周期
+    // MARK: - Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Logger.shared.info("============================================")
-        Logger.shared.info("DMSA v4.6 启动")
+        Logger.shared.info("DMSA v4.6 starting")
         Logger.shared.info("============================================")
 
         setupUI()
         setupServiceClientCallbacks()
         setupDiskCallbacks()
 
-        // 检查并安装/更新 Service
+        // Check and install/update Service
         Task {
             await checkAndInstallService()
         }
 
-        // 检查 macFUSE
+        // Check macFUSE
         checkMacFUSE()
 
-        Logger.shared.info("应用初始化完成")
+        Logger.shared.info("App initialization complete")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        Logger.shared.info("应用即将退出")
+        Logger.shared.info("App is about to quit")
 
-        // 清理定时器
+        // Clean up timer
         stateRefreshTimer?.invalidate()
         stateRefreshTimer = nil
 
-        // 通知 Service 准备关闭 (Service 本身不会退出，只是做清理)
+        // Notify Service to prepare for shutdown (Service itself won't exit, just cleanup)
         Task {
             try? await serviceClient.prepareForShutdown()
         }
 
         Logger.shared.info("============================================")
-        Logger.shared.info("DMSA 已退出")
+        Logger.shared.info("DMSA has quit")
         Logger.shared.info("============================================")
     }
 
     deinit {
-        // 确保定时器被清理
+        // Ensure timer is cleaned up
         stateRefreshTimer?.invalidate()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        return false // 菜单栏应用
+        return false // Menu bar app
     }
 
     func applicationDidResignActive(_ notification: Notification) {
-        Logger.shared.debug("App 进入后台")
+        Logger.shared.debug("App entered background")
 
-        // 保存状态到缓存
+        // Save state to cache
         stateManager.saveToCache()
 
-        // 暂停状态刷新定时器
+        // Pause state refresh timer
         stateRefreshTimer?.invalidate()
         stateRefreshTimer = nil
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        Logger.shared.debug("App 进入前台")
+        Logger.shared.debug("App entered foreground")
 
-        // 恢复状态
+        // Restore state
         stateManager.restoreFromCache()
 
-        // 同步最新状态
+        // Sync latest state
         Task {
             await stateManager.syncFullState()
         }
 
-        // 恢复状态刷新定时器
+        // Resume state refresh timer
         startStateRefreshTimer()
     }
 
@@ -146,7 +146,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        // 检查是否有进行中的同步操作
+        // Check if there are in-progress sync operations
         if stateManager.isSyncing {
             showTerminationConfirmation()
             return .terminateCancel
@@ -155,7 +155,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return .terminateNow
     }
 
-    // MARK: - 退出确认
+    // MARK: - Quit Confirmation
 
     private func showTerminationConfirmation() {
         let alert = NSAlert()
@@ -169,34 +169,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let response = alert.runModal()
         switch response {
         case .alertFirstButtonReturn:
-            // 等待完成后退出
+            // Wait for completion then quit
             waitForSyncAndQuit()
         case .alertSecondButtonReturn:
-            // 强制退出
+            // Force quit
             forceQuit()
         default:
-            // 取消
+            // Cancel
             break
         }
     }
 
     private func waitForSyncAndQuit() {
-        Logger.shared.info("等待同步完成后退出...")
+        Logger.shared.info("Waiting for sync to complete before quitting...")
 
-        // 设置观察者，等待同步完成
+        // Set observer to wait for sync completion
         Task { @MainActor in
-            // 简单轮询等待同步完成
+            // Simple polling to wait for sync completion
             while stateManager.isSyncing {
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
             }
 
-            // 同步完成后退出
+            // Quit after sync completes
             NSApplication.shared.terminate(nil)
         }
     }
 
     private func forceQuit() {
-        Logger.shared.warn("用户选择强制退出，取消进行中的同步")
+        Logger.shared.warn("User chose force quit, cancelling in-progress sync")
 
         Task {
             try? await serviceClient.cancelSync()
@@ -208,7 +208,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // MARK: - 状态刷新定时器
+    // MARK: - State Refresh Timer
 
     private func startStateRefreshTimer() {
         stateRefreshTimer?.invalidate()
@@ -219,30 +219,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     private func setupUI() {
         menuBarManager = MenuBarManager()
         menuBarManager.delegate = self
         mainWindowController = MainWindowController(configManager: ConfigManager.shared)
-        Logger.shared.info("UI 管理器初始化完成")
+        Logger.shared.info("UI managers initialized")
     }
 
     private func setupServiceClientCallbacks() {
-        // 设置连接状态变化回调 (需要在 MainActor 上设置)
+        // Set connection state change callback (must be set on MainActor)
         Task { @MainActor in
             serviceClient.onConnectionStateChanged = { [weak self] isConnected in
                 Task { @MainActor in
                     if isConnected {
                         self?.stateManager.updateConnectionState(.connected)
-                        Logger.shared.info("XPC 连接已恢复")
+                        Logger.shared.info("XPC connection restored")
                     } else {
                         self?.stateManager.updateConnectionState(.interrupted)
-                        Logger.shared.warning("XPC 连接已断开")
+                        Logger.shared.warning("XPC connection lost")
                     }
                 }
             }
-            Logger.shared.info("ServiceClient 回调已设置")
+            Logger.shared.info("ServiceClient callbacks configured")
         }
     }
 
@@ -255,7 +255,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.handleDiskDisconnected(disk)
         }
 
-        Logger.shared.info("硬盘事件回调已设置")
+        Logger.shared.info("Disk event callbacks configured")
     }
 
     private func checkInitialState() {
@@ -263,15 +263,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             do {
                 let disks = try await serviceClient.getDisks()
                 if disks.isEmpty {
-                    Logger.shared.info("未配置任何硬盘，等待用户配置")
+                    Logger.shared.info("No disks configured, waiting for user configuration")
                     await setupDefaultConfig()
                 } else {
-                    Logger.shared.info("已配置 \(disks.count) 个硬盘")
-                    // 使用静默模式检查初始状态，避免启动时弹窗
+                    Logger.shared.info("\(disks.count) disk(s) configured")
+                    // Use silent mode for initial check to avoid popups at startup
                     diskManager.checkInitialState(silent: true)
                 }
             } catch {
-                Logger.shared.error("获取配置失败: \(error)")
+                Logger.shared.error("Failed to get config: \(error)")
             }
         }
     }
@@ -298,19 +298,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             try await serviceClient.addDisk(defaultDisk)
             try await serviceClient.addSyncPair(defaultPair)
-            Logger.shared.info("已创建默认配置")
+            Logger.shared.info("Default config created")
         } catch {
-            Logger.shared.error("创建默认配置失败: \(error)")
+            Logger.shared.error("Failed to create default config: \(error)")
         }
     }
 
     // MARK: - Config Cache
 
     private func getConfig() async -> AppConfig {
-        // 使用锁检查缓存状态
+        // Use lock to check cache state
         configLock.lock()
 
-        // 检查缓存是否有效
+        // Check if cache is valid
         if let cached = cachedConfig,
            let lastFetch = lastConfigFetch,
            Date().timeIntervalSince(lastFetch) < configCacheTimeout {
@@ -318,11 +318,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return cached
         }
 
-        // 检查是否已有正在进行的获取操作
+        // Check if a fetch is already in progress
         if isConfigFetching {
             let cached = cachedConfig
             configLock.unlock()
-            // 等待其他任务完成获取
+            // Wait for other task to complete fetch
             try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
             if let cached = cached {
                 return cached
@@ -333,7 +333,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         isConfigFetching = true
         configLock.unlock()
 
-        // 从服务获取配置
+        // Fetch config from service
         defer {
             configLock.lock()
             isConfigFetching = false
@@ -350,7 +350,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             return config
         } catch {
-            Logger.shared.error("获取配置失败: \(error)")
+            Logger.shared.error("Failed to get config: \(error)")
 
             configLock.lock()
             let cached = cachedConfig
@@ -360,32 +360,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // MARK: - Service 管理
+    // MARK: - Service Management
 
     private func checkAndInstallService() async {
-        Logger.shared.info("检查 DMSAService 状态...")
+        Logger.shared.info("Checking DMSAService status...")
 
         let result = await serviceInstaller.checkAndInstallService()
 
         switch result {
         case .installed(let version):
-            Logger.shared.info("DMSAService 已安装: v\(version)")
+            Logger.shared.info("DMSAService installed: v\(version)")
             await connectToService()
 
         case .updated(let from, let to):
-            Logger.shared.info("DMSAService 已更新: \(from) → \(to)")
+            Logger.shared.info("DMSAService updated: \(from) -> \(to)")
             await connectToService()
 
         case .alreadyInstalled(let version):
-            Logger.shared.info("DMSAService 已就绪: v\(version)")
+            Logger.shared.info("DMSAService ready: v\(version)")
             await connectToService()
 
         case .requiresApproval:
-            Logger.shared.warn("DMSAService 需要用户批准")
+            Logger.shared.warn("DMSAService requires user approval")
             showServiceApprovalAlert()
 
         case .failed(let error):
-            Logger.shared.error("DMSAService 安装失败: \(error)")
+            Logger.shared.error("DMSAService installation failed: \(error)")
             showServiceInstallFailedAlert(errorMessage: error)
         }
     }
@@ -394,23 +394,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             _ = try await serviceClient.connect()
             let versionInfo = try await serviceClient.getVersionInfo()
-            Logger.shared.info("已连接到 DMSAService \(versionInfo.fullVersion)")
-            Logger.shared.info("服务运行时间: \(formatUptime(versionInfo.uptime))")
+            Logger.shared.info("Connected to DMSAService \(versionInfo.fullVersion)")
+            Logger.shared.info("Service uptime: \(formatUptime(versionInfo.uptime))")
 
-            // 连接 StateManager 以同步服务状态
-            // StateManager.connect() 会自动调用 syncFullState() 并启动定时器
+            // Connect StateManager to sync service state
+            // StateManager.connect() automatically calls syncFullState() and starts timer
             await stateManager.connect()
-            Logger.shared.info("StateManager 已连接，状态同步已启动")
+            Logger.shared.info("StateManager connected, state sync started")
 
-            // 应用外观设置 (如 Dock 图标显示)
+            // Apply appearance settings (e.g. Dock icon visibility)
             let config = await getConfig()
             AppearanceManager.shared.applySettings(from: config.general)
-            Logger.shared.info("外观设置已应用: showInDock=\(config.general.showInDock)")
+            Logger.shared.info("Appearance settings applied: showInDock=\(config.general.showInDock)")
 
-            // 连接成功后检查初始状态
+            // Check initial state after successful connection
             checkInitialState()
         } catch {
-            Logger.shared.error("连接 DMSAService 失败: \(error)")
+            Logger.shared.error("Failed to connect to DMSAService: \(error)")
         }
     }
 
@@ -420,22 +420,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let secs = Int(seconds) % 60
 
         if hours > 0 {
-            return "\(hours)小时\(minutes)分钟"
+            return "\(hours)h \(minutes)m"
         } else if minutes > 0 {
-            return "\(minutes)分钟\(secs)秒"
+            return "\(minutes)m \(secs)s"
         } else {
-            return "\(secs)秒"
+            return "\(secs)s"
         }
     }
 
     private func showServiceApprovalAlert() {
         DispatchQueue.main.async {
             let alert = NSAlert()
-            alert.messageText = "需要批准 DMSA 服务"
-            alert.informativeText = "请前往 系统设置 > 隐私与安全性 > 登录项与扩展 中批准 DMSA Service。"
+            alert.messageText = "DMSA Service Approval Required"
+            alert.informativeText = "Please go to System Settings > Privacy & Security > Login Items & Extensions to approve DMSA Service."
             alert.alertStyle = .warning
-            alert.addButton(withTitle: "打开系统设置")
-            alert.addButton(withTitle: "稍后")
+            alert.addButton(withTitle: "Open System Settings")
+            alert.addButton(withTitle: "Later")
 
             if alert.runModal() == .alertFirstButtonReturn {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
@@ -448,14 +448,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func showServiceInstallFailedAlert(errorMessage: String) {
         DispatchQueue.main.async { [weak self] in
             let alert = NSAlert()
-            alert.messageText = "DMSA 服务安装失败"
-            alert.informativeText = "无法安装后台服务: \(errorMessage)"
+            alert.messageText = "DMSA Service Installation Failed"
+            alert.informativeText = "Unable to install background service: \(errorMessage)"
             alert.alertStyle = .warning
-            alert.addButton(withTitle: "重试")
-            alert.addButton(withTitle: "退出")
+            alert.addButton(withTitle: "Retry")
+            alert.addButton(withTitle: "Quit")
 
             if alert.runModal() == .alertFirstButtonReturn {
-                // 重试
+                // Retry
                 Task {
                     await self?.checkAndInstallService()
                 }
@@ -465,16 +465,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // MARK: - macFUSE 检查
+    // MARK: - macFUSE Check
 
     private func checkMacFUSE() {
-        Logger.shared.info("检查 macFUSE 状态...")
+        Logger.shared.info("Checking macFUSE status...")
 
         let availability = FUSEManager.shared.checkFUSEAvailability()
 
         switch availability {
         case .available(let version):
-            Logger.shared.info("macFUSE 版本: \(version)")
+            Logger.shared.info("macFUSE version: \(version)")
         case .notInstalled, .frameworkMissing:
             showMacFUSENotInstalledAlert()
         case .versionTooOld(let current, let required):
@@ -486,11 +486,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showMacFUSENotInstalledAlert() {
         let alert = NSAlert()
-        alert.messageText = "macFUSE 未安装"
-        alert.informativeText = "请从官方网站下载并安装 macFUSE。"
+        alert.messageText = "macFUSE Not Installed"
+        alert.informativeText = "Please download and install macFUSE from the official website."
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "下载 macFUSE")
-        alert.addButton(withTitle: "稍后")
+        alert.addButton(withTitle: "Download macFUSE")
+        alert.addButton(withTitle: "Later")
 
         if alert.runModal() == .alertFirstButtonReturn {
             if let url = URL(string: "https://macfuse.github.io/") {
@@ -501,11 +501,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showMacFUSEUpdateAlert(current: String, required: String) {
         let alert = NSAlert()
-        alert.messageText = "macFUSE 需要更新"
-        alert.informativeText = "当前版本 \(current)，需要 \(required) 或更高版本。"
+        alert.messageText = "macFUSE Update Required"
+        alert.informativeText = "Current version \(current), requires \(required) or higher."
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "下载更新")
-        alert.addButton(withTitle: "稍后")
+        alert.addButton(withTitle: "Download Update")
+        alert.addButton(withTitle: "Later")
 
         if alert.runModal() == .alertFirstButtonReturn {
             if let url = URL(string: "https://macfuse.github.io/") {
@@ -514,40 +514,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // MARK: - 硬盘事件处理 (UI 更新)
+    // MARK: - Disk Event Handling (UI Updates)
 
     private func handleDiskConnected(_ disk: DiskConfig, isInitialCheck: Bool = false) {
-        Logger.shared.info("硬盘已连接: \(disk.name) (isInitialCheck=\(isInitialCheck))")
+        Logger.shared.info("Disk connected: \(disk.name) (isInitialCheck=\(isInitialCheck))")
 
         Task { @MainActor in
             menuBarManager.updateDiskState(disk.name, state: .connected(diskName: disk.name, usedSpace: nil, totalSpace: nil))
 
-            // 初始检查时不弹窗
+            // Don't show popup during initial check
             if !isInitialCheck {
                 alertManager.alertDiskConnected(diskName: disk.name)
             }
 
-            // 检查服务是否已就绪
+            // Check if service is ready
             guard stateManager.isReady else {
-                Logger.shared.info("服务未就绪，跳过自动同步")
+                Logger.shared.info("Service not ready, skipping auto sync")
                 return
             }
 
-            // 自动同步由 Service 处理，这里只触发
+            // Auto sync is handled by Service, we just trigger it here
             let config = await getConfig()
             guard config.general.autoSyncEnabled else { return }
 
-            // 找到与此硬盘关联的所有同步对并触发同步
+            // Find all sync pairs associated with this disk and trigger sync
             let syncPairsForDisk = config.syncPairs.filter { $0.diskId == disk.id && $0.enabled }
             for syncPair in syncPairsForDisk {
-                Logger.shared.info("触发同步: syncPairId=\(syncPair.id), disk=\(disk.name)")
+                Logger.shared.info("Triggering sync: syncPairId=\(syncPair.id), disk=\(disk.name)")
                 try? await serviceClient.syncNow(syncPairId: syncPair.id)
             }
         }
     }
 
     private func handleDiskDisconnected(_ disk: DiskConfig) {
-        Logger.shared.info("硬盘已断开: \(disk.name)")
+        Logger.shared.info("Disk disconnected: \(disk.name)")
 
         Task { @MainActor in
             if diskManager.connectedDisks.isEmpty {
@@ -558,7 +558,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // MARK: - 公共方法
+    // MARK: - Public Methods
 
     func toggleAutoSync() {
         Task {
@@ -573,15 +573,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension AppDelegate: MenuBarDelegate {
     func menuBarDidRequestSync() {
-        Logger.shared.info("用户请求手动同步")
+        Logger.shared.info("User requested manual sync")
 
         Task { @MainActor in
-            // 检查服务是否已就绪
+            // Check if service is ready
             guard stateManager.isReady else {
-                Logger.shared.warning("服务未就绪，无法执行同步")
+                Logger.shared.warning("Service not ready, cannot perform sync")
                 alertManager.alertInfo(
-                    title: "无法同步",
-                    message: "服务正在启动中，请稍后再试。"
+                    title: "Cannot Sync",
+                    message: "Service is starting up, please try again later."
                 )
                 return
             }
@@ -599,7 +599,7 @@ extension AppDelegate: MenuBarDelegate {
     }
 
     func menuBarDidRequestOpenTab(_ tab: MainView.MainTab) {
-        Logger.shared.info("用户请求打开标签: \(tab.rawValue)")
+        Logger.shared.info("User requested open tab: \(tab.rawValue)")
         mainWindowController?.showTab(tab)
     }
 }

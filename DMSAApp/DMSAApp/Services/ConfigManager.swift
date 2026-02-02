@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-/// 配置管理器
+/// Configuration manager
 final class ConfigManager: ObservableObject {
     static let shared = ConfigManager()
 
@@ -21,7 +21,7 @@ final class ConfigManager: ObservableObject {
         let appSupport = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/DMSA")
 
-        // 确保目录存在
+        // Ensure directory exists
         try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
 
         configURL = appSupport.appendingPathComponent("config.json")
@@ -33,8 +33,8 @@ final class ConfigManager: ObservableObject {
 
     private func loadConfig() {
         guard FileManager.default.fileExists(atPath: configURL.path) else {
-            Logger.shared.info("配置文件不存在，使用默认配置")
-            saveConfig() // 创建默认配置
+            Logger.shared.info("Config file not found, using defaults")
+            saveConfig() // Create default config
             return
         }
 
@@ -42,28 +42,28 @@ final class ConfigManager: ObservableObject {
             let data = try Data(contentsOf: configURL)
             let decoder = JSONDecoder()
             _config = try decoder.decode(AppConfig.self, from: data)
-            Logger.shared.info("配置加载成功")
+            Logger.shared.info("Config loaded successfully")
 
-            // 备份配置
+            // Backup config
             try? data.write(to: backupURL)
         } catch {
-            Logger.shared.error("配置加载失败: \(error.localizedDescription)")
+            Logger.shared.error("Failed to load config: \(error.localizedDescription)")
             loadBackupConfig()
         }
     }
 
     private func loadBackupConfig() {
         guard FileManager.default.fileExists(atPath: backupURL.path) else {
-            Logger.shared.warn("备份配置不存在，使用默认配置")
+            Logger.shared.warn("Backup config not found, using defaults")
             return
         }
 
         do {
             let data = try Data(contentsOf: backupURL)
             _config = try JSONDecoder().decode(AppConfig.self, from: data)
-            Logger.shared.info("从备份恢复配置成功")
+            Logger.shared.info("Config restored from backup")
         } catch {
-            Logger.shared.error("备份配置也损坏: \(error.localizedDescription)")
+            Logger.shared.error("Backup config also corrupted: \(error.localizedDescription)")
         }
     }
 
@@ -73,13 +73,13 @@ final class ConfigManager: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(_config)
             try data.write(to: configURL)
-            Logger.shared.debug("配置保存成功")
+            Logger.shared.debug("Config saved successfully")
         } catch {
-            Logger.shared.error("配置保存失败: \(error.localizedDescription)")
+            Logger.shared.error("Failed to save config: \(error.localizedDescription)")
         }
     }
 
-    // MARK: - 便捷方法
+    // MARK: - Convenience Methods
 
     func getDisk(byId id: String) -> DiskConfig? {
         return config.disks.first { $0.id == id }
@@ -97,7 +97,7 @@ final class ConfigManager: ObservableObject {
         return getConnectedDisks().sorted { $0.priority < $1.priority }.first
     }
 
-    // MARK: - 配置修改方法
+    // MARK: - Config Modification Methods
 
     func addDisk(_ disk: DiskConfig) {
         var newConfig = _config
@@ -108,7 +108,7 @@ final class ConfigManager: ObservableObject {
     func removeDisk(id: String) {
         var newConfig = _config
         newConfig.disks.removeAll { $0.id == id }
-        // 同时移除相关的 syncPairs
+        // Also remove related syncPairs
         newConfig.syncPairs.removeAll { $0.diskId == id }
         config = newConfig
     }
@@ -149,11 +149,11 @@ final class ConfigManager: ObservableObject {
         config = newConfig
     }
 
-    // MARK: - 配置重置
+    // MARK: - Config Reset
 
     func resetToDefaults() {
         _config = AppConfig()
         saveConfig()
-        Logger.shared.info("配置已重置为默认值")
+        Logger.shared.info("Config reset to defaults")
     }
 }

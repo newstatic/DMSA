@@ -1,36 +1,36 @@
 import Foundation
 
-/// 文件复制器 - 高效复制文件并支持进度追踪
+/// File copier - efficiently copies files with progress tracking
 actor FileCopier {
 
-    // MARK: - 配置
+    // MARK: - Configuration
 
     struct CopyOptions {
-        /// 是否保留文件属性（权限、时间等）
+        /// Whether to preserve file attributes (permissions, timestamps, etc.)
         var preserveAttributes: Bool = true
 
-        /// 是否在复制后验证校验和
+        /// Whether to verify checksum after copy
         var verifyAfterCopy: Bool = false
 
-        /// 验证使用的哈希算法
+        /// Hash algorithm used for verification
         var verifyAlgorithm: FileHasher.HashAlgorithm = .md5
 
-        /// 缓冲区大小
+        /// Buffer size
         var bufferSize: Int = 1024 * 1024  // 1MB
 
-        /// 是否覆盖已存在的文件
+        /// Whether to overwrite existing files
         var overwriteExisting: Bool = true
 
-        /// 是否使用原子写入（先写临时文件再重命名）
+        /// Whether to use atomic write (write to temp file then rename)
         var atomicWrite: Bool = true
 
-        /// 临时文件后缀
+        /// Temporary file suffix
         var tempSuffix: String = ".dmsa_tmp"
 
         static var `default`: CopyOptions { CopyOptions() }
     }
 
-    /// 复制结果
+    /// Copy result
     struct CopyResult {
         var succeeded: Int = 0
         var failed: [(path: String, error: Error)] = []
@@ -49,7 +49,7 @@ actor FileCopier {
         }
     }
 
-    // MARK: - 状态
+    // MARK: - State
 
     private var isCancelled: Bool = false
     private var isPaused: Bool = false
@@ -59,14 +59,14 @@ actor FileCopier {
 
     private let logger = Logger.forService("FileCopier")
 
-    // MARK: - 进度回调
+    // MARK: - Progress Callback
 
     typealias FileProgressHandler = (Int64, Int64) -> Void
     typealias BatchProgressHandler = (ServiceSyncProgress) -> Void
 
-    // MARK: - 公共方法
+    // MARK: - Public Methods
 
-    /// 复制单个文件
+    /// Copy a single file
     func copy(
         from source: URL,
         to destination: URL,
@@ -75,12 +75,12 @@ actor FileCopier {
     ) async throws {
         isCancelled = false
 
-        // 验证源文件存在
+        // Verify source file exists
         guard fileManager.fileExists(atPath: source.path) else {
             throw CopierError.sourceNotFound(source.path)
         }
 
-        // 检查目标是否已存在
+        // Check if destination already exists
         if fileManager.fileExists(atPath: destination.path) {
             if options.overwriteExisting {
                 try fileManager.removeItem(at: destination)
@@ -89,22 +89,22 @@ actor FileCopier {
             }
         }
 
-        // 创建目标目录
+        // Create destination directory
         let destDir = destination.deletingLastPathComponent()
         if !fileManager.fileExists(atPath: destDir.path) {
             try fileManager.createDirectory(at: destDir, withIntermediateDirectories: true)
         }
 
-        // 获取源文件属性
+        // Get source file attributes
         let sourceAttrs = try fileManager.attributesOfItem(atPath: source.path)
         let fileSize = (sourceAttrs[.size] as? Int64) ?? 0
 
-        // 确定写入目标
+        // Determine write target
         let writeTarget = options.atomicWrite
             ? destination.appendingPathExtension(options.tempSuffix.replacingOccurrences(of: ".", with: ""))
             : destination
 
-        // 执行复制
+        // Perform copy
         try await copyFileContents(
             from: source,
             to: writeTarget,
@@ -113,17 +113,17 @@ actor FileCopier {
             progressHandler: progressHandler
         )
 
-        // 原子写入：重命名临时文件
+        // Atomic write: rename temp file
         if options.atomicWrite {
             try fileManager.moveItem(at: writeTarget, to: destination)
         }
 
-        // 保留属性
+        // Preserve attributes
         if options.preserveAttributes {
             try preserveAttributes(from: source, to: destination)
         }
 
-        // 验证
+        // Verify
         if options.verifyAfterCopy {
             let hasher = FileHasher()
 
@@ -131,7 +131,7 @@ actor FileCopier {
             let destChecksum = try await hasher.hash(file: destination, algorithm: options.verifyAlgorithm)
 
             if sourceChecksum != destChecksum {
-                // 删除损坏的文件
+                // Delete corrupted file
                 try? fileManager.removeItem(at: destination)
                 throw CopierError.verificationFailed(
                     path: destination.path,
@@ -142,7 +142,7 @@ actor FileCopier {
         }
     }
 
-    /// 批量复制文件
+    /// Batch copy files
     func copyFiles(
         actions: [SyncAction],
         options: CopyOptions = .default,
@@ -155,7 +155,7 @@ actor FileCopier {
         var result = CopyResult()
         let startTime = Date()
 
-        // 筛选复制和更新动作
+        // Filter copy and update actions
         let copyActions = actions.filter { action in
             switch action {
             case .copy, .update:
@@ -169,12 +169,12 @@ actor FileCopier {
         progress.totalBytes = copyActions.reduce(0) { $0 + $1.bytes }
 
         for (index, action) in copyActions.enumerated() {
-            // 检查取消
+            // Check cancellation
             if isCancelled {
                 throw CopierError.cancelled
             }
 
-            // 检查暂停
+            // Check pause
             while isPaused {
                 try await Task.sleep(nanoseconds: 100_000_000)  // 100ms
                 if isCancelled { throw CopierError.cancelled }
@@ -182,7 +182,7 @@ actor FileCopier {
 
             guard case let .copy(source, destination, metadata) = action else {
                 if case let .update(source, destination, metadata) = action {
-                    // 处理更新动作
+                    // Handle update action
                     await processCopyAction(
                         source: source,
                         destination: destination,
@@ -211,34 +211,34 @@ actor FileCopier {
         return result
     }
 
-    /// 暂停复制
+    /// Pause copying
     func pause() {
         isPaused = true
     }
 
-    /// 恢复复制
+    /// Resume copying
     func resume() {
         isPaused = false
     }
 
-    /// 取消复制
+    /// Cancel copying
     func cancel() {
         isCancelled = true
         isPaused = false
     }
 
-    /// 创建目录
+    /// Create directory
     func createDirectory(at path: URL) throws {
         try fileManager.createDirectory(at: path, withIntermediateDirectories: true)
     }
 
-    /// 删除文件
+    /// Delete file
     func deleteFile(at path: URL) throws {
         guard fileManager.fileExists(atPath: path.path) else { return }
         try fileManager.removeItem(at: path)
     }
 
-    /// 创建备份
+    /// Create backup
     func createBackup(
         of file: URL,
         suffix: String = "_backup"
@@ -255,7 +255,7 @@ actor FileCopier {
 
         let backupURL = file.deletingLastPathComponent().appendingPathComponent(backupName)
 
-        // 如果备份已存在，添加数字后缀
+        // If backup already exists, add numeric suffix
         var finalBackupURL = backupURL
         var counter = 1
         while fileManager.fileExists(atPath: finalBackupURL.path) {
@@ -270,9 +270,9 @@ actor FileCopier {
         return finalBackupURL
     }
 
-    // MARK: - 私有方法
+    // MARK: - Private Methods
 
-    /// 复制文件内容
+    /// Copy file contents
     private func copyFileContents(
         from source: URL,
         to destination: URL,
@@ -285,7 +285,7 @@ actor FileCopier {
         }
         defer { try? inputHandle.close() }
 
-        // 创建输出文件
+        // Create output file
         fileManager.createFile(atPath: destination.path, contents: nil)
         guard let outputHandle = try? FileHandle(forWritingTo: destination) else {
             throw CopierError.cannotCreateDestination(destination.path)
@@ -296,7 +296,7 @@ actor FileCopier {
 
         while true {
             if isCancelled {
-                // 清理临时文件
+                // Clean up temp file
                 try? fileManager.removeItem(at: destination)
                 throw CopierError.cancelled
             }
@@ -318,27 +318,27 @@ actor FileCopier {
             progressHandler?(bytesWritten, fileSize)
         }
 
-        // 同步到磁盘
+        // Sync to disk
         try outputHandle.synchronize()
     }
 
-    /// 保留文件属性
+    /// Preserve file attributes
     private func preserveAttributes(from source: URL, to destination: URL) throws {
         let attrs = try fileManager.attributesOfItem(atPath: source.path)
 
         var newAttrs: [FileAttributeKey: Any] = [:]
 
-        // 保留修改时间
+        // Preserve modification time
         if let modDate = attrs[.modificationDate] {
             newAttrs[.modificationDate] = modDate
         }
 
-        // 保留创建时间
+        // Preserve creation time
         if let createDate = attrs[.creationDate] {
             newAttrs[.creationDate] = createDate
         }
 
-        // 保留权限
+        // Preserve permissions
         if let permissions = attrs[.posixPermissions] {
             newAttrs[.posixPermissions] = permissions
         }
@@ -348,7 +348,7 @@ actor FileCopier {
         }
     }
 
-    /// 处理单个复制动作
+    /// Process a single copy action
     private func processCopyAction(
         source: String,
         destination: String,
@@ -382,7 +382,7 @@ actor FileCopier {
 
         } catch CopierError.verificationFailed(let path, let expected, let actual) {
             result.verificationFailed.append((path, expected, actual))
-            progress.errorMessage = "校验失败: \(source)"
+            progress.errorMessage = "Verification failed: \(source)"
         } catch {
             result.failed.append((source, error))
             progress.errorMessage = error.localizedDescription
@@ -390,7 +390,7 @@ actor FileCopier {
     }
 }
 
-// MARK: - 复制器错误
+// MARK: - Copier Error
 
 enum CopierError: Error, LocalizedError {
     case sourceNotFound(String)
@@ -405,23 +405,23 @@ enum CopierError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .sourceNotFound(let path):
-            return "源文件不存在: \(path)"
+            return "Source file not found: \(path)"
         case .destinationExists(let path):
-            return "目标文件已存在: \(path)"
+            return "Destination file already exists: \(path)"
         case .cannotOpenSource(let path):
-            return "无法打开源文件: \(path)"
+            return "Cannot open source file: \(path)"
         case .cannotCreateDestination(let path):
-            return "无法创建目标文件: \(path)"
+            return "Cannot create destination file: \(path)"
         case .writeError(let path):
-            return "写入错误: \(path)"
+            return "Write error: \(path)"
         case .verificationFailed(let path, let expected, let actual):
-            return "校验失败: \(path) (期望: \(expected.prefix(8))..., 实际: \(actual.prefix(8))...)"
+            return "Verification failed: \(path) (expected: \(expected.prefix(8))..., actual: \(actual.prefix(8))...)"
         case .cancelled:
-            return "复制已取消"
+            return "Copy cancelled"
         case .insufficientSpace(let required, let available):
             let reqStr = ByteCountFormatter.string(fromByteCount: required, countStyle: .file)
             let availStr = ByteCountFormatter.string(fromByteCount: available, countStyle: .file)
-            return "空间不足: 需要 \(reqStr), 可用 \(availStr)"
+            return "Insufficient space: required \(reqStr), available \(availStr)"
         }
     }
 }

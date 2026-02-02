@@ -2,64 +2,64 @@ import Foundation
 
 // Note: SyncLockDirection is defined in DMSAShared/Models/FileEntry.swift
 
-/// 同步锁管理器
-/// 管理文件的同步锁定状态，确保同步期间的数据一致性
-/// 策略: 悲观锁 + 读取不阻塞
-/// - 读取: 允许，直接从源文件读取
-/// - 写入: 阻塞，等待同步完成或超时
-/// - 删除: 阻塞，等待同步完成或超时
+/// Sync Lock Manager
+/// Manages file sync lock states to ensure data consistency during sync
+/// Strategy: Pessimistic locking + Non-blocking reads
+/// - Read: Allowed, reads directly from source file
+/// - Write: Blocked, waits for sync completion or timeout
+/// - Delete: Blocked, waits for sync completion or timeout
 final class LockManager {
 
     static let shared = LockManager()
 
-    /// 锁定信息
+    /// Lock information
     struct LockInfo {
         let virtualPath: String
         let lockTime: Date
         let direction: SyncLockDirection
-        let sourcePath: String  // 同步源路径，供读取使用
+        let sourcePath: String  // Sync source path, used for reads
     }
 
-    /// 等待结果
+    /// Wait result
     enum WaitResult {
-        case success      // 锁已释放
-        case timeout      // 等待超时
-        case cancelled    // 等待被取消
+        case success      // Lock released
+        case timeout      // Wait timed out
+        case cancelled    // Wait cancelled
     }
 
-    // 当前锁定的文件
+    // Currently locked files
     private var locks: [String: LockInfo] = [:]
 
-    // 等待锁释放的 continuation
+    // Continuations waiting for lock release
     private var waitingOperations: [String: [CheckedContinuation<WaitResult, Never>]] = [:]
 
-    // 线程安全队列
+    // Thread-safe queue
     private let lockQueue = DispatchQueue(label: "com.dmsa.lockManager", attributes: .concurrent)
 
     // Logger
     private let logger = Logger.forService("LockManager")
 
-    // 锁超时时间
+    // Lock timeout
     private let lockTimeout: TimeInterval = 300  // 5 minutes
     private let writeWaitTimeout: TimeInterval = 30  // 30 seconds
 
     private init() {
-        // 启动锁超时检查定时器
+        // Start lock timeout checker timer
         startTimeoutChecker()
     }
 
     // MARK: - Public Methods
 
-    /// 获取同步锁
+    /// Acquire sync lock
     func acquireLock(_ virtualPath: String, direction: SyncLockDirection, sourcePath: String) -> Bool {
         return lockQueue.sync(flags: .barrier) {
-            // 检查是否已被锁定
+            // Check if already locked
             guard locks[virtualPath] == nil else {
-                logger.warn("文件已被锁定: \(virtualPath)")
+                logger.warn("File already locked: \(virtualPath)")
                 return false
             }
 
-            // 创建锁信息
+            // Create lock info
             locks[virtualPath] = LockInfo(
                 virtualPath: virtualPath,
                 lockTime: Date(),
@@ -67,12 +67,12 @@ final class LockManager {
                 sourcePath: sourcePath
             )
 
-            logger.debug("获取同步锁: \(virtualPath), 方向: \(direction)")
+            logger.debug("Acquired sync lock: \(virtualPath), direction: \(direction)")
             return true
         }
     }
 
-    /// 释放同步锁
+    /// Release sync lock
     func releaseLock(_ virtualPath: String) {
         lockQueue.sync(flags: .barrier) {
             guard locks[virtualPath] != nil else {
@@ -81,7 +81,7 @@ final class LockManager {
 
             locks[virtualPath] = nil
 
-            // 唤醒所有等待的操作
+            // Wake all waiting operations
             if let continuations = waitingOperations[virtualPath] {
                 for continuation in continuations {
                     continuation.resume(returning: .success)
@@ -89,11 +89,11 @@ final class LockManager {
                 waitingOperations[virtualPath] = nil
             }
 
-            logger.debug("释放同步锁: \(virtualPath)")
+            logger.debug("Released sync lock: \(virtualPath)")
         }
     }
 
-    /// 批量获取锁
+    /// Batch acquire locks
     func acquireLocks(_ paths: [String], direction: SyncLockDirection, sourcePathResolver: (String) -> String?) -> [String] {
         return lockQueue.sync(flags: .barrier) {
             var lockedPaths: [String] = []
@@ -113,19 +113,19 @@ final class LockManager {
                 lockedPaths.append(path)
             }
 
-            logger.debug("批量获取锁: \(lockedPaths.count)/\(paths.count) 个")
+            logger.debug("Batch acquired locks: \(lockedPaths.count)/\(paths.count)")
             return lockedPaths
         }
     }
 
-    /// 批量释放锁
+    /// Batch release locks
     func releaseLocks(_ paths: [String]) {
         lockQueue.sync(flags: .barrier) {
             for path in paths {
                 guard locks[path] != nil else { continue }
                 locks[path] = nil
 
-                // 唤醒等待的操作
+                // Wake waiting operations
                 if let continuations = waitingOperations[path] {
                     for continuation in continuations {
                         continuation.resume(returning: .success)
@@ -133,54 +133,54 @@ final class LockManager {
                     waitingOperations[path] = nil
                 }
             }
-            logger.debug("批量释放锁: \(paths.count) 个")
+            logger.debug("Batch released locks: \(paths.count)")
         }
     }
 
-    /// 检查文件是否被锁定
+    /// Check if file is locked
     func isLocked(_ virtualPath: String) -> Bool {
         return lockQueue.sync {
             return locks[virtualPath] != nil
         }
     }
 
-    /// 获取锁定文件的源路径（用于读取）
+    /// Get source path for locked file (used for reads)
     func getSourcePath(_ virtualPath: String) -> String? {
         return lockQueue.sync {
             return locks[virtualPath]?.sourcePath
         }
     }
 
-    /// 获取锁信息
+    /// Get lock info
     func getLockInfo(_ virtualPath: String) -> LockInfo? {
         return lockQueue.sync {
             return locks[virtualPath]
         }
     }
 
-    /// 等待锁释放
+    /// Wait for lock release
     func waitForUnlock(_ virtualPath: String, timeout: TimeInterval? = nil) async -> WaitResult {
         let timeoutValue = timeout ?? writeWaitTimeout
 
-        // 先检查是否已经解锁
+        // Check if already unlocked
         let isCurrentlyLocked = lockQueue.sync { locks[virtualPath] != nil }
         if !isCurrentlyLocked {
             return .success
         }
 
-        // 使用 Task 组实现超时
+        // Use TaskGroup to implement timeout
         return await withTaskGroup(of: WaitResult.self) { group in
-            // 等待锁释放的任务
+            // Task waiting for lock release
             group.addTask {
                 await withCheckedContinuation { continuation in
                     self.lockQueue.sync(flags: .barrier) {
-                        // 再次检查，可能在等待期间已解锁
+                        // Check again, may have unlocked while waiting
                         if self.locks[virtualPath] == nil {
                             continuation.resume(returning: .success)
                             return
                         }
 
-                        // 添加到等待列表
+                        // Add to waiting list
                         if self.waitingOperations[virtualPath] == nil {
                             self.waitingOperations[virtualPath] = []
                         }
@@ -189,17 +189,17 @@ final class LockManager {
                 }
             }
 
-            // 超时任务
+            // Timeout task
             group.addTask {
                 try? await Task.sleep(nanoseconds: UInt64(timeoutValue * 1_000_000_000))
                 return .timeout
             }
 
-            // 返回第一个完成的结果
+            // Return first completed result
             let result = await group.next()!
             group.cancelAll()
 
-            // 如果超时，从等待列表中移除
+            // If timed out, remove from waiting list
             if result == .timeout {
                 lockQueue.sync(flags: .barrier) {
                     waitingOperations[virtualPath]?.removeAll { _ in true }
@@ -210,28 +210,28 @@ final class LockManager {
         }
     }
 
-    /// 获取所有锁定的文件路径
+    /// Get all locked file paths
     func getLockedPaths() -> [String] {
         return lockQueue.sync {
             return Array(locks.keys)
         }
     }
 
-    /// 获取锁定文件数量
+    /// Get locked file count
     var lockedCount: Int {
         return lockQueue.sync { locks.count }
     }
 
     // MARK: - Private Methods
 
-    /// 启动锁超时检查定时器
+    /// Start lock timeout checker timer
     private func startTimeoutChecker() {
         Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
             self?.checkTimeouts()
         }
     }
 
-    /// 检查并处理超时的锁
+    /// Check and handle timed out locks
     private func checkTimeouts() {
         lockQueue.sync(flags: .barrier) {
             let now = Date()
@@ -244,10 +244,10 @@ final class LockManager {
             }
 
             for path in expiredPaths {
-                logger.warn("锁超时自动释放: \(path)")
+                logger.warn("Lock timed out, auto-releasing: \(path)")
                 locks[path] = nil
 
-                // 唤醒等待的操作
+                // Wake waiting operations
                 if let continuations = waitingOperations[path] {
                     for continuation in continuations {
                         continuation.resume(returning: .success)
@@ -258,7 +258,7 @@ final class LockManager {
         }
     }
 
-    /// 强制释放所有锁（用于应用退出时）
+    /// Force release all locks (used during app exit)
     func releaseAllLocks() {
         lockQueue.sync(flags: .barrier) {
             for (path, _) in locks {
@@ -270,7 +270,7 @@ final class LockManager {
             }
             locks.removeAll()
             waitingOperations.removeAll()
-            logger.info("已释放所有同步锁")
+            logger.info("All sync locks released")
         }
     }
 }

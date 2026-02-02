@@ -1,21 +1,21 @@
 import Foundation
 
-/// 特权操作执行器
-/// 注意: DMSAService 以 root 权限运行，可直接执行这些操作
+/// Privileged operations executor
+/// Note: DMSAService runs with root privileges and can execute these operations directly
 struct PrivilegedOperations {
 
     private static let logger = Logger.forService("Privileged")
 
-    // MARK: - 路径验证
+    // MARK: - Path Validation
 
-    /// 允许操作的路径前缀白名单
+    /// Allowed path prefix whitelist
     private static let allowedPrefixes = [
         "/Volumes/",
         NSHomeDirectory() + "/Downloads",
         NSHomeDirectory() + "/Documents"
     ]
 
-    /// 禁止操作的危险路径
+    /// Dangerous paths that must not be operated on
     private static let dangerousPaths = [
         "/System",
         "/usr",
@@ -30,24 +30,24 @@ struct PrivilegedOperations {
         "/cores"
     ]
 
-    /// 验证路径是否允许操作
+    /// Validate whether a path is allowed for operations
     private static func validatePath(_ path: String) -> (valid: Bool, error: String?) {
-        // 规范化路径
+        // Normalize path
         let normalizedPath = (path as NSString).standardizingPath
 
-        // 检查是否包含路径遍历
+        // Check for path traversal
         if normalizedPath.contains("..") {
-            return (false, "路径包含非法的路径遍历字符")
+            return (false, "Path contains illegal traversal characters")
         }
 
-        // 检查危险路径
+        // Check dangerous paths
         for dangerous in dangerousPaths {
             if normalizedPath.hasPrefix(dangerous) {
-                return (false, "禁止操作系统关键目录: \(dangerous)")
+                return (false, "Operation on critical system directory forbidden: \(dangerous)")
             }
         }
 
-        // 检查是否在白名单内
+        // Check if within whitelist
         var isAllowed = false
         for prefix in allowedPrefixes {
             if normalizedPath.hasPrefix(prefix) {
@@ -57,15 +57,15 @@ struct PrivilegedOperations {
         }
 
         if !isAllowed {
-            return (false, "路径不在允许的操作范围内")
+            return (false, "Path is not within the allowed operation scope")
         }
 
         return (true, nil)
     }
 
-    // MARK: - 目录锁定 (uchg flag)
+    // MARK: - Directory Locking (uchg flag)
 
-    /// 锁定目录 (设置 uchg flag)
+    /// Lock directory (set uchg flag)
     static func lockDirectory(_ path: String) -> (success: Bool, error: String?) {
         let validation = validatePath(path)
         guard validation.valid else {
@@ -74,14 +74,14 @@ struct PrivilegedOperations {
 
         let result = runCommand("/usr/bin/chflags", arguments: ["uchg", path])
         if result.success {
-            logger.info("目录已锁定: \(path)")
+            logger.info("Directory locked: \(path)")
         } else {
-            logger.error("锁定目录失败: \(path) - \(result.error ?? "未知错误")")
+            logger.error("Failed to lock directory: \(path) - \(result.error ?? "unknown error")")
         }
         return result
     }
 
-    /// 解锁目录 (移除 uchg flag)
+    /// Unlock directory (remove uchg flag)
     static func unlockDirectory(_ path: String) -> (success: Bool, error: String?) {
         let validation = validatePath(path)
         guard validation.valid else {
@@ -90,32 +90,32 @@ struct PrivilegedOperations {
 
         let result = runCommand("/usr/bin/chflags", arguments: ["nouchg", path])
         if result.success {
-            logger.info("目录已解锁: \(path)")
+            logger.info("Directory unlocked: \(path)")
         } else {
-            logger.error("解锁目录失败: \(path) - \(result.error ?? "未知错误")")
+            logger.error("Failed to unlock directory: \(path) - \(result.error ?? "unknown error")")
         }
         return result
     }
 
-    // MARK: - ACL 管理
+    // MARK: - ACL Management
 
-    /// 设置 ACL 权限
+    /// Set ACL permissions
     static func setACL(_ path: String, deny: Bool, permissions: [String], user: String) -> (success: Bool, error: String?) {
         let validation = validatePath(path)
         guard validation.valid else {
             return (false, validation.error)
         }
 
-        // 验证用户名
+        // Validate username
         guard isValidUsername(user) else {
-            return (false, "无效的用户名")
+            return (false, "Invalid username")
         }
 
-        // 验证权限名称
+        // Validate permission names
         let validPermissions = ["read", "write", "execute", "delete", "append", "readattr", "writeattr", "readextattr", "writeextattr", "readsecurity", "writesecurity", "chown", "list", "search", "add_file", "add_subdirectory", "delete_child"]
         for perm in permissions {
             if !validPermissions.contains(perm) {
-                return (false, "无效的权限名称: \(perm)")
+                return (false, "Invalid permission name: \(perm)")
             }
         }
 
@@ -125,14 +125,14 @@ struct PrivilegedOperations {
 
         let result = runCommand("/bin/chmod", arguments: ["+a", aclEntry, path])
         if result.success {
-            logger.info("ACL 已设置: \(path) - \(aclEntry)")
+            logger.info("ACL set: \(path) - \(aclEntry)")
         } else {
-            logger.error("设置 ACL 失败: \(path) - \(result.error ?? "未知错误")")
+            logger.error("Failed to set ACL: \(path) - \(result.error ?? "unknown error")")
         }
         return result
     }
 
-    /// 移除所有 ACL
+    /// Remove all ACLs
     static func removeACL(_ path: String) -> (success: Bool, error: String?) {
         let validation = validatePath(path)
         guard validation.valid else {
@@ -141,16 +141,16 @@ struct PrivilegedOperations {
 
         let result = runCommand("/bin/chmod", arguments: ["-N", path])
         if result.success {
-            logger.info("ACL 已移除: \(path)")
+            logger.info("ACL removed: \(path)")
         } else {
-            logger.error("移除 ACL 失败: \(path) - \(result.error ?? "未知错误")")
+            logger.error("Failed to remove ACL: \(path) - \(result.error ?? "unknown error")")
         }
         return result
     }
 
-    // MARK: - 目录可见性
+    // MARK: - Directory Visibility
 
-    /// 隐藏目录 (设置 hidden flag)
+    /// Hide directory (set hidden flag)
     static func hideDirectory(_ path: String) -> (success: Bool, error: String?) {
         let validation = validatePath(path)
         guard validation.valid else {
@@ -159,14 +159,14 @@ struct PrivilegedOperations {
 
         let result = runCommand("/usr/bin/chflags", arguments: ["hidden", path])
         if result.success {
-            logger.info("目录已隐藏: \(path)")
+            logger.info("Directory hidden: \(path)")
         } else {
-            logger.error("隐藏目录失败: \(path) - \(result.error ?? "未知错误")")
+            logger.error("Failed to hide directory: \(path) - \(result.error ?? "unknown error")")
         }
         return result
     }
 
-    /// 显示目录 (移除 hidden flag)
+    /// Unhide directory (remove hidden flag)
     static func unhideDirectory(_ path: String) -> (success: Bool, error: String?) {
         let validation = validatePath(path)
         guard validation.valid else {
@@ -175,53 +175,53 @@ struct PrivilegedOperations {
 
         let result = runCommand("/usr/bin/chflags", arguments: ["nohidden", path])
         if result.success {
-            logger.info("目录已显示: \(path)")
+            logger.info("Directory unhidden: \(path)")
         } else {
-            logger.error("显示目录失败: \(path) - \(result.error ?? "未知错误")")
+            logger.error("Failed to unhide directory: \(path) - \(result.error ?? "unknown error")")
         }
         return result
     }
 
-    // MARK: - 复合操作
+    // MARK: - Compound Operations
 
-    /// 保护目录 (uchg + ACL deny delete + hidden)
+    /// Protect directory (uchg + ACL deny delete + hidden)
     static func protectDirectory(_ path: String) -> (success: Bool, error: String?) {
         let validation = validatePath(path)
         guard validation.valid else {
             return (false, validation.error)
         }
 
-        // 获取当前用户
+        // Get current user
         let currentUser = NSUserName()
 
-        // 1. 设置 uchg flag
+        // 1. Set uchg flag
         var result = lockDirectory(path)
         if !result.success {
-            return (false, "设置 uchg 失败: \(result.error ?? "未知错误")")
+            return (false, "Failed to set uchg: \(result.error ?? "unknown error")")
         }
 
-        // 2. 设置 ACL 禁止删除
+        // 2. Set ACL deny delete
         result = setACL(path, deny: true, permissions: ["delete"], user: currentUser)
         if !result.success {
-            // 回滚 uchg
+            // Rollback uchg
             _ = unlockDirectory(path)
-            return (false, "设置 ACL 失败: \(result.error ?? "未知错误")")
+            return (false, "Failed to set ACL: \(result.error ?? "unknown error")")
         }
 
-        // 3. 设置 hidden flag
+        // 3. Set hidden flag
         result = hideDirectory(path)
         if !result.success {
-            // 回滚
+            // Rollback
             _ = removeACL(path)
             _ = unlockDirectory(path)
-            return (false, "设置 hidden 失败: \(result.error ?? "未知错误")")
+            return (false, "Failed to set hidden: \(result.error ?? "unknown error")")
         }
 
-        logger.info("目录保护已启用: \(path)")
+        logger.info("Directory protection enabled: \(path)")
         return (true, nil)
     }
 
-    /// 取消目录保护
+    /// Remove directory protection
     static func unprotectDirectory(_ path: String) -> (success: Bool, error: String?) {
         let validation = validatePath(path)
         guard validation.valid else {
@@ -230,37 +230,37 @@ struct PrivilegedOperations {
 
         var errors: [String] = []
 
-        // 1. 移除 hidden flag
+        // 1. Remove hidden flag
         var result = unhideDirectory(path)
         if !result.success {
-            errors.append("unhide: \(result.error ?? "未知错误")")
+            errors.append("unhide: \(result.error ?? "unknown error")")
         }
 
-        // 2. 移除 ACL
+        // 2. Remove ACL
         result = removeACL(path)
         if !result.success {
-            errors.append("removeACL: \(result.error ?? "未知错误")")
+            errors.append("removeACL: \(result.error ?? "unknown error")")
         }
 
-        // 3. 移除 uchg flag
+        // 3. Remove uchg flag
         result = unlockDirectory(path)
         if !result.success {
-            errors.append("unlock: \(result.error ?? "未知错误")")
+            errors.append("unlock: \(result.error ?? "unknown error")")
         }
 
         if errors.isEmpty {
-            logger.info("目录保护已解除: \(path)")
+            logger.info("Directory protection removed: \(path)")
             return (true, nil)
         } else {
             let errorMsg = errors.joined(separator: "; ")
-            logger.warning("目录保护解除部分失败: \(path) - \(errorMsg)")
+            logger.warning("Directory protection partially failed to remove: \(path) - \(errorMsg)")
             return (false, errorMsg)
         }
     }
 
-    // MARK: - 文件操作
+    // MARK: - File Operations
 
-    /// 创建目录 (含父目录)
+    /// Create directory (including parents)
     static func createDirectory(_ path: String) -> (success: Bool, error: String?) {
         let validation = validatePath(path)
         guard validation.valid else {
@@ -269,41 +269,41 @@ struct PrivilegedOperations {
 
         do {
             try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
-            logger.info("目录已创建: \(path)")
+            logger.info("Directory created: \(path)")
             return (true, nil)
         } catch {
-            logger.error("创建目录失败: \(path) - \(error)")
+            logger.error("Failed to create directory: \(path) - \(error)")
             return (false, error.localizedDescription)
         }
     }
 
-    /// 移动文件/目录
+    /// Move file/directory
     static func moveItem(from: String, to: String) -> (success: Bool, error: String?) {
         let fromValidation = validatePath(from)
         guard fromValidation.valid else {
-            return (false, "源路径: \(fromValidation.error ?? "无效")")
+            return (false, "Source path: \(fromValidation.error ?? "invalid")")
         }
 
         let toValidation = validatePath(to)
         guard toValidation.valid else {
-            return (false, "目标路径: \(toValidation.error ?? "无效")")
+            return (false, "Destination path: \(toValidation.error ?? "invalid")")
         }
 
         do {
-            // 确保目标父目录存在
+            // Ensure destination parent directory exists
             let parentDir = (to as NSString).deletingLastPathComponent
             try FileManager.default.createDirectory(atPath: parentDir, withIntermediateDirectories: true)
 
             try FileManager.default.moveItem(atPath: from, toPath: to)
-            logger.info("已移动: \(from) -> \(to)")
+            logger.info("Moved: \(from) -> \(to)")
             return (true, nil)
         } catch {
-            logger.error("移动失败: \(from) -> \(to) - \(error)")
+            logger.error("Move failed: \(from) -> \(to) - \(error)")
             return (false, error.localizedDescription)
         }
     }
 
-    /// 删除文件/目录
+    /// Delete file/directory
     static func removeItem(_ path: String) -> (success: Bool, error: String?) {
         let validation = validatePath(path)
         guard validation.valid else {
@@ -312,15 +312,15 @@ struct PrivilegedOperations {
 
         do {
             try FileManager.default.removeItem(atPath: path)
-            logger.info("已删除: \(path)")
+            logger.info("Deleted: \(path)")
             return (true, nil)
         } catch {
-            logger.error("删除失败: \(path) - \(error)")
+            logger.error("Delete failed: \(path) - \(error)")
             return (false, error.localizedDescription)
         }
     }
 
-    /// 设置文件权限
+    /// Set file permissions
     static func setPermissions(_ path: String, mode: Int) -> (success: Bool, error: String?) {
         let validation = validatePath(path)
         guard validation.valid else {
@@ -330,14 +330,14 @@ struct PrivilegedOperations {
         let modeString = String(format: "%o", mode)
         let result = runCommand("/bin/chmod", arguments: [modeString, path])
         if result.success {
-            logger.info("权限已设置: \(path) -> \(modeString)")
+            logger.info("Permissions set: \(path) -> \(modeString)")
         } else {
-            logger.error("设置权限失败: \(path) - \(result.error ?? "未知错误")")
+            logger.error("Failed to set permissions: \(path) - \(result.error ?? "unknown error")")
         }
         return result
     }
 
-    /// 设置文件所有者
+    /// Set file owner
     static func setOwner(_ path: String, user: String, group: String?) -> (success: Bool, error: String?) {
         let validation = validatePath(path)
         guard validation.valid else {
@@ -345,29 +345,29 @@ struct PrivilegedOperations {
         }
 
         guard isValidUsername(user) else {
-            return (false, "无效的用户名")
+            return (false, "Invalid username")
         }
 
         var ownerSpec = user
         if let group = group {
             guard isValidUsername(group) else {
-                return (false, "无效的组名")
+                return (false, "Invalid group name")
             }
             ownerSpec = "\(user):\(group)"
         }
 
         let result = runCommand("/usr/sbin/chown", arguments: [ownerSpec, path])
         if result.success {
-            logger.info("所有者已设置: \(path) -> \(ownerSpec)")
+            logger.info("Owner set: \(path) -> \(ownerSpec)")
         } else {
-            logger.error("设置所有者失败: \(path) - \(result.error ?? "未知错误")")
+            logger.error("Failed to set owner: \(path) - \(result.error ?? "unknown error")")
         }
         return result
     }
 
-    // MARK: - 辅助方法
+    // MARK: - Helper Methods
 
-    /// 执行命令
+    /// Execute command
     private static func runCommand(_ command: String, arguments: [String]) -> (success: Bool, error: String?) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: command)
@@ -386,16 +386,16 @@ struct PrivilegedOperations {
             } else {
                 let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
                 let errorString = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-                return (false, errorString ?? "命令执行失败 (退出码: \(process.terminationStatus))")
+                return (false, errorString ?? "Command failed (exit code: \(process.terminationStatus))")
             }
         } catch {
             return (false, error.localizedDescription)
         }
     }
 
-    /// 验证用户名是否合法 (防止命令注入)
+    /// Validate username (prevent command injection)
     private static func isValidUsername(_ name: String) -> Bool {
-        // 用户名只能包含字母、数字、下划线和连字符
+        // Username can only contain letters, numbers, underscores, and hyphens
         let regex = try? NSRegularExpression(pattern: "^[a-zA-Z0-9_-]+$")
         let range = NSRange(name.startIndex..., in: name)
         return regex?.firstMatch(in: name, range: range) != nil

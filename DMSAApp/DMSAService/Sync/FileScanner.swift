@@ -1,34 +1,34 @@
 import Foundation
 
-/// 文件扫描器 - 遍历目录并收集文件元数据
+/// File Scanner - Traverses directories and collects file metadata
 actor FileScanner {
-    // MARK: - 配置
+    // MARK: - Configuration
 
-    /// 排除模式列表
+    /// Exclude pattern list
     private var excludePatterns: [String] = []
 
-    /// 是否包含隐藏文件
+    /// Whether to include hidden files
     private var includeHidden: Bool = false
 
-    /// 最大文件大小限制 (nil 表示无限制)
+    /// Maximum file size limit (nil means no limit)
     private var maxFileSize: Int64?
 
-    /// 是否跟随符号链接
+    /// Whether to follow symbolic links
     private var followSymlinks: Bool = false
 
-    // MARK: - 状态
+    // MARK: - State
 
-    /// 是否已取消
+    /// Whether cancelled
     private var isCancelled: Bool = false
 
-    /// 扫描进度回调
+    /// Scan progress callback
     typealias ProgressHandler = (Int, String) -> Void
 
     // MARK: - Logger
 
     private let logger = Logger.forService("FileScanner")
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     init(
         excludePatterns: [String] = [],
@@ -42,9 +42,9 @@ actor FileScanner {
         self.followSymlinks = followSymlinks
     }
 
-    // MARK: - 公共方法
+    // MARK: - Public Methods
 
-    /// 扫描目录，生成文件元数据快照
+    /// Scan directory and generate file metadata snapshot
     func scan(
         directory: URL,
         progressHandler: ProgressHandler? = nil
@@ -53,7 +53,7 @@ actor FileScanner {
 
         let fileManager = FileManager.default
 
-        // 验证目录存在
+        // Verify directory exists
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: directory.path, isDirectory: &isDirectory),
               isDirectory.boolValue else {
@@ -63,7 +63,7 @@ actor FileScanner {
         var snapshot = DirectorySnapshot(rootPath: directory.path)
         var fileCount = 0
 
-        // 创建目录枚举器
+        // Create directory enumerator
         let options: FileManager.DirectoryEnumerationOptions = followSymlinks ? [] : [.skipsPackageDescendants]
 
         guard let enumerator = fileManager.enumerator(
@@ -80,30 +80,30 @@ actor FileScanner {
             throw ScannerError.enumerationFailed(directory.path)
         }
 
-        // 遍历所有文件
+        // Enumerate all files
         for case let fileURL as URL in enumerator {
-            // 检查取消状态
+            // Check cancellation
             if isCancelled {
                 throw ScannerError.cancelled
             }
 
-            // 获取相对路径
+            // Get relative path
             let relativePath = fileURL.path.replacingOccurrences(
                 of: directory.path + "/",
                 with: ""
             )
 
-            // 检查排除规则
+            // Check exclusion rules
             if shouldExclude(relativePath: relativePath, url: fileURL) {
                 enumerator.skipDescendants()
                 continue
             }
 
-            // 获取文件元数据
+            // Get file metadata
             do {
                 let metadata = try FileMetadata.from(url: fileURL, relativeTo: directory)
 
-                // 检查文件大小限制
+                // Check file size limit
                 if let maxSize = maxFileSize, !metadata.isDirectory && metadata.size > maxSize {
                     continue
                 }
@@ -111,19 +111,19 @@ actor FileScanner {
                 snapshot.update(metadata)
                 fileCount += 1
 
-                // 回调进度
+                // Progress callback
                 progressHandler?(fileCount, relativePath)
 
             } catch {
-                // 记录错误但继续扫描
-                logger.warning("扫描文件失败: \(fileURL.path), 错误: \(error)")
+                // Log error but continue scanning
+                logger.warning("Failed to scan file: \(fileURL.path), error: \(error)")
             }
         }
 
         return snapshot
     }
 
-    /// 增量扫描 - 基于上次快照，只扫描变化的文件
+    /// Incremental scan - Based on previous snapshot, only scan changed files
     func incrementalScan(
         directory: URL,
         previousSnapshot: DirectorySnapshot,
@@ -135,11 +135,11 @@ actor FileScanner {
         var newSnapshot = DirectorySnapshot(rootPath: directory.path)
         var fileCount = 0
 
-        // 获取上次扫描的文件列表
+        // Get file list from last scan
         let previousFiles = Set(previousSnapshot.files.keys)
         var currentFiles = Set<String>()
 
-        // 创建目录枚举器
+        // Create directory enumerator
         let options: FileManager.DirectoryEnumerationOptions = followSymlinks ? [] : [.skipsPackageDescendants]
 
         guard let enumerator = fileManager.enumerator(
@@ -171,9 +171,9 @@ actor FileScanner {
 
             currentFiles.insert(relativePath)
 
-            // 检查是否需要重新扫描
+            // Check if rescan needed
             if let previousMeta = previousSnapshot.metadata(for: relativePath) {
-                // 快速检查：比较修改时间和大小
+                // Quick check: compare modification time and size
                 let attrs = try? fileManager.attributesOfItem(atPath: fileURL.path)
                 let mtime = attrs?[.modificationDate] as? Date
                 let size = attrs?[.size] as? Int64
@@ -181,7 +181,7 @@ actor FileScanner {
                 if let mtime = mtime, let size = size,
                    abs(mtime.timeIntervalSince(previousMeta.modifiedTime)) < 1.0 &&
                    size == previousMeta.size {
-                    // 文件未变化，复用旧元数据
+                    // File unchanged, reuse old metadata
                     newSnapshot.update(previousMeta)
                     fileCount += 1
                     progressHandler?(fileCount, relativePath)
@@ -189,7 +189,7 @@ actor FileScanner {
                 }
             }
 
-            // 需要重新获取完整元数据
+            // Need to fetch full metadata
             do {
                 let metadata = try FileMetadata.from(url: fileURL, relativeTo: directory)
 
@@ -202,25 +202,25 @@ actor FileScanner {
                 progressHandler?(fileCount, relativePath)
 
             } catch {
-                logger.warning("增量扫描文件失败: \(fileURL.path), 错误: \(error)")
+                logger.warning("Incremental scan failed for file: \(fileURL.path), error: \(error)")
             }
         }
 
-        // 标记已删除的文件 (可选：不添加到新快照中，它们自然不存在)
+        // Mark deleted files (optional: not adding to new snapshot means they naturally don't exist)
         let deletedFiles = previousFiles.subtracting(currentFiles)
         if !deletedFiles.isEmpty {
-            logger.info("检测到 \(deletedFiles.count) 个已删除文件")
+            logger.info("Detected \(deletedFiles.count) deleted files")
         }
 
         return newSnapshot
     }
 
-    /// 取消扫描
+    /// Cancel scan
     func cancel() {
         isCancelled = true
     }
 
-    /// 更新配置
+    /// Update configuration
     func updateConfig(
         excludePatterns: [String]? = nil,
         includeHidden: Bool? = nil,
@@ -241,18 +241,18 @@ actor FileScanner {
         }
     }
 
-    // MARK: - 私有方法
+    // MARK: - Private Methods
 
-    /// 检查是否应该排除该文件
+    /// Check if file should be excluded
     private func shouldExclude(relativePath: String, url: URL) -> Bool {
         let fileName = url.lastPathComponent
 
-        // 检查隐藏文件
+        // Check hidden files
         if !includeHidden && fileName.hasPrefix(".") {
             return true
         }
 
-        // 检查排除模式
+        // Check exclude patterns
         for pattern in excludePatterns {
             if matchesPattern(relativePath, pattern: pattern) ||
                matchesPattern(fileName, pattern: pattern) {
@@ -263,14 +263,14 @@ actor FileScanner {
         return false
     }
 
-    /// 简单的 glob 模式匹配
+    /// Simple glob pattern matching
     private func matchesPattern(_ string: String, pattern: String) -> Bool {
-        // 处理简单的 glob 模式
+        // Handle simple glob patterns
         if pattern == string {
             return true
         }
 
-        // 处理 * 通配符
+        // Handle * wildcard
         if pattern.contains("*") {
             let regexPattern = "^" + NSRegularExpression.escapedPattern(for: pattern)
                 .replacingOccurrences(of: "\\*\\*", with: ".*")
@@ -286,7 +286,7 @@ actor FileScanner {
     }
 }
 
-// MARK: - 扫描器错误
+// MARK: - Scanner Errors
 
 enum ScannerError: Error, LocalizedError {
     case directoryNotFound(String)
@@ -297,13 +297,13 @@ enum ScannerError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .directoryNotFound(let path):
-            return "目录不存在: \(path)"
+            return "Directory not found: \(path)"
         case .enumerationFailed(let path):
-            return "无法枚举目录: \(path)"
+            return "Failed to enumerate directory: \(path)"
         case .permissionDenied(let path):
-            return "权限不足: \(path)"
+            return "Permission denied: \(path)"
         case .cancelled:
-            return "扫描已取消"
+            return "Scan cancelled"
         }
     }
 }

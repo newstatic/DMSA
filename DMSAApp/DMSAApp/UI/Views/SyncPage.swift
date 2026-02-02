@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Sync Page
 
-/// 同步页面 - 显示同步状态、进度和历史
+/// Sync page - displays sync status, progress, and history
 struct SyncPage: View {
     @Binding var config: AppConfig
     @ObservedObject private var stateManager = StateManager.shared
@@ -261,7 +261,7 @@ struct SyncPage: View {
             do {
                 try await serviceClient.syncNow(syncPairId: pair.id)
             } catch {
-                Logger.shared.error("同步失败: \(pair.name) - \(error)")
+                Logger.shared.error("Sync failed: \(pair.name) - \(error)")
             }
         }
     }
@@ -313,7 +313,7 @@ struct SyncPage: View {
     }
 
     private var statusColor: Color {
-        // 优先检查服务状态
+        // Check service status first
         if !stateManager.isReady {
             switch stateManager.syncStatus {
             case .indexing:
@@ -333,7 +333,7 @@ struct SyncPage: View {
     }
 
     private var statusTitle: String {
-        // 优先检查服务状态
+        // Check service status first
         if !stateManager.isReady {
             switch stateManager.syncStatus {
             case .starting:
@@ -357,7 +357,7 @@ struct SyncPage: View {
     }
 
     private var statusSubtitle: String {
-        // 优先检查服务状态
+        // Check service status first
         if !stateManager.isReady {
             switch stateManager.syncStatus {
             case .starting:
@@ -390,14 +390,14 @@ struct SyncPage: View {
     private func startSync() {
         guard canStartSync else { return }
 
-        // 清空失败文件列表
+        // Clear failed files list
         failedFiles = []
 
         Task {
             do {
                 try await serviceClient.updateConfig(config)
                 try await serviceClient.syncAll()
-                // 同步状态由 StateManager 通过 XPC 回调更新
+                // Sync status updated by StateManager via XPC callback
             } catch {
                 Logger.shared.error("Sync failed: \(error.localizedDescription)")
             }
@@ -409,14 +409,14 @@ struct SyncPage: View {
             do {
                 if isPaused {
                     try await serviceClient.resumeSync()
-                    Logger.shared.info("已发送恢复同步请求")
+                    Logger.shared.info("Resume sync request sent")
                 } else {
                     try await serviceClient.pauseSync()
-                    Logger.shared.info("已发送暂停同步请求")
+                    Logger.shared.info("Pause sync request sent")
                 }
-                // 状态将通过 XPC 回调由 StateManager 更新
+                // Status will be updated by StateManager via XPC callback
             } catch {
-                Logger.shared.error("暂停/恢复同步失败: \(error)")
+                Logger.shared.error("Pause/resume sync failed: \(error)")
             }
         }
     }
@@ -425,10 +425,10 @@ struct SyncPage: View {
         Task {
             do {
                 try await serviceClient.cancelSync()
-                Logger.shared.info("已发送取消同步请求")
-                // 状态将通过 XPC 回调由 StateManager 更新
+                Logger.shared.info("Cancel sync request sent")
+                // Status will be updated by StateManager via XPC callback
             } catch {
-                Logger.shared.error("取消同步失败: \(error)")
+                Logger.shared.error("Cancel sync failed: \(error)")
             }
         }
     }
@@ -459,7 +459,7 @@ struct SyncPage: View {
         }
     }
 
-    /// 从 StateManager 更新本地状态
+    /// Update local state from StateManager
     private func updateFromStateManager() {
         isSyncing = stateManager.syncStatus == .syncing
         isPaused = stateManager.syncStatus == .paused
@@ -471,7 +471,7 @@ struct SyncPage: View {
         currentFile = stateManager.currentSyncFile
         syncSpeed = stateManager.syncSpeed
 
-        // 计算剩余时间
+        // Calculate remaining time
         if syncSpeed > 0 && totalBytes > processedBytes {
             let remainingBytes = totalBytes - processedBytes
             estimatedTimeRemaining = TimeInterval(remainingBytes) / TimeInterval(syncSpeed)
@@ -479,7 +479,7 @@ struct SyncPage: View {
             estimatedTimeRemaining = nil
         }
 
-        // 同步完成时刷新历史
+        // Refresh history when sync completes
         if stateManager.syncStatus == .ready && isSyncing {
             loadData()
         }

@@ -1,204 +1,204 @@
 import Foundation
 
-/// 应用常量
+/// App constants
 public enum Constants {
     /// Bundle IDs
     public static let bundleId = "com.ttttt.dmsa"
-    public static let serviceId = "com.ttttt.dmsa.service"  // 统一服务 ID
+    public static let serviceId = "com.ttttt.dmsa.service"  // Unified service ID
 
-    /// 旧版服务 ID (已废弃，仅供迁移参考)
-    @available(*, deprecated, message: "使用 serviceId 替代")
+    /// Legacy service IDs (deprecated, for migration reference only)
+    @available(*, deprecated, message: "Use serviceId instead")
     public static let vfsServiceId = "com.ttttt.dmsa.vfs"
-    @available(*, deprecated, message: "使用 serviceId 替代")
+    @available(*, deprecated, message: "Use serviceId instead")
     public static let syncServiceId = "com.ttttt.dmsa.sync"
-    @available(*, deprecated, message: "使用 serviceId 替代")
+    @available(*, deprecated, message: "Use serviceId instead")
     public static let helperServiceId = "com.ttttt.dmsa.helper"
 
-    /// 应用名称
+    /// App name
     public static let appName = "DMSA"
     public static let appFullName = "Delt MACOS Sync App"
 
-    /// 版本
+    /// Version
     public static let version = "4.7"
-    public static let appVersion = version  // 别名，兼容旧代码
+    public static let appVersion = version  // Alias for backward compatibility
 
-    /// 服务版本信息
+    /// Service version info
     public enum ServiceVersion {
-        /// 服务协议版本 (用于检测 App 与 Service 兼容性)
+        /// Service protocol version (for App-Service compatibility check)
         public static let protocolVersion = 1
 
-        /// 服务构建号 (每次代码修改递增)
+        /// Service build number (incremented on each code change)
         public static let buildNumber = 20260126
 
-        /// 最低兼容的 App 版本
+        /// Minimum compatible App version
         public static let minAppVersion = "4.5"
 
-        /// 完整版本字符串
+        /// Full version string
         public static var fullVersion: String {
             "\(Constants.version) (build \(buildNumber), protocol v\(protocolVersion))"
         }
     }
 
-    /// XPC 服务名称
+    /// XPC service names
     public enum XPCService {
-        /// 统一服务 (VFS + Sync + Privileged)
+        /// Unified service (VFS + Sync + Privileged)
         public static let service = "com.ttttt.dmsa.service"
 
-        /// 旧版服务名称 (已废弃)
-        @available(*, deprecated, message: "使用 service 替代")
+        /// Legacy service names (deprecated)
+        @available(*, deprecated, message: "Use service instead")
         public static let vfs = "com.ttttt.dmsa.vfs"
-        @available(*, deprecated, message: "使用 service 替代")
+        @available(*, deprecated, message: "Use service instead")
         public static let sync = "com.ttttt.dmsa.sync"
-        @available(*, deprecated, message: "使用 service 替代")
+        @available(*, deprecated, message: "Use service instead")
         public static let helper = "com.ttttt.dmsa.helper"
     }
 
-    /// 通知名称 (服务间通信)
-    /// 参考文档: SERVICE_FLOW/14_分布式通知.md
+    /// Notification names (inter-service communication)
+    /// Reference: SERVICE_FLOW/14_DistributedNotifications.md
     public enum Notifications {
-        // MARK: - 状态通知
-        /// 全局状态变更
+        // MARK: - State Notifications
+        /// Global state changed
         public static let stateChanged = "com.ttttt.dmsa.notification.stateChanged"
-        /// XPC 监听器启动就绪
+        /// XPC listener started and ready
         public static let xpcReady = "com.ttttt.dmsa.notification.xpcReady"
-        /// 服务完全就绪
+        /// Service fully ready
         public static let serviceReady = "com.ttttt.dmsa.notification.serviceReady"
-        /// 服务错误
+        /// Service error
         public static let serviceError = "com.ttttt.dmsa.notification.serviceError"
-        /// 组件错误
+        /// Component error
         public static let componentError = "com.ttttt.dmsa.notification.componentError"
 
-        // MARK: - 配置通知
-        /// 配置状态 (加载/修补)
+        // MARK: - Config Notifications
+        /// Config status (load/patch)
         public static let configStatus = "com.ttttt.dmsa.notification.configStatus"
-        /// 配置冲突
+        /// Config conflict
         public static let configConflict = "com.ttttt.dmsa.notification.configConflict"
-        /// 配置变更 (旧版兼容)
+        /// Config changed (legacy compatible)
         public static let configChanged = "com.ttttt.dmsa.notification.configChanged"
-        /// 配置已更新 (Service → App)
+        /// Config updated (Service -> App)
         public static let configUpdated = "com.ttttt.dmsa.notification.configUpdated"
 
-        // MARK: - VFS 通知
-        /// VFS 挂载完成
+        // MARK: - VFS Notifications
+        /// VFS mount completed
         public static let vfsMounted = "com.ttttt.dmsa.notification.vfsMounted"
-        /// VFS 卸载完成
+        /// VFS unmount completed
         public static let vfsUnmounted = "com.ttttt.dmsa.notification.vfsUnmounted"
 
-        // MARK: - 索引通知
-        /// 索引进度
+        // MARK: - Index Notifications
+        /// Index progress
         public static let indexProgress = "com.ttttt.dmsa.notification.indexProgress"
-        /// 索引完成
+        /// Index ready
         public static let indexReady = "com.ttttt.dmsa.notification.indexReady"
 
-        // MARK: - 同步通知
-        /// 文件写入 (脏文件)
+        // MARK: - Sync Notifications
+        /// File written (dirty file)
         public static let fileWritten = "com.ttttt.dmsa.notification.fileWritten"
-        /// 同步进度
+        /// Sync progress
         public static let syncProgress = "com.ttttt.dmsa.notification.syncProgress"
-        /// 同步完成
+        /// Sync completed
         public static let syncCompleted = "com.ttttt.dmsa.notification.syncCompleted"
-        /// 同步状态变更
+        /// Sync status changed
         public static let syncStatusChanged = "com.ttttt.dmsa.notification.syncStatusChanged"
 
-        // MARK: - 磁盘通知
-        /// 磁盘连接
+        // MARK: - Disk Notifications
+        /// Disk connected
         public static let diskConnected = "com.ttttt.dmsa.notification.diskConnected"
-        /// 磁盘断开
+        /// Disk disconnected
         public static let diskDisconnected = "com.ttttt.dmsa.notification.diskDisconnected"
     }
 
-    /// 路径
+    /// Paths
     public enum Paths {
-        /// 当前用户的 home 目录
-        /// Service 以 root 运行时，需要访问实际用户的目录
+        /// Current user's home directory
+        /// When Service runs as root, it needs to access the actual user's directory
         private static var userHome: URL {
-            // 检测是否以 root 身份运行 (Service)
+            // Detect if running as root (Service)
             if getuid() == 0 {
-                // 优先从 plist 注入的环境变量获取用户 Home
+                // Prefer user Home from plist-injected environment variable
                 if let userHome = ProcessInfo.processInfo.environment["DMSA_USER_HOME"] {
                     return URL(fileURLWithPath: userHome)
                 }
-                // 回退: 尝试从 SUDO_USER 获取
+                // Fallback: try from SUDO_USER
                 if let sudoUser = ProcessInfo.processInfo.environment["SUDO_USER"],
                    let pw = getpwnam(sudoUser) {
                     return URL(fileURLWithPath: String(cString: pw.pointee.pw_dir))
                 }
-                // 最后回退: 硬编码
+                // Last resort: hardcoded
                 return URL(fileURLWithPath: "/Users/ttttt")
             }
             return FileManager.default.homeDirectoryForCurrentUser
         }
 
-        /// 应用支持目录
+        /// App support directory
         public static var appSupport: URL {
             userHome.appendingPathComponent("Library/Application Support/DMSA")
         }
 
-        /// 共享数据目录 (服务间共享)
+        /// Shared data directory (shared between services)
         public static var sharedData: URL {
             appSupport.appendingPathComponent("SharedData")
         }
 
-        /// 配置文件
+        /// Config file
         public static var config: URL {
             appSupport.appendingPathComponent("config.json")
         }
 
-        /// 配置备份
+        /// Config backup
         public static var configBackup: URL {
             appSupport.appendingPathComponent("config.backup.json")
         }
 
-        /// 数据库目录
+        /// Database directory
         public static var database: URL {
             appSupport.appendingPathComponent("Database")
         }
 
-        /// 共享状态文件 (服务间状态同步)
+        /// Shared state file (inter-service state sync)
         public static var sharedState: URL {
             sharedData.appendingPathComponent("shared_state.json")
         }
 
-        /// Downloads_Local - 原始 ~/Downloads 重命名后的本地存储目录
+        /// Downloads_Local - local storage directory after renaming ~/Downloads
         public static var downloadsLocal: URL {
             userHome.appendingPathComponent("Downloads_Local")
         }
 
-        /// 虚拟 Downloads - FUSE 挂载点
+        /// Virtual Downloads - FUSE mount point
         public static var virtualDownloads: URL {
             userHome.appendingPathComponent("Downloads")
         }
 
-        /// 日志目录
-        /// Service 以 root 运行时，使用 plist 注入的用户目录
+        /// Logs directory
+        /// When Service runs as root, uses plist-injected user directory
         public static var logs: URL {
-            // 检测是否以 root 身份运行 (Service)
+            // Detect if running as root (Service)
             if getuid() == 0 {
-                // 优先从 plist 注入的环境变量获取日志目录
+                // Prefer logs directory from plist-injected environment variable
                 if let logsDir = ProcessInfo.processInfo.environment["DMSA_LOGS_DIR"] {
                     return URL(fileURLWithPath: logsDir)
                 }
-                // 回退: 使用 userHome
+                // Fallback: use userHome
                 return userHome.appendingPathComponent("Library/Logs/DMSA")
             }
             return FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent("Library/Logs/DMSA")
         }
 
-        /// 日期格式器 (日志文件名)
+        /// Date formatter (log file names)
         private static let logDateFormatter: DateFormatter = {
             let f = DateFormatter()
             f.dateFormat = "yyyy-MM-dd"
             return f
         }()
 
-        /// 统一服务日志 (今日)
+        /// Unified service log (today)
         public static var serviceLog: URL {
             let today = logDateFormatter.string(from: Date())
             return logs.appendingPathComponent("service-\(today).log")
         }
 
-        /// 应用日志 (今日)
+        /// App log (today)
         public static var appLog: URL {
             let today = logDateFormatter.string(from: Date())
             return logs.appendingPathComponent("app-\(today).log")
@@ -209,14 +209,14 @@ public enum Constants {
             userHome.appendingPathComponent("Library/LaunchAgents/com.ttttt.dmsa.plist")
         }
 
-        /// 版本文件目录名
+        /// Version file directory name
         public static let versionFileName = ".FUSE"
 
-        /// 版本数据库文件名
+        /// Version database file name
         public static let versionDBFileName = "db.json"
     }
 
-    /// 默认配置值
+    /// Default config values
     public enum Defaults {
         public static let debounceSeconds: Int = 5
         public static let maxRetryCount: Int = 3
@@ -227,18 +227,18 @@ public enum Constants {
         public static let healthCheckInterval: TimeInterval = 60.0
     }
 
-    /// 排除文件模式
+    /// Exclude file patterns
     public static let defaultExcludePatterns: [String] = [
         ".DS_Store", ".Trash", ".Spotlight-V100", ".fseventsd",
         ".TemporaryItems", ".Trashes", ".vol",
         "*.tmp", "*.temp", "*.swp", "*.swo", "*~",
         "Thumbs.db", "desktop.ini",
         "*.part", "*.crdownload", "*.download", "*.partial",
-        ".FUSE"  // 版本文件目录
+        ".FUSE"  // Version file directory
     ]
 
-    /// 路径安全白名单
-    /// 使用计算属性确保在 root 身份下也能正确获取用户路径
+    /// Path safety whitelist
+    /// Uses computed property to correctly resolve user path under root
     public static var allowedPathPrefixes: [String] {
         let home = UserPathManager.shared.userHome
         return [
@@ -246,11 +246,11 @@ public enum Constants {
             home + "/Downloads",
             home + "/Documents_Local",
             home + "/Documents",
-            "/Volumes/"  // 外置硬盘
+            "/Volumes/"  // External drives
         ]
     }
 
-    /// 危险路径黑名单
+    /// Dangerous path blacklist
     public static let forbiddenPaths: [String] = [
         "/System",
         "/usr",

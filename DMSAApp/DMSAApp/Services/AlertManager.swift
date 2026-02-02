@@ -2,7 +2,7 @@ import Foundation
 import Cocoa
 import SwiftUI
 
-/// 弹窗类型
+/// Alert type
 enum AlertType: String {
     case diskConnected = "disk_connected"
     case diskDisconnected = "disk_disconnected"
@@ -44,8 +44,8 @@ enum AlertType: String {
     }
 }
 
-/// 弹窗管理器 - 使用应用内对话框替代系统通知
-/// v4.6: 通过 XPC 与 DMSAService 通信
+/// Alert manager - uses in-app dialogs instead of system notifications
+/// v4.6: communicates with DMSAService via XPC
 @MainActor
 final class AlertManager {
     static let shared = AlertManager()
@@ -54,43 +54,43 @@ final class AlertManager {
     private var isShowingAlert = false
     private let queue = DispatchQueue(label: "com.dmsa.alertManager")
 
-    // 缓存的通知配置
+    // Cached notification config
     private var cachedNotificationConfig: NotificationConfig?
     private var lastConfigFetch: Date?
-    private let configCacheTimeout: TimeInterval = 60 // 1分钟缓存
+    private let configCacheTimeout: TimeInterval = 60 // 1 minute cache
 
     private init() {}
 
     // MARK: - Config Cache
 
-    /// 获取通知配置 (带缓存)
+    /// Get notification config (with cache)
     private func getNotificationConfig() async -> NotificationConfig {
-        // 检查缓存是否有效
+        // Check if cache is valid
         if let cached = cachedNotificationConfig,
            let lastFetch = lastConfigFetch,
            Date().timeIntervalSince(lastFetch) < configCacheTimeout {
             return cached
         }
 
-        // 从服务获取配置
+        // Fetch config from service
         do {
             let config = try await ServiceClient.shared.getNotificationConfig()
             cachedNotificationConfig = config
             lastConfigFetch = Date()
             return config
         } catch {
-            Logger.shared.error("获取通知配置失败: \(error)")
+            Logger.shared.error("Failed to get notification config: \(error)")
             return cachedNotificationConfig ?? NotificationConfig()
         }
     }
 
-    /// 使配置缓存失效
+    /// Invalidate config cache
     func invalidateConfigCache() {
         cachedNotificationConfig = nil
         lastConfigFetch = nil
     }
 
-    // MARK: - 发送弹窗
+    // MARK: - Send Alert
 
     func send(
         type: AlertType,
@@ -98,13 +98,13 @@ final class AlertManager {
         body: String,
         userInfo: [String: Any] = [:]
     ) {
-        // 将 userInfo 转换为 [String: String]
+        // Convert userInfo to [String: String]
         var stringUserInfo: [String: String] = [:]
         for (key, value) in userInfo {
             stringUserInfo[key] = String(describing: value)
         }
 
-        // 保存通知记录到服务 (异步)
+        // Save notification record to service (async)
         Task {
             let actionType = NotificationRecord.determineActionType(type: type.rawValue, userInfo: stringUserInfo)
             let record = NotificationRecord(
@@ -117,15 +117,15 @@ final class AlertManager {
             try? await ServiceClient.shared.saveNotificationRecord(record)
         }
 
-        // 异步检查配置并显示弹窗
+        // Async check config and show alert
         Task {
             let config = await getNotificationConfig()
             guard shouldShowAlert(type: type, config: config) else {
-                Logger.shared.debug("弹窗被配置禁用: \(type.rawValue)")
+                Logger.shared.debug("Alert disabled by config: \(type.rawValue)")
                 return
             }
 
-            // 添加到队列并显示
+            // Add to queue and show
             queue.async { [weak self] in
                 self?.alertQueue.append((type, title, body, stringUserInfo))
                 self?.processQueue()
@@ -148,7 +148,7 @@ final class AlertManager {
         case .syncFailed, .error:
             return config.showOnSyncError
         case .cacheWarning:
-            return true // 缓存警告总是显示
+            return true // Cache warnings always shown
         case .info:
             return true
         }
@@ -168,7 +168,7 @@ final class AlertManager {
     }
 
     private func showAlert(type: AlertType, title: String, body: String, userInfo: [String: String]) {
-        // 激活应用
+        // Activate app
         NSApp.activate(ignoringOtherApps: true)
 
         let alert = NSAlert()
@@ -177,11 +177,11 @@ final class AlertManager {
         alert.alertStyle = type.alertStyle
 
         if let icon = type.icon {
-            // 为图标着色
+            // Tint the icon
             let tintedIcon = icon.copy() as! NSImage
             tintedIcon.isTemplate = true
 
-            // 根据类型设置颜色
+            // Set color based on type
             let color: NSColor
             switch type {
             case .syncCompleted, .diskConnected:
@@ -196,7 +196,7 @@ final class AlertManager {
                 color = .systemBlue
             }
 
-            // 创建着色后的图标
+            // Create tinted icon
             let coloredImage = NSImage(size: tintedIcon.size, flipped: false) { rect in
                 tintedIcon.draw(in: rect)
                 color.set()
@@ -208,7 +208,7 @@ final class AlertManager {
 
         alert.addButton(withTitle: "common.ok".localized)
 
-        // 根据类型添加额外按钮
+        // Add extra buttons based on type
         switch type {
         case .syncFailed, .error:
             alert.addButton(withTitle: "alert.viewLogs".localized)
@@ -220,12 +220,12 @@ final class AlertManager {
 
         let response = alert.runModal()
 
-        // 处理按钮响应
+        // Handle button response
         if response == .alertSecondButtonReturn {
             handleSecondaryAction(type: type)
         }
 
-        // 处理完成，继续队列
+        // Done processing, continue queue
         queue.async { [weak self] in
             self?.isShowingAlert = false
             self?.processQueue()
@@ -235,13 +235,13 @@ final class AlertManager {
     private func handleSecondaryAction(type: AlertType) {
         switch type {
         case .syncFailed, .error:
-            // 打开日志
+            // Open logs
             let logPath = FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent("Library/Logs/DMSA/app.log")
             NSWorkspace.shared.open(logPath)
 
         case .syncCompleted:
-            // 打开历史记录
+            // Open history
             NotificationCenter.default.post(
                 name: .selectMainTab,
                 object: nil,
@@ -253,7 +253,7 @@ final class AlertManager {
         }
     }
 
-    // MARK: - 便捷方法
+    // MARK: - Convenience Methods
 
     func alertDiskConnected(diskName: String) {
         send(

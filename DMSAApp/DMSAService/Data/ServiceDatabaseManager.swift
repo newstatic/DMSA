@@ -1,62 +1,62 @@
 import Foundation
 import ObjectBox
 
-// MARK: - Service 数据库管理器
-// 使用 ObjectBox 存储大量数据 (FileEntry, SyncHistory, SyncStatistics)
-// 数据目录: /Library/Application Support/DMSA/ServiceData/
+// MARK: - Service Database Manager
+// Uses ObjectBox for high-volume data storage (FileEntry, SyncHistory, SyncStatistics)
+// Data directory: /Library/Application Support/DMSA/ServiceData/
 
-// MARK: - ObjectBox 实体定义
+// MARK: - ObjectBox Entity Definitions
 
 // objectbox: entity
-/// 文件索引实体 - 存储文件在 LOCAL/EXTERNAL 的位置和状态
+/// File index entity - stores file location and state in LOCAL/EXTERNAL
 class ServiceFileEntry: Entity, Identifiable, Codable {
     var id: Id = 0
 
-    /// 虚拟路径 (VFS 中的路径)
+    /// Virtual path (path in VFS)
     // objectbox: index
     var virtualPath: String = ""
 
-    /// 本地路径 (Downloads_Local 中的实际路径)
+    /// Local path (actual path in Downloads_Local)
     var localPath: String?
 
-    /// 外部路径 (外置硬盘中的实际路径)
+    /// External path (actual path on external drive)
     var externalPath: String?
 
-    /// 文件位置 (FileLocation.rawValue)
+    /// File location (FileLocation.rawValue)
     var location: Int = 0
 
-    /// 文件大小 (字节)
+    /// File size (bytes)
     var size: Int64 = 0
 
-    /// 创建时间
+    /// Creation time
     var createdAt: Date = Date()
 
-    /// 修改时间
+    /// Modification time
     var modifiedAt: Date = Date()
 
-    /// 访问时间 (用于 LRU 淘汰)
+    /// Access time (used for LRU eviction)
     var accessedAt: Date = Date()
 
-    /// 文件校验和
+    /// File checksum
     var checksum: String?
 
-    /// 是否为脏数据
+    /// Whether file has dirty data
     var isDirty: Bool = false
 
-    /// 是否为目录
+    /// Whether entry is a directory
     var isDirectory: Bool = false
 
-    /// 关联的同步对 ID
+    /// Associated sync pair ID
     // objectbox: index
     var syncPairId: String = ""
 
-    /// 锁定状态
+    /// Lock state
     var lockState: Int = 0
 
-    /// 锁定时间
+    /// Lock time
     var lockTime: Date?
 
-    /// 锁定方向
+    /// Lock direction
     var lockDirection: Int?
 
     required init() {}
@@ -70,7 +70,7 @@ class ServiceFileEntry: Entity, Identifiable, Codable {
         self.accessedAt = Date()
     }
 
-    // MARK: - 便捷属性
+    // MARK: - Convenience Properties
 
     var fileLocation: FileLocation {
         get { FileLocation(rawValue: location) ?? .notExists }
@@ -95,7 +95,7 @@ class ServiceFileEntry: Entity, Identifiable, Codable {
 }
 
 // objectbox: entity
-/// 同步历史实体
+/// Sync history entity
 class ServiceSyncHistory: Entity, Identifiable, Codable {
     var id: Id = 0
 
@@ -131,11 +131,11 @@ class ServiceSyncHistory: Entity, Identifiable, Codable {
     }
 
     // MARK: - Codable
-    // App 端 SyncHistory (class) CodingKeys:
-    //   startedAt → "startTime", completedAt → "endTime",
-    //   filesCount → "totalFiles", totalSize → "bytesTransferred"
-    // 所以 Service 编码时 key 必须是: startTime, endTime, totalFiles, bytesTransferred
-    // 而这些恰好就是 ServiceSyncHistory 的属性名，所以不需要重映射
+    // App-side SyncHistory (class) CodingKeys:
+    //   startedAt -> "startTime", completedAt -> "endTime",
+    //   filesCount -> "totalFiles", totalSize -> "bytesTransferred"
+    // So Service encodes with keys: startTime, endTime, totalFiles, bytesTransferred
+    // These match ServiceSyncHistory property names, so no remapping needed
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -155,7 +155,7 @@ class ServiceSyncHistory: Entity, Identifiable, Codable {
 }
 
 // objectbox: entity
-/// 同步统计实体 (按天聚合)
+/// Sync statistics entity (aggregated by day)
 class ServiceSyncStatistics: Entity, Identifiable, Codable {
     var id: Id = 0
 
@@ -189,7 +189,7 @@ class ServiceSyncStatistics: Entity, Identifiable, Codable {
 }
 
 // objectbox: entity
-/// 同步文件记录实体 - 每个被同步的文件单独记录
+/// Sync file record entity - records each synced file individually
 class ServiceSyncFileRecord: Entity, Identifiable, Codable {
     var id: Id = 0
 
@@ -199,24 +199,24 @@ class ServiceSyncFileRecord: Entity, Identifiable, Codable {
     // objectbox: index
     var diskId: String = ""
 
-    /// 文件虚拟路径
+    /// File virtual path
     // objectbox: index
     var virtualPath: String = ""
 
-    /// 文件大小 (字节)
+    /// File size (bytes)
     var fileSize: Int64 = 0
 
-    /// 同步时间
+    /// Sync time
     // objectbox: index
     var syncedAt: Date = Date()
 
-    /// 操作状态: 0=同步成功, 1=同步失败, 2=跳过, 3=淘汰成功, 4=淘汰失败
+    /// Operation status: 0=sync success, 1=sync failed, 2=skipped, 3=eviction success, 4=eviction failed
     var status: Int = 0
 
-    /// 错误信息 (失败时)
+    /// Error message (on failure)
     var errorMessage: String?
 
-    /// 所属同步任务的 ID (关联 ServiceSyncHistory)
+    /// Parent sync task ID (references ServiceSyncHistory)
     var syncTaskId: UInt64 = 0
 
     required init() {}
@@ -230,7 +230,7 @@ class ServiceSyncFileRecord: Entity, Identifiable, Codable {
         self.syncedAt = Date()
     }
 
-    // MARK: - Codable (映射到 App 端的 SyncFileRecord 字段名)
+    // MARK: - Codable (maps to App-side SyncFileRecord field names)
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -246,33 +246,33 @@ class ServiceSyncFileRecord: Entity, Identifiable, Codable {
 }
 
 // objectbox: entity
-/// 活动记录实体 - 持久化最近活动 (Dashboard 显示)
+/// Activity record entity - persists recent activities (shown on Dashboard)
 class ServiceActivityRecord: Entity, Identifiable, Codable {
     var id: Id = 0
 
-    /// 活动类型 (ActivityType.rawValue)
+    /// Activity type (ActivityType.rawValue)
     var type: Int = 0
 
-    /// 标题
+    /// Title
     var title: String = ""
 
-    /// 详细信息
+    /// Detail info
     var detail: String?
 
-    /// 时间戳
+    /// Timestamp
     // objectbox: index
     var timestamp: Date = Date()
 
-    /// 关联的同步对 ID
+    /// Associated sync pair ID
     var syncPairId: String?
 
-    /// 关联的磁盘 ID
+    /// Associated disk ID
     var diskId: String?
 
-    /// 文件数量
+    /// File count
     var filesCount: Int?
 
-    /// 字节数量
+    /// Byte count
     var bytesCount: Int64?
 
     required init() {}
@@ -289,7 +289,7 @@ class ServiceActivityRecord: Entity, Identifiable, Codable {
         self.bytesCount = record.bytesCount
     }
 
-    /// 转换为共享的 ActivityRecord
+    /// Convert to shared ActivityRecord
     func toActivityRecord() -> ActivityRecord {
         var record = ActivityRecord(
             type: ActivityType(rawValue: type) ?? .error,
@@ -300,18 +300,18 @@ class ServiceActivityRecord: Entity, Identifiable, Codable {
             filesCount: filesCount,
             bytesCount: bytesCount
         )
-        // 恢复原始时间戳 (ActivityRecord.init 会设置为 Date())
+        // Restore original timestamp (ActivityRecord.init sets it to Date())
         record.timestamp = timestamp
         return record
     }
 }
 
-/// 索引统计
+/// Index statistics
 public struct IndexStats: Codable, Sendable {
     public var totalFiles: Int
     public var totalDirectories: Int
     public var totalSize: Int64
-    public var localSize: Int64       // localOnly + both 文件大小 (LOCAL_DIR 实际占用)
+    public var localSize: Int64       // localOnly + both file size (actual LOCAL_DIR usage)
     public var localOnlyCount: Int
     public var externalOnlyCount: Int
     public var bothCount: Int
@@ -341,11 +341,11 @@ public struct IndexStats: Codable, Sendable {
     }
 }
 
-// MARK: - Service 数据库管理器
+// MARK: - Service Database Manager
 
-/// DMSAService 专用数据库管理器
-/// - 使用 ObjectBox 进行高性能存储
-/// - 存储位置: /Library/Application Support/DMSA/ServiceData/
+/// DMSAService database manager
+/// - Uses ObjectBox for high-performance storage
+/// - Storage location: /Library/Application Support/DMSA/ServiceData/
 actor ServiceDatabaseManager {
 
     static let shared = ServiceDatabaseManager()
@@ -353,7 +353,7 @@ actor ServiceDatabaseManager {
     private let logger = Logger.forService("Database")
     private let fileManager = FileManager.default
 
-    // 数据目录
+    // Data directory
     private let dataDirectory: URL
 
     // ObjectBox Store
@@ -366,20 +366,20 @@ actor ServiceDatabaseManager {
     private var syncFileRecordBox: Box<ServiceSyncFileRecord>?
     private var activityRecordBox: Box<ServiceActivityRecord>?
 
-    // 内存缓存 (用于频繁访问)
+    // In-memory cache (for frequent access)
     private var fileEntryCache: [String: [String: ServiceFileEntry]] = [:]  // [syncPairId: [virtualPath: Entry]]
     private var cacheLoaded: Set<String> = []
 
-    // 配置
+    // Configuration
     private let maxHistoryPerPair = 500
     private let maxStatisticsDays = 90
 
     private init() {
-        // 优先从 plist 注入的环境变量获取数据目录
+        // Prefer data directory from plist-injected environment variable
         if let dataDir = ProcessInfo.processInfo.environment["DMSA_DATA_DIR"] {
             dataDirectory = URL(fileURLWithPath: dataDir).appendingPathComponent("ServiceData")
         } else {
-            // 回退: 使用 Constants.Paths.appSupport
+            // Fallback: use Constants.Paths.appSupport
             dataDirectory = Constants.Paths.appSupport.appendingPathComponent("ServiceData")
         }
 
@@ -388,58 +388,58 @@ actor ServiceDatabaseManager {
         }
     }
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     private func initialize() async {
-        // 确保数据目录存在
+        // Ensure data directory exists
         do {
             try fileManager.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
-            logger.info("数据目录: \(dataDirectory.path)")
+            logger.info("Data directory: \(dataDirectory.path)")
         } catch {
-            logger.error("创建数据目录失败: \(error)")
+            logger.error("Failed to create data directory: \(error)")
             return
         }
 
-        // 初始化 ObjectBox Store
+        // Initialize ObjectBox Store
         do {
             let storeDirectory = dataDirectory.appendingPathComponent("objectbox")
             try fileManager.createDirectory(at: storeDirectory, withIntermediateDirectories: true)
 
             store = try Store(directoryPath: storeDirectory.path)
 
-            // 获取 Boxes
+            // Get Boxes
             fileEntryBox = store?.box(for: ServiceFileEntry.self)
             syncHistoryBox = store?.box(for: ServiceSyncHistory.self)
             syncStatisticsBox = store?.box(for: ServiceSyncStatistics.self)
             syncFileRecordBox = store?.box(for: ServiceSyncFileRecord.self)
             activityRecordBox = store?.box(for: ServiceActivityRecord.self)
 
-            logger.info("ObjectBox Store 初始化成功")
+            logger.info("ObjectBox Store initialized successfully")
 
-            // 输出统计信息
+            // Print statistics
             let fileCount = try fileEntryBox?.count() ?? 0
             let historyCount = try syncHistoryBox?.count() ?? 0
             let statsCount = try syncStatisticsBox?.count() ?? 0
-            logger.info("数据库统计: \(fileCount) 文件索引, \(historyCount) 同步历史, \(statsCount) 统计记录")
+            logger.info("Database stats: \(fileCount) file entries, \(historyCount) sync histories, \(statsCount) statistics records")
 
-            // 检查是否需要从 JSON 迁移
+            // Check if migration from JSON is needed
             await migrateFromJSONIfNeeded()
 
         } catch {
-            logger.error("ObjectBox 初始化失败: \(error)")
+            logger.error("ObjectBox initialization failed: \(error)")
         }
 
-        logger.info("ServiceDatabaseManager 初始化完成")
+        logger.info("ServiceDatabaseManager initialized")
     }
 
-    // MARK: - FileEntry 操作
+    // MARK: - FileEntry Operations
 
-    /// 加载指定 syncPairId 的所有文件到缓存
+    /// Load all files for a given syncPairId into cache
     private func loadCacheForSyncPair(_ syncPairId: String) {
-        // 检查是否已从内存缓存加载
+        // Check if already loaded from memory cache
         if cacheLoaded.contains(syncPairId) {
             let cacheCount = fileEntryCache[syncPairId]?.count ?? 0
-            logger.debug("缓存已加载，跳过: \(syncPairId), 缓存条目: \(cacheCount)")
+            logger.debug("Cache already loaded, skipping: \(syncPairId), cache entries: \(cacheCount)")
             return
         }
 
@@ -453,9 +453,9 @@ actor ServiceDatabaseManager {
             }
 
             cacheLoaded.insert(syncPairId)
-            logger.info("从数据库加载缓存: \(syncPairId), \(entries.count) 个条目")
+            logger.info("Loaded cache from database: \(syncPairId), \(entries.count) entries")
         } catch {
-            logger.error("加载缓存失败: \(error)")
+            logger.error("Failed to load cache: \(error)")
         }
     }
 
@@ -473,17 +473,17 @@ actor ServiceDatabaseManager {
         do {
             try fileEntryBox?.put(entry)
 
-            // 更新缓存
+            // Update cache
             if fileEntryCache[entry.syncPairId] == nil {
                 fileEntryCache[entry.syncPairId] = [:]
             }
             fileEntryCache[entry.syncPairId]?[entry.virtualPath] = entry
         } catch {
-            logger.error("保存文件索引失败: \(error)")
+            logger.error("Failed to save file entry: \(error)")
         }
     }
 
-    /// 分批写入文件索引 (每批 batchSize 条一个事务)
+    /// Batch write file entries (one transaction per batchSize)
     func saveFileEntries(_ entries: [ServiceFileEntry], batchSize: Int = 10000) {
         guard !entries.isEmpty else { return }
 
@@ -502,7 +502,7 @@ actor ServiceDatabaseManager {
                 try fileEntryBox?.put(batch)
                 savedCount += batch.count
 
-                // 更新缓存
+                // Update cache
                 for entry in batch {
                     if fileEntryCache[entry.syncPairId] == nil {
                         fileEntryCache[entry.syncPairId] = [:]
@@ -513,16 +513,16 @@ actor ServiceDatabaseManager {
                 failedCount += batch.count
                 failedBatches += 1
                 if failedBatches <= 3 {
-                    logger.error("批次写入失败 [\(batchIndex + 1)/\(totalBatches)]: \(batch.count) 条 - \(error)")
+                    logger.error("Batch write failed [\(batchIndex + 1)/\(totalBatches)]: \(batch.count) entries - \(error)")
                 }
             }
 
             if (batchIndex + 1) % 5 == 0 || batchIndex == totalBatches - 1 {
-                logger.info("索引写入进度: \(savedCount)/\(entries.count) (\(batchIndex + 1)/\(totalBatches) 批)")
+                logger.info("Index write progress: \(savedCount)/\(entries.count) (\(batchIndex + 1)/\(totalBatches) batches)")
             }
         }
 
-        logger.info("保存文件索引完成: 总计=\(entries.count), 成功=\(savedCount), 失败=\(failedCount), 失败批次=\(failedBatches)")
+        logger.info("Save file entries complete: total=\(entries.count), succeeded=\(savedCount), failed=\(failedCount), failedBatches=\(failedBatches)")
     }
 
     func deleteFileEntry(virtualPath: String, syncPairId: String) {
@@ -532,7 +532,7 @@ actor ServiceDatabaseManager {
             try fileEntryBox?.remove(entry)
             fileEntryCache[syncPairId]?.removeValue(forKey: virtualPath)
         } catch {
-            logger.error("删除文件索引失败: \(error)")
+            logger.error("Failed to delete file entry: \(error)")
         }
     }
 
@@ -561,7 +561,7 @@ actor ServiceDatabaseManager {
 
         entry.accessedAt = Date()
 
-        // 只更新缓存，批量写入时再保存到数据库
+        // Only update cache; will save to database during batch write
         fileEntryCache[syncPairId]?[virtualPath] = entry
     }
 
@@ -570,13 +570,13 @@ actor ServiceDatabaseManager {
         return fileEntryCache[syncPairId]?.values.filter { $0.isDirty } ?? []
     }
 
-    /// 获取需要同步的文件（脏文件 + 仅本地存在的文件）
+    /// Get files that need syncing (dirty files + local-only files)
     func getFilesToSync(syncPairId: String) -> [ServiceFileEntry] {
         loadCacheForSyncPair(syncPairId)
 
         let allEntriesArray: [ServiceFileEntry] = fileEntryCache[syncPairId].map { Array($0.values) } ?? []
 
-        // 详细统计
+        // Detailed statistics
         var localOnlyCount = 0
         var externalOnlyCount = 0
         var bothCount = 0
@@ -597,13 +597,13 @@ actor ServiceDatabaseManager {
             }
         }
 
-        logger.info("getFilesToSync 统计: syncPairId=\(syncPairId)")
-        logger.info("  - 总条目: \(allEntriesArray.count), 目录: \(directoriesCount)")
+        logger.info("getFilesToSync stats: syncPairId=\(syncPairId)")
+        logger.info("  - total entries: \(allEntriesArray.count), directories: \(directoriesCount)")
         logger.info("  - localOnly: \(localOnlyCount), externalOnly: \(externalOnlyCount), both: \(bothCount)")
         logger.info("  - dirty: \(dirtyCount), needsSync: \(needsSyncCount)")
 
         let result = allEntriesArray.filter { $0.needsSync && !$0.isDirectory }
-        logger.info("  - 返回需要同步的文件: \(result.count)")
+        logger.info("  - returning files to sync: \(result.count)")
 
         return result
     }
@@ -623,7 +623,7 @@ actor ServiceDatabaseManager {
             try fileEntryBox?.remove(entry)
             fileEntryCache[entry.syncPairId]?.removeValue(forKey: entry.virtualPath)
         } catch {
-            logger.error("删除文件索引失败: \(error)")
+            logger.error("Failed to delete file entry: \(error)")
         }
     }
 
@@ -635,13 +635,13 @@ actor ServiceDatabaseManager {
                 fileEntryCache[entry.syncPairId]?.removeValue(forKey: entry.virtualPath)
             }
         } catch {
-            logger.error("批量删除文件索引失败: \(error)")
+            logger.error("Failed to batch delete file entries: \(error)")
         }
     }
 
     func clearFileEntries(syncPairId: String) {
         do {
-            // 先记录当前缓存状态
+            // Record current cache state
             let cacheCount = fileEntryCache[syncPairId]?.count ?? 0
             let wasLoaded = cacheLoaded.contains(syncPairId)
 
@@ -652,29 +652,29 @@ actor ServiceDatabaseManager {
             fileEntryCache.removeValue(forKey: syncPairId)
             cacheLoaded.remove(syncPairId)
 
-            logger.info("========== 清除文件索引 ==========")
+            logger.info("========== Clear File Entries ==========")
             logger.info("  syncPairId: \(syncPairId)")
-            logger.info("  数据库条目: \(entries.count)")
-            logger.info("  缓存条目: \(cacheCount)")
-            logger.info("  缓存已加载: \(wasLoaded)")
-            logger.info("  清除后 cacheLoaded: \(cacheLoaded.contains(syncPairId))")
+            logger.info("  database entries: \(entries.count)")
+            logger.info("  cache entries: \(cacheCount)")
+            logger.info("  cache was loaded: \(wasLoaded)")
+            logger.info("  cacheLoaded after clear: \(cacheLoaded.contains(syncPairId))")
             logger.info("===================================")
         } catch {
-            logger.error("清除文件索引失败: \(error)")
+            logger.error("Failed to clear file entries: \(error)")
         }
     }
 
-    // MARK: - SyncHistory 操作
+    // MARK: - SyncHistory Operations
 
     func saveSyncHistory(_ history: ServiceSyncHistory) {
         do {
             try syncHistoryBox?.put(history)
-            logger.debug("保存同步历史: \(history.syncPairId)")
+            logger.debug("Saved sync history: \(history.syncPairId)")
 
             updateStatistics(from: history)
             cleanupOldHistory(syncPairId: history.syncPairId)
         } catch {
-            logger.error("保存同步历史失败: \(error)")
+            logger.error("Failed to save sync history: \(error)")
         }
     }
 
@@ -688,7 +688,7 @@ actor ServiceDatabaseManager {
 
             return Array((try query?.find() ?? []).prefix(limit))
         } catch {
-            logger.error("查询同步历史失败: \(error)")
+            logger.error("Failed to query sync history: \(error)")
             return []
         }
     }
@@ -701,7 +701,7 @@ actor ServiceDatabaseManager {
 
             return Array((try query?.find() ?? []).prefix(limit))
         } catch {
-            logger.error("查询所有同步历史失败: \(error)")
+            logger.error("Failed to query all sync history: \(error)")
             return []
         }
     }
@@ -711,9 +711,9 @@ actor ServiceDatabaseManager {
             let query = try syncHistoryBox?.query { ServiceSyncHistory.syncPairId.isEqual(to: syncPairId) }.build()
             let histories = try query?.find() ?? []
             try syncHistoryBox?.remove(histories)
-            logger.info("清除 \(histories.count) 条同步历史: \(syncPairId)")
+            logger.info("Cleared \(histories.count) sync history entries: \(syncPairId)")
         } catch {
-            logger.error("清除同步历史失败: \(error)")
+            logger.error("Failed to clear sync history: \(error)")
         }
     }
 
@@ -722,9 +722,9 @@ actor ServiceDatabaseManager {
             let query = try syncHistoryBox?.query { ServiceSyncHistory.startTime < date }.build()
             let histories = try query?.find() ?? []
             try syncHistoryBox?.remove(histories)
-            logger.info("清除 \(histories.count) 条旧同步历史")
+            logger.info("Cleared \(histories.count) old sync history entries")
         } catch {
-            logger.error("清除旧同步历史失败: \(error)")
+            logger.error("Failed to clear old sync history: \(error)")
         }
     }
 
@@ -739,36 +739,36 @@ actor ServiceDatabaseManager {
             if allHistory.count > maxHistoryPerPair {
                 let toRemove = Array(allHistory.dropFirst(maxHistoryPerPair))
                 try syncHistoryBox?.remove(toRemove)
-                logger.debug("清理 \(toRemove.count) 条旧历史记录")
+                logger.debug("Cleaned up \(toRemove.count) old history records")
             }
         } catch {
-            logger.error("清理旧历史失败: \(error)")
+            logger.error("Failed to clean up old history: \(error)")
         }
     }
 
-    // MARK: - SyncFileRecord 操作
+    // MARK: - SyncFileRecord Operations
 
-    /// 保存单条文件同步记录
+    /// Save a single file sync record
     func saveSyncFileRecord(_ record: ServiceSyncFileRecord) {
         do {
             try syncFileRecordBox?.put(record)
         } catch {
-            logger.error("保存文件同步记录失败: \(error)")
+            logger.error("Failed to save file sync record: \(error)")
         }
     }
 
-    /// 批量保存文件同步记录
+    /// Batch save file sync records
     func saveSyncFileRecords(_ records: [ServiceSyncFileRecord]) {
         guard !records.isEmpty else { return }
         do {
             try syncFileRecordBox?.put(records)
-            logger.debug("批量保存 \(records.count) 条文件同步记录")
+            logger.debug("Batch saved \(records.count) file sync records")
         } catch {
-            logger.error("批量保存文件同步记录失败: \(error)")
+            logger.error("Failed to batch save file sync records: \(error)")
         }
     }
 
-    /// 查询文件同步历史 (按时间倒序)
+    /// Query file sync history (ordered by time descending)
     func getSyncFileRecords(syncPairId: String, limit: Int = 200) -> [ServiceSyncFileRecord] {
         do {
             let query = try syncFileRecordBox?.query {
@@ -779,12 +779,12 @@ actor ServiceDatabaseManager {
 
             return Array((try query?.find() ?? []).prefix(limit))
         } catch {
-            logger.error("查询文件同步记录失败: \(error)")
+            logger.error("Failed to query file sync records: \(error)")
             return []
         }
     }
 
-    /// 查询所有文件同步历史 (按时间倒序，支持分页)
+    /// Query all file sync history (ordered by time descending, with pagination)
     func getAllSyncFileRecords(limit: Int = 200, offset: Int = 0) -> [ServiceSyncFileRecord] {
         do {
             let query = try syncFileRecordBox?.query()
@@ -796,12 +796,12 @@ actor ServiceDatabaseManager {
             let end = min(start + limit, all.count)
             return Array(all[start..<end])
         } catch {
-            logger.error("查询所有文件同步记录失败: \(error)")
+            logger.error("Failed to query all file sync records: \(error)")
             return []
         }
     }
 
-    /// 清理旧的文件同步记录 (保留最近 N 条)
+    /// Clean up old file sync records (keep most recent N)
     func cleanupOldSyncFileRecords(syncPairId: String, keepCount: Int = 5000) {
         do {
             let query = try syncFileRecordBox?.query {
@@ -814,14 +814,14 @@ actor ServiceDatabaseManager {
             if all.count > keepCount {
                 let toRemove = Array(all.dropFirst(keepCount))
                 try syncFileRecordBox?.remove(toRemove)
-                logger.debug("清理 \(toRemove.count) 条旧文件同步记录")
+                logger.debug("Cleaned up \(toRemove.count) old file sync records")
             }
         } catch {
-            logger.error("清理旧文件同步记录失败: \(error)")
+            logger.error("Failed to clean up old file sync records: \(error)")
         }
     }
 
-    // MARK: - SyncStatistics 操作
+    // MARK: - SyncStatistics Operations
 
     private func updateStatistics(from history: ServiceSyncHistory) {
         let calendar = Calendar.current
@@ -860,7 +860,7 @@ actor ServiceDatabaseManager {
 
             try syncStatisticsBox?.put(stats)
         } catch {
-            logger.error("更新统计失败: \(error)")
+            logger.error("Failed to update statistics: \(error)")
         }
     }
 
@@ -877,7 +877,7 @@ actor ServiceDatabaseManager {
 
             return try query?.find() ?? []
         } catch {
-            logger.error("查询统计失败: \(error)")
+            logger.error("Failed to query statistics: \(error)")
             return []
         }
     }
@@ -894,20 +894,20 @@ actor ServiceDatabaseManager {
 
             return try query?.findFirst()
         } catch {
-            logger.error("查询今日统计失败: \(error)")
+            logger.error("Failed to query today's statistics: \(error)")
             return nil
         }
     }
 
-    // MARK: - ActivityRecord 操作
+    // MARK: - ActivityRecord Operations
 
-    /// 保存活动记录 (保留最新 maxCount 条)
+    /// Save activity record (keep most recent maxCount)
     func saveActivityRecord(_ record: ActivityRecord, maxCount: Int = 20) {
         do {
             let entity = ServiceActivityRecord(from: record)
             try activityRecordBox?.put(entity)
 
-            // 清理超出上限的旧记录
+            // Clean up records exceeding limit
             let query = try activityRecordBox?.query()
                 .ordered(by: ServiceActivityRecord.timestamp, flags: .descending)
                 .build()
@@ -917,11 +917,11 @@ actor ServiceDatabaseManager {
                 try activityRecordBox?.remove(toRemove)
             }
         } catch {
-            logger.error("保存活动记录失败: \(error)")
+            logger.error("Failed to save activity record: \(error)")
         }
     }
 
-    /// 获取最近活动记录
+    /// Get recent activity records
     func getRecentActivities(limit: Int = 5) -> [ActivityRecord] {
         do {
             let query = try activityRecordBox?.query()
@@ -930,12 +930,12 @@ actor ServiceDatabaseManager {
             let entities = Array((try query?.find() ?? []).prefix(limit))
             return entities.map { $0.toActivityRecord() }
         } catch {
-            logger.error("查询活动记录失败: \(error)")
+            logger.error("Failed to query activity records: \(error)")
             return []
         }
     }
 
-    // MARK: - 索引统计
+    // MARK: - Index Statistics
 
     func getIndexStats(syncPairId: String) -> IndexStats {
         loadCacheForSyncPair(syncPairId)
@@ -959,7 +959,7 @@ actor ServiceDatabaseManager {
             default: break
             }
 
-            // LOCAL 实际占用 = localOnly + both 的文件大小
+            // LOCAL actual usage = localOnly + both file sizes
             if !entry.isDirectory && (location == .localOnly || location == .both) {
                 stats.localSize += entry.size
             }
@@ -973,17 +973,17 @@ actor ServiceDatabaseManager {
         return stats
     }
 
-    // MARK: - 强制保存 (刷新缓存到数据库)
+    // MARK: - Force Save (flush cache to database)
 
     func forceSave() async {
-        // 将缓存中的更改写入数据库
+        // Write cached changes to database
         for (_, entries) in fileEntryCache {
             saveFileEntries(Array(entries.values))
         }
-        logger.info("强制保存完成")
+        logger.info("Force save complete")
     }
 
-    // MARK: - 清理
+    // MARK: - Cleanup
 
     func clearAllData() async {
         do {
@@ -994,21 +994,21 @@ actor ServiceDatabaseManager {
             fileEntryCache.removeAll()
             cacheLoaded.removeAll()
 
-            logger.info("所有服务数据已清除")
+            logger.info("All service data cleared")
         } catch {
-            logger.error("清除数据失败: \(error)")
+            logger.error("Failed to clear data: \(error)")
         }
     }
 
-    // MARK: - 健康检查
+    // MARK: - Health Check
 
     func healthCheck() -> Bool {
         return store != nil && fileEntryBox != nil
     }
 
-    // MARK: - JSON 迁移
+    // MARK: - JSON Migration
 
-    /// 从旧的 JSON 文件迁移数据到 ObjectBox
+    /// Migrate data from old JSON files to ObjectBox
     private func migrateFromJSONIfNeeded() async {
         let oldFileEntriesURL = dataDirectory.appendingPathComponent("file_entries.json")
 
@@ -1016,9 +1016,9 @@ actor ServiceDatabaseManager {
             return
         }
 
-        logger.info("发现旧 JSON 数据文件，开始迁移...")
+        logger.info("Found old JSON data files, starting migration...")
 
-        // 迁移文件索引
+        // Migrate file entries
         if let data = try? Data(contentsOf: oldFileEntriesURL) {
             do {
                 struct LegacyEntry: Codable {
@@ -1064,17 +1064,17 @@ actor ServiceDatabaseManager {
 
                 try fileEntryBox?.put(newEntries)
 
-                // 备份并删除旧文件
+                // Backup and delete old file
                 let backupURL = oldFileEntriesURL.deletingPathExtension().appendingPathExtension("json.bak")
                 try? fileManager.moveItem(at: oldFileEntriesURL, to: backupURL)
 
-                logger.info("迁移 \(newEntries.count) 个文件索引到 ObjectBox")
+                logger.info("Migrated \(newEntries.count) file entries to ObjectBox")
             } catch {
-                logger.error("迁移文件索引失败: \(error)")
+                logger.error("Failed to migrate file entries: \(error)")
             }
         }
 
-        // 迁移同步历史
+        // Migrate sync history
         let oldSyncHistoryURL = dataDirectory.appendingPathComponent("sync_history.json")
         if let data = try? Data(contentsOf: oldSyncHistoryURL) {
             do {
@@ -1118,13 +1118,13 @@ actor ServiceDatabaseManager {
                 let backupURL = oldSyncHistoryURL.deletingPathExtension().appendingPathExtension("json.bak")
                 try? fileManager.moveItem(at: oldSyncHistoryURL, to: backupURL)
 
-                logger.info("迁移 \(newHistories.count) 条同步历史到 ObjectBox")
+                logger.info("Migrated \(newHistories.count) sync history entries to ObjectBox")
             } catch {
-                logger.error("迁移同步历史失败: \(error)")
+                logger.error("Failed to migrate sync history: \(error)")
             }
         }
 
-        // 迁移统计数据
+        // Migrate statistics
         let oldStatsURL = dataDirectory.appendingPathComponent("sync_statistics.json")
         if let data = try? Data(contentsOf: oldStatsURL) {
             do {
@@ -1162,12 +1162,12 @@ actor ServiceDatabaseManager {
                 let backupURL = oldStatsURL.deletingPathExtension().appendingPathExtension("json.bak")
                 try? fileManager.moveItem(at: oldStatsURL, to: backupURL)
 
-                logger.info("迁移 \(newStats.count) 条统计数据到 ObjectBox")
+                logger.info("Migrated \(newStats.count) statistics entries to ObjectBox")
             } catch {
-                logger.error("迁移统计数据失败: \(error)")
+                logger.error("Failed to migrate statistics: \(error)")
             }
         }
 
-        logger.info("数据迁移完成")
+        logger.info("Data migration complete")
     }
 }

@@ -1,21 +1,21 @@
 import Foundation
 
-// MARK: - 全局服务状态
+// MARK: - Global Service State
 
-/// 服务全局状态枚举
-/// 参考文档: SERVICE_FLOW/01_服务状态定义.md
+/// Service global state enum
+/// Reference: SERVICE_FLOW/01_ServiceStateDefinition.md
 public enum ServiceState: Int, Codable, Sendable, CaseIterable {
-    case starting       = 0   // 进程启动中
-    case xpcReady       = 1   // XPC 监听就绪，可接受连接
-    case vfsMounting    = 2   // FUSE 挂载进行中
-    case vfsBlocked     = 3   // FUSE 已挂载，索引未就绪，拒绝访问
-    case indexing       = 4   // 正在构建文件索引
-    case ready          = 5   // 索引完成，VFS 可正常访问
-    case running        = 6   // 完全运行，调度器已启动
-    case shuttingDown   = 7   // 正在关闭
-    case error          = 99  // 错误状态
+    case starting       = 0   // Process starting
+    case xpcReady       = 1   // XPC listener ready, accepting connections
+    case vfsMounting    = 2   // FUSE mounting in progress
+    case vfsBlocked     = 3   // FUSE mounted, index not ready, access denied
+    case indexing       = 4   // Building file index
+    case ready          = 5   // Index complete, VFS accessible
+    case running        = 6   // Fully running, scheduler started
+    case shuttingDown   = 7   // Shutting down
+    case error          = 99  // Error state
 
-    /// 状态名称 (用于日志和 UI 显示)
+    /// State name (for logs and UI display)
     public var name: String {
         switch self {
         case .starting:     return "STARTING"
@@ -30,22 +30,22 @@ public enum ServiceState: Int, Codable, Sendable, CaseIterable {
         }
     }
 
-    /// 中文描述
+    /// Localized description
     public var localizedDescription: String {
         switch self {
-        case .starting:     return "服务启动中"
-        case .xpcReady:     return "XPC 就绪"
-        case .vfsMounting:  return "挂载文件系统中"
-        case .vfsBlocked:   return "准备就绪中"
-        case .indexing:     return "构建索引中"
-        case .ready:        return "就绪"
-        case .running:      return "运行中"
-        case .shuttingDown: return "正在关闭"
-        case .error:        return "错误"
+        case .starting:     return "Service Starting"
+        case .xpcReady:     return "XPC Ready"
+        case .vfsMounting:  return "Mounting File System"
+        case .vfsBlocked:   return "Preparing"
+        case .indexing:     return "Building Index"
+        case .ready:        return "Ready"
+        case .running:      return "Running"
+        case .shuttingDown: return "Shutting Down"
+        case .error:        return "Error"
         }
     }
 
-    /// 是否允许 App 执行操作
+    /// Whether App operations are allowed
     public var allowsOperations: Bool {
         switch self {
         case .ready, .running:
@@ -55,7 +55,7 @@ public enum ServiceState: Int, Codable, Sendable, CaseIterable {
         }
     }
 
-    /// 是否允许配置读写
+    /// Whether config read/write is allowed
     public var allowsConfigAccess: Bool {
         switch self {
         case .starting, .shuttingDown:
@@ -65,12 +65,12 @@ public enum ServiceState: Int, Codable, Sendable, CaseIterable {
         }
     }
 
-    /// 是否允许状态查询
+    /// Whether status queries are allowed
     public var allowsStatusQuery: Bool {
         return self != .shuttingDown
     }
 
-    /// 是否为启动过程中的状态
+    /// Whether in startup phase
     public var isStartingPhase: Bool {
         switch self {
         case .starting, .xpcReady, .vfsMounting, .vfsBlocked, .indexing:
@@ -80,7 +80,7 @@ public enum ServiceState: Int, Codable, Sendable, CaseIterable {
         }
     }
 
-    /// 是否为正常运行状态
+    /// Whether in normal running state
     public var isNormal: Bool {
         switch self {
         case .ready, .running:
@@ -91,19 +91,19 @@ public enum ServiceState: Int, Codable, Sendable, CaseIterable {
     }
 }
 
-// MARK: - 组件状态
+// MARK: - Component State
 
-/// 组件状态枚举
-/// 参考文档: SERVICE_FLOW/01_服务状态定义.md
+/// Component state enum
+/// Reference: SERVICE_FLOW/01_ServiceStateDefinition.md
 public enum ComponentState: Int, Codable, Sendable, CaseIterable {
-    case notStarted = 0   // 未启动
-    case starting   = 1   // 启动中
-    case ready      = 2   // 就绪
-    case busy       = 3   // 忙碌中 (正在执行任务)
-    case paused     = 4   // 暂停
-    case error      = 99  // 错误
+    case notStarted = 0   // Not started
+    case starting   = 1   // Starting
+    case ready      = 2   // Ready
+    case busy       = 3   // Busy (executing task)
+    case paused     = 4   // Paused
+    case error      = 99  // Error
 
-    /// 状态名称
+    /// State name
     public var name: String {
         switch self {
         case .notStarted: return "notStarted"
@@ -115,7 +115,7 @@ public enum ComponentState: Int, Codable, Sendable, CaseIterable {
         }
     }
 
-    /// 日志格式化名称 (固定宽度)
+    /// Log formatted name (fixed width)
     public var logName: String {
         switch self {
         case .notStarted: return "--     "
@@ -128,20 +128,20 @@ public enum ComponentState: Int, Codable, Sendable, CaseIterable {
     }
 }
 
-// MARK: - 组件标识
+// MARK: - Component Identifier
 
-/// 服务组件标识
+/// Service component identifier
 public enum ServiceComponent: String, Codable, Sendable, CaseIterable {
-    case main       = "Main"      // 主进程
-    case xpc        = "XPC"       // XPC 监听器
-    case config     = "Config"    // 配置管理
-    case vfs        = "VFS"       // 虚拟文件系统
-    case index      = "Index"     // 索引管理
-    case sync       = "Sync"      // 同步引擎
-    case eviction   = "Evict"     // 淘汰管理
-    case database   = "DB"        // 数据库
+    case main       = "Main"      // Main process
+    case xpc        = "XPC"       // XPC listener
+    case config     = "Config"    // Config manager
+    case vfs        = "VFS"       // Virtual file system
+    case index      = "Index"     // Index manager
+    case sync       = "Sync"      // Sync engine
+    case eviction   = "Evict"     // Eviction manager
+    case database   = "DB"        // Database
 
-    /// 日志格式化名称 (固定宽度)
+    /// Log formatted name (fixed width)
     public var logName: String {
         switch self {
         case .main:     return "Main  "
@@ -156,9 +156,9 @@ public enum ServiceComponent: String, Codable, Sendable, CaseIterable {
     }
 }
 
-// MARK: - 组件错误信息
+// MARK: - Component Error Info
 
-/// 组件错误信息
+/// Component error information
 public struct ComponentError: Codable, Sendable {
     public let code: Int
     public let message: String
@@ -175,9 +175,9 @@ public struct ComponentError: Codable, Sendable {
     }
 }
 
-// MARK: - 组件状态信息
+// MARK: - Component State Info
 
-/// 组件完整状态信息
+/// Component full state information
 public struct ComponentStateInfo: Codable, Sendable {
     public let name: String
     public var state: ComponentState
@@ -198,9 +198,9 @@ public struct ComponentStateInfo: Codable, Sendable {
     }
 }
 
-// MARK: - 组件性能指标
+// MARK: - Component Metrics
 
-/// 组件性能指标
+/// Component performance metrics
 public struct ComponentMetrics: Codable, Sendable {
     public var processedCount: Int = 0
     public var errorCount: Int = 0
@@ -210,17 +210,17 @@ public struct ComponentMetrics: Codable, Sendable {
     public init() {}
 }
 
-// MARK: - 服务操作类型
+// MARK: - Service Operation Type
 
-/// 服务操作类型 (用于权限检查)
+/// Service operation type (for permission checks)
 public enum ServiceOperation: String, Sendable {
-    case statusQuery        // 状态查询
-    case configRead         // 配置读取
-    case configWrite        // 配置写入
-    case vfsMount           // VFS 挂载
-    case vfsUnmount         // VFS 卸载
-    case syncStart          // 启动同步
-    case syncPause          // 暂停同步
-    case evictionTrigger    // 触发淘汰
-    case fileOperation      // 文件操作
+    case statusQuery        // Status query
+    case configRead         // Config read
+    case configWrite        // Config write
+    case vfsMount           // VFS mount
+    case vfsUnmount         // VFS unmount
+    case syncStart          // Start sync
+    case syncPause          // Pause sync
+    case evictionTrigger    // Trigger eviction
+    case fileOperation      // File operation
 }

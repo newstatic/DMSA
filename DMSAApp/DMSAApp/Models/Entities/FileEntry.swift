@@ -1,19 +1,19 @@
 import Foundation
 
-/// 同步锁定状态
+/// Sync lock state
 enum LockState: Int, Codable {
-    case unlocked = 0       // 未锁定，可正常读写
-    case syncLocked = 1     // 同步锁定中，读取允许但写入阻塞
+    case unlocked = 0       // Unlocked, normal read/write
+    case syncLocked = 1     // Sync locked, reads allowed but writes blocked
 }
 
-/// 同步方向（用于锁定时确定源路径）
+/// Sync direction (used to determine source path during lock)
 enum SyncLockDirection: Int, Codable {
     case localToExternal = 0   // LOCAL -> EXTERNAL
     case externalToLocal = 1   // EXTERNAL -> LOCAL
 }
 
-/// 文件索引实体
-/// 用于追踪文件在本地和外置硬盘上的位置和状态
+/// File index entity
+/// Tracks file location and state across local and external disks
 class FileEntry: Identifiable, Codable {
     var id: UInt64 = 0
     var virtualPath: String = ""
@@ -29,24 +29,24 @@ class FileEntry: Identifiable, Codable {
     var syncPairId: String?
     var diskId: String?
 
-    /// 是否为目录
+    /// Whether this is a directory
     var isDirectory: Bool = false
 
-    // === 同步锁定相关 ===
+    // === Sync lock related ===
 
-    /// 同步锁定状态
+    /// Sync lock state
     var lockState: LockState = .unlocked
 
-    /// 锁定开始时间
+    /// Lock start time
     var lockTime: Date?
 
-    /// 锁定时的同步方向（用于确定读取源）
+    /// Sync direction during lock (determines read source)
     var lockDirection: SyncLockDirection?
 
-    /// 锁定超时时间（秒）
+    /// Lock timeout (seconds)
     static let lockTimeout: TimeInterval = 30.0
 
-    /// 写入等待超时时间（秒）
+    /// Write wait timeout (seconds)
     static let writeWaitTimeout: TimeInterval = 5.0
 
     init() {}
@@ -60,22 +60,22 @@ class FileEntry: Identifiable, Codable {
         self.accessedAt = Date()
     }
 
-    /// 文件名
+    /// File name
     var fileName: String {
         return (virtualPath as NSString).lastPathComponent
     }
 
-    /// 文件扩展名
+    /// File extension
     var fileExtension: String {
         return (virtualPath as NSString).pathExtension
     }
 
-    /// 父目录路径
+    /// Parent directory path
     var parentPath: String {
         return (virtualPath as NSString).deletingLastPathComponent
     }
 
-    /// 格式化文件大小
+    /// Formatted file size
     var formattedSize: String {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useAll]
@@ -83,17 +83,17 @@ class FileEntry: Identifiable, Codable {
         return formatter.string(fromByteCount: size)
     }
 
-    /// 是否需要同步
+    /// Whether sync is needed
     var needsSync: Bool {
         return isDirty || location == .localOnly || location == .externalOnly
     }
 
-    /// 是否被锁定
+    /// Whether locked
     var isLocked: Bool {
         return lockState == .syncLocked
     }
 
-    /// 检查锁定是否已超时
+    /// Check if lock has expired
     var isLockExpired: Bool {
         guard lockState == .syncLocked, let lockTime = lockTime else {
             return false
@@ -101,27 +101,27 @@ class FileEntry: Identifiable, Codable {
         return Date().timeIntervalSince(lockTime) > FileEntry.lockTimeout
     }
 
-    /// 获取同步时的源路径（用于读取锁定文件）
+    /// Get sync source path (for reading locked files)
     var syncSourcePath: String? {
         guard lockState == .syncLocked, let direction = lockDirection else {
             return nil
         }
         switch direction {
         case .localToExternal:
-            return localPath  // 从 LOCAL 同步到 EXTERNAL，源是 LOCAL
+            return localPath  // Syncing LOCAL -> EXTERNAL, source is LOCAL
         case .externalToLocal:
-            return externalPath  // 从 EXTERNAL 同步到 LOCAL，源是 EXTERNAL
+            return externalPath  // Syncing EXTERNAL -> LOCAL, source is EXTERNAL
         }
     }
 
-    /// 锁定文件（同步开始时调用）
+    /// Lock file (called when sync starts)
     func lock(direction: SyncLockDirection) {
         lockState = .syncLocked
         lockTime = Date()
         lockDirection = direction
     }
 
-    /// 解锁文件（同步完成时调用）
+    /// Unlock file (called when sync completes)
     func unlock() {
         lockState = .unlocked
         lockTime = nil

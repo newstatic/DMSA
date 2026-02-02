@@ -1,7 +1,7 @@
 import Foundation
 
-/// 同步对持久化实体
-/// 用于将 SyncPairConfig 保存到数据库
+/// Sync pair persistence entity
+/// Used to persist SyncPairConfig to the database
 class SyncPairEntity: Identifiable, Codable {
     var id: UInt64 = 0
     var pairId: String = ""
@@ -27,7 +27,7 @@ class SyncPairEntity: Identifiable, Codable {
         self.enabled = config.enabled
     }
 
-    /// 转换为 SyncPairConfig
+    /// Convert to SyncPairConfig
     func toConfig() -> SyncPairConfig {
         var config = SyncPairConfig(
             diskId: diskId,
@@ -40,17 +40,17 @@ class SyncPairEntity: Identifiable, Codable {
         return config
     }
 
-    /// 展开本地路径
+    /// Expanded local path
     var expandedLocalPath: String {
         return (localPath as NSString).expandingTildeInPath
     }
 
-    /// 计算外置硬盘完整路径
+    /// Compute full path on external disk
     func externalFullPath(diskMountPath: String) -> String {
         return (diskMountPath as NSString).appendingPathComponent(externalRelativePath)
     }
 
-    /// 格式化传输大小
+    /// Formatted bytes transferred
     var formattedBytesTransferred: String {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useAll]
@@ -58,7 +58,7 @@ class SyncPairEntity: Identifiable, Codable {
         return formatter.string(fromByteCount: totalBytesTransferred)
     }
 
-    /// 格式化最后同步时间
+    /// Formatted last sync time
     var formattedLastSync: String? {
         guard let date = lastSyncAt else { return nil }
         let formatter = DateFormatter()
@@ -68,19 +68,19 @@ class SyncPairEntity: Identifiable, Codable {
         return formatter.string(from: date)
     }
 
-    /// 更新同步统计
+    /// Update sync statistics
     func updateSyncStats(bytesTransferred: Int64) {
         syncCount += 1
         totalBytesTransferred += bytesTransferred
         lastSyncAt = Date()
     }
 
-    /// 本地路径显示名称
+    /// Local path display name
     var localPathDisplayName: String {
         return (localPath as NSString).lastPathComponent
     }
 
-    /// 外置路径显示名称
+    /// External path display name
     var externalPathDisplayName: String {
         return (externalRelativePath as NSString).lastPathComponent
     }

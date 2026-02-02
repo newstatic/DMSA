@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Dashboard View
 
-/// 仪表盘视图 - 主页面，显示状态概览和快速操作
+/// Dashboard view - main page displaying status overview and quick actions
 struct DashboardView: View {
     @Binding var config: AppConfig
     @ObservedObject private var stateManager = StateManager.shared
@@ -32,7 +32,7 @@ struct DashboardView: View {
                 // Recent Activity
                 recentActivitySection
 
-                // (文件同步记录已移至同步历史页面)
+                // (File sync records moved to Sync History page)
             }
             .padding(32)
             .frame(maxWidth: 800)
@@ -43,7 +43,7 @@ struct DashboardView: View {
             loadData()
         }
         .onChange(of: stateManager.syncStatus) { _ in
-            // 同步完成时刷新历史
+            // Refresh history when sync completes
             if stateManager.syncStatus == .ready {
                 loadData()
             }
@@ -215,7 +215,7 @@ struct DashboardView: View {
     // MARK: - Computed Properties
 
     private var statusIcon: String {
-        // 优先检查服务状态
+        // Check service status first
         if !stateManager.isReady {
             switch stateManager.syncStatus {
             case .starting:
@@ -243,7 +243,7 @@ struct DashboardView: View {
     }
 
     private var statusColor: Color {
-        // 优先检查服务状态
+        // Check service status first
         if !stateManager.isReady {
             switch stateManager.syncStatus {
             case .starting:
@@ -270,13 +270,13 @@ struct DashboardView: View {
         return .green
     }
 
-    /// 是否有磁盘连接 - 使用直接文件系统检查避免缓存问题
+    /// Whether any disk is connected - uses direct filesystem check to avoid caching issues
     private var hasConnectedDisk: Bool {
         diskManager.isAnyDiskConnected(from: config.disks)
     }
 
     private var statusTitle: String {
-        // 优先检查服务状态
+        // Check service status first
         if !stateManager.isReady {
             switch stateManager.syncStatus {
             case .starting:
@@ -306,7 +306,7 @@ struct DashboardView: View {
     }
 
     private var statusSubtitle: String {
-        // 优先检查服务状态
+        // Check service status first
         if !stateManager.isReady {
             switch stateManager.syncStatus {
             case .starting:

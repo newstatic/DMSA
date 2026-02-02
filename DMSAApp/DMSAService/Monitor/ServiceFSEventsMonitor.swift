@@ -1,13 +1,13 @@
 import Foundation
 import CoreServices
 
-/// Service 端 FSEvents 文件系统监控器
-/// 监控指定目录的文件变化，触发同步
+/// Service-side FSEvents file system monitor
+/// Monitors file changes in specified directories to trigger sync
 final class ServiceFSEventsMonitor {
 
     // MARK: - Types
 
-    /// 文件变化事件
+    /// File change event
     struct FileEvent: Sendable {
         let path: String
         let flags: FSEventStreamEventFlags
@@ -36,7 +36,7 @@ final class ServiceFSEventsMonitor {
         }
     }
 
-    /// 监控配置
+    /// Monitor configuration
     struct Config: Sendable {
         var latency: TimeInterval = 1.0
         var watchSubdirectories: Bool = true
@@ -57,13 +57,13 @@ final class ServiceFSEventsMonitor {
     private let queue: DispatchQueue
     private let logger = Logger.forService("FSEvents")
 
-    /// 事件回调
+    /// Event callback
     var onEvents: (([FileEvent]) -> Void)?
 
-    /// 是否正在监控
+    /// Whether monitoring is active
     private(set) var isMonitoring: Bool = false
 
-    /// 事件缓冲区
+    /// Event buffer
     private var eventBuffer: [FileEvent] = []
     private var debounceWorkItem: DispatchWorkItem?
     private let debounceInterval: TimeInterval
@@ -83,7 +83,7 @@ final class ServiceFSEventsMonitor {
 
     // MARK: - Public Methods
 
-    /// 更新监控路径
+    /// Update monitored paths
     func updatePaths(_ newPaths: [String]) {
         let wasMonitoring = isMonitoring
         if wasMonitoring {
@@ -97,7 +97,7 @@ final class ServiceFSEventsMonitor {
         }
     }
 
-    /// 添加监控路径
+    /// Add a monitored path
     func addPath(_ path: String) {
         let expandedPath = (path as NSString).expandingTildeInPath
         guard !paths.contains(expandedPath) else { return }
@@ -114,7 +114,7 @@ final class ServiceFSEventsMonitor {
         }
     }
 
-    /// 移除监控路径
+    /// Remove a monitored path
     func removePath(_ path: String) {
         let expandedPath = (path as NSString).expandingTildeInPath
         guard let index = paths.firstIndex(of: expandedPath) else { return }
@@ -131,26 +131,26 @@ final class ServiceFSEventsMonitor {
         }
     }
 
-    /// 开始监控
+    /// Start monitoring
     func start() -> Bool {
         guard !isMonitoring else {
-            logger.warn("FSEventsMonitor 已在运行")
+            logger.warn("FSEventsMonitor is already running")
             return true
         }
 
         guard !paths.isEmpty else {
-            logger.debug("FSEventsMonitor: 没有指定监控路径")
+            logger.debug("FSEventsMonitor: no monitored paths specified")
             return false
         }
 
-        // 验证路径存在
+        // Verify paths exist
         let validPaths = paths.filter { FileManager.default.fileExists(atPath: $0) }
         guard !validPaths.isEmpty else {
-            logger.error("FSEventsMonitor: 所有监控路径都不存在")
+            logger.error("FSEventsMonitor: all monitored paths do not exist")
             return false
         }
 
-        // 创建流上下文
+        // Create stream context
         var context = FSEventStreamContext(
             version: 0,
             info: Unmanaged.passUnretained(self).toOpaque(),
@@ -159,7 +159,7 @@ final class ServiceFSEventsMonitor {
             copyDescription: nil
         )
 
-        // 设置标志
+        // Set flags
         var flags: FSEventStreamCreateFlags = UInt32(kFSEventStreamCreateFlagUseCFTypes)
         if config.fileEvents {
             flags |= UInt32(kFSEventStreamCreateFlagFileEvents)
@@ -171,7 +171,7 @@ final class ServiceFSEventsMonitor {
             flags |= UInt32(kFSEventStreamCreateFlagWatchRoot)
         }
 
-        // 创建事件流
+        // Create event stream
         stream = FSEventStreamCreate(
             nil,
             serviceFSEventsCallback,
@@ -183,14 +183,14 @@ final class ServiceFSEventsMonitor {
         )
 
         guard let stream = stream else {
-            logger.error("FSEventsMonitor: 创建事件流失败")
+            logger.error("FSEventsMonitor: failed to create event stream")
             return false
         }
 
         FSEventStreamSetDispatchQueue(stream, queue)
 
         if !FSEventStreamStart(stream) {
-            logger.error("FSEventsMonitor: 启动事件流失败")
+            logger.error("FSEventsMonitor: failed to start event stream")
             FSEventStreamInvalidate(stream)
             FSEventStreamRelease(stream)
             self.stream = nil
@@ -198,11 +198,11 @@ final class ServiceFSEventsMonitor {
         }
 
         isMonitoring = true
-        logger.info("FSEventsMonitor 开始监控 \(validPaths.count) 个路径")
+        logger.info("FSEventsMonitor started monitoring \(validPaths.count) paths")
         return true
     }
 
-    /// 停止监控
+    /// Stop monitoring
     func stop() {
         guard isMonitoring, let stream = stream else { return }
 
@@ -217,7 +217,7 @@ final class ServiceFSEventsMonitor {
         debounceWorkItem = nil
         eventBuffer.removeAll()
 
-        logger.info("FSEventsMonitor 已停止")
+        logger.info("FSEventsMonitor stopped")
     }
 
     // MARK: - Internal Methods
@@ -269,7 +269,7 @@ final class ServiceFSEventsMonitor {
     private func flushEventBuffer() {
         guard !eventBuffer.isEmpty else { return }
 
-        // 合并重复事件
+        // Merge duplicate events
         var mergedEvents: [String: FileEvent] = [:]
         for event in eventBuffer {
             if let existing = mergedEvents[event.path] {
@@ -288,7 +288,7 @@ final class ServiceFSEventsMonitor {
         let events = Array(mergedEvents.values)
         eventBuffer.removeAll()
 
-        // 触发回调
+        // Trigger callback
         onEvents?(events)
     }
 

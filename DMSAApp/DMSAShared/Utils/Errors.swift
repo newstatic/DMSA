@@ -1,8 +1,8 @@
 import Foundation
 
-// MARK: - DMSA 通用错误
+// MARK: - DMSA Common Errors
 
-/// DMSA 通用错误类型
+/// DMSA common error type
 public enum DMSAError: Error, LocalizedError {
     case vfsError(String)
     case syncError(String)
@@ -20,36 +20,36 @@ public enum DMSAError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .vfsError(let msg):
-            return "VFS 错误: \(msg)"
+            return "VFS error: \(msg)"
         case .syncError(let msg):
-            return "同步错误: \(msg)"
+            return "Sync error: \(msg)"
         case .helperError(let msg):
-            return "Helper 错误: \(msg)"
+            return "Helper error: \(msg)"
         case .configError(let msg):
-            return "配置错误: \(msg)"
+            return "Config error: \(msg)"
         case .databaseError(let msg):
-            return "数据库错误: \(msg)"
+            return "Database error: \(msg)"
         case .xpcError(let msg):
-            return "XPC 通信错误: \(msg)"
+            return "XPC communication error: \(msg)"
         case .permissionDenied(let path):
-            return "权限被拒绝: \(path)"
+            return "Permission denied: \(path)"
         case .fileNotFound(let path):
-            return "文件不存在: \(path)"
+            return "File not found: \(path)"
         case .serviceNotAvailable(let service):
-            return "服务不可用: \(service)"
+            return "Service unavailable: \(service)"
         case .timeout:
-            return "操作超时"
+            return "Operation timed out"
         case .cancelled:
-            return "操作已取消"
+            return "Operation cancelled"
         case .unknown(let msg):
-            return "未知错误: \(msg)"
+            return "Unknown error: \(msg)"
         }
     }
 }
 
-// MARK: - 同步错误
+// MARK: - Sync Errors
 
-/// 同步错误
+/// Sync error
 public enum SyncError: Error, LocalizedError {
     case diskNotConnected(String)
     case sourceNotFound(String)
@@ -75,52 +75,52 @@ public enum SyncError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .diskNotConnected(let name):
-            return "硬盘未连接: \(name)"
+            return "Disk not connected: \(name)"
         case .sourceNotFound(let path):
-            return "源路径不存在: \(path)"
+            return "Source path not found: \(path)"
         case .fileNotFound(let path):
-            return "文件不存在: \(path)"
+            return "File not found: \(path)"
         case .permissionDenied(let path):
-            return "权限被拒绝: \(path)"
+            return "Permission denied: \(path)"
         case .insufficientSpace(let required, let available):
-            return "空间不足: 需要 \(formatBytes(required))，可用 \(formatBytes(available))"
+            return "Insufficient space: requires \(formatBytes(required)), available \(formatBytes(available))"
         case .syncFailed(let msg):
-            return "同步失败: \(msg)"
+            return "Sync failed: \(msg)"
         case .checksumMismatch(let expected, let actual):
-            return "校验和不匹配: 期望 \(expected)，实际 \(actual)"
+            return "Checksum mismatch: expected \(expected), actual \(actual)"
         case .verificationFailed(let path):
-            return "验证失败: \(path)"
+            return "Verification failed: \(path)"
         case .symlinkCreationFailed(let path, let error):
-            return "符号链接创建失败: \(path) - \(error)"
+            return "Symlink creation failed: \(path) - \(error)"
         case .configurationError(let msg):
-            return "配置错误: \(msg)"
+            return "Configuration error: \(msg)"
         case .databaseError(let msg):
-            return "数据库错误: \(msg)"
+            return "Database error: \(msg)"
         case .timeout:
-            return "同步超时"
+            return "Sync timed out"
         case .cancelled:
-            return "同步已取消"
+            return "Sync cancelled"
         case .alreadyInProgress:
-            return "同步已在进行中"
+            return "Sync already in progress"
         case .renameLocalFailed(let path, let error):
-            return "重命名失败: \(path) - \(error)"
+            return "Rename failed: \(path) - \(error)"
         case .localBackupExists(let path):
-            return "本地备份已存在: \(path)"
+            return "Local backup already exists: \(path)"
         case .fullDiskAccessRequired:
-            return "需要完全磁盘访问权限"
+            return "Full disk access required"
         case .localDirectoryNotMigrated(let path):
-            return "本地目录未迁移: \(path)"
+            return "Local directory not migrated: \(path)"
         case .symlinkNotCreated(let path):
-            return "符号链接未创建: \(path)"
+            return "Symlink not created: \(path)"
         case .serviceNotRunning:
-            return "同步服务未运行"
+            return "Sync service not running"
         }
     }
 }
 
-// MARK: - VFS 错误
+// MARK: - VFS Errors
 
-/// VFS 错误
+/// VFS error
 public enum VFSError: Error, LocalizedError {
     case fuseNotAvailable
     case fuseVersionTooOld(String)
@@ -135,45 +135,45 @@ public enum VFSError: Error, LocalizedError {
     case indexError(String)
     case serviceNotRunning
     case externalOffline
-    case conflictingPaths(String, String)  // TARGET_DIR 和 LOCAL_DIR 都存在
+    case conflictingPaths(String, String)  // Both TARGET_DIR and LOCAL_DIR exist
 
     public var errorDescription: String? {
         switch self {
         case .fuseNotAvailable:
-            return "macFUSE 未安装"
+            return "macFUSE not installed"
         case .fuseVersionTooOld(let version):
-            return "macFUSE 版本过旧: \(version)"
+            return "macFUSE version too old: \(version)"
         case .mountFailed(let msg):
-            return "挂载失败: \(msg)"
+            return "Mount failed: \(msg)"
         case .unmountFailed(let msg):
-            return "卸载失败: \(msg)"
+            return "Unmount failed: \(msg)"
         case .alreadyMounted(let path):
-            return "已经挂载: \(path)"
+            return "Already mounted: \(path)"
         case .notMounted(let path):
-            return "未挂载: \(path)"
+            return "Not mounted: \(path)"
         case .invalidPath(let path):
-            return "无效路径: \(path)"
+            return "Invalid path: \(path)"
         case .fileNotFound(let path):
-            return "文件不存在: \(path)"
+            return "File not found: \(path)"
         case .permissionDenied(let path):
-            return "权限被拒绝: \(path)"
+            return "Permission denied: \(path)"
         case .ioError(let msg):
-            return "IO 错误: \(msg)"
+            return "IO error: \(msg)"
         case .indexError(let msg):
-            return "索引错误: \(msg)"
+            return "Index error: \(msg)"
         case .serviceNotRunning:
-            return "VFS 服务未运行"
+            return "VFS service not running"
         case .externalOffline:
-            return "外部存储离线"
+            return "External storage offline"
         case .conflictingPaths(let target, let local):
-            return "路径冲突: \(target) 和 \(local) 都存在，请手动处理"
+            return "Path conflict: both \(target) and \(local) exist, please resolve manually"
         }
     }
 }
 
-// MARK: - 配置错误
+// MARK: - Config Errors
 
-/// 配置错误
+/// Config error
 public enum ConfigError: Error, LocalizedError {
     case fileNotFound
     case parseError(String)
@@ -183,20 +183,20 @@ public enum ConfigError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .fileNotFound:
-            return "配置文件不存在"
+            return "Config file not found"
         case .parseError(let msg):
-            return "配置解析错误: \(msg)"
+            return "Config parse error: \(msg)"
         case .validationError(let msg):
-            return "配置校验错误: \(msg)"
+            return "Config validation error: \(msg)"
         case .writeError(let msg):
-            return "配置写入错误: \(msg)"
+            return "Config write error: \(msg)"
         }
     }
 }
 
-// MARK: - Helper 错误
+// MARK: - Helper Errors
 
-/// Helper 错误
+/// Helper error
 public enum HelperError: Error, LocalizedError {
     case notInstalled
     case installFailed(String)
@@ -208,24 +208,24 @@ public enum HelperError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notInstalled:
-            return "Helper 服务未安装"
+            return "Helper service not installed"
         case .installFailed(let msg):
-            return "Helper 安装失败: \(msg)"
+            return "Helper installation failed: \(msg)"
         case .connectionFailed(let msg):
-            return "Helper 连接失败: \(msg)"
+            return "Helper connection failed: \(msg)"
         case .operationFailed(let msg):
-            return "Helper 操作失败: \(msg)"
+            return "Helper operation failed: \(msg)"
         case .pathNotAllowed(let path):
-            return "路径不允许操作: \(path)"
+            return "Path not allowed: \(path)"
         case .authorizationFailed:
-            return "授权失败"
+            return "Authorization failed"
         }
     }
 }
 
-// MARK: - 工具函数
+// MARK: - Utility Functions
 
-/// 字节格式化
+/// Byte formatting
 public func formatBytes(_ bytes: Int64) -> String {
     let formatter = ByteCountFormatter()
     formatter.countStyle = .file

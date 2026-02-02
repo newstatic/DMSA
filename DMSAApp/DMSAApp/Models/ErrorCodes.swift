@@ -1,124 +1,124 @@
 import Foundation
 
-/// 错误码定义
-/// 按功能模块分组，每个模块占用 1000 个错误码
+/// Error code definitions
+/// Grouped by functional module, each module occupies 1000 error codes
 struct ErrorCodes {
 
-    // MARK: - 连接错误 (1xxx)
+    // MARK: - Connection Errors (1xxx)
 
-    /// 连接失败
+    /// Connection failed
     static let connectionFailed = 1001
-    /// 连接中断
+    /// Connection interrupted
     static let connectionInterrupted = 1002
-    /// 连接超时
+    /// Connection timeout
     static let connectionTimeout = 1003
-    /// 连接被拒绝
+    /// Connection refused
     static let connectionRefused = 1004
-    /// 服务不可用
+    /// Service unavailable
     static let serviceUnavailable = 1005
-    /// 版本不兼容
+    /// Version incompatible
     static let versionIncompatible = 1006
 
-    // MARK: - 同步错误 (2xxx)
+    // MARK: - Sync Errors (2xxx)
 
-    /// 同步失败
+    /// Sync failed
     static let syncFailed = 2001
-    /// 同步冲突
+    /// Sync conflict
     static let syncConflict = 2002
-    /// 同步超时
+    /// Sync timeout
     static let syncTimeout = 2003
-    /// 同步已取消
+    /// Sync cancelled
     static let syncCancelled = 2004
-    /// 同步暂停
+    /// Sync paused
     static let syncPaused = 2005
-    /// 同步路径不存在
+    /// Sync path not found
     static let syncPathNotFound = 2006
-    /// 同步权限不足
+    /// Sync permission denied
     static let syncPermissionDenied = 2007
 
-    // MARK: - 配置错误 (3xxx)
+    // MARK: - Config Errors (3xxx)
 
-    /// 配置无效
+    /// Config invalid
     static let configInvalid = 3001
-    /// 配置保存失败
+    /// Config save failed
     static let configSaveFailed = 3002
-    /// 配置加载失败
+    /// Config load failed
     static let configLoadFailed = 3003
-    /// 配置项缺失
+    /// Config missing
     static let configMissing = 3004
-    /// 配置格式错误
+    /// Config format error
     static let configFormatError = 3005
 
-    // MARK: - 磁盘错误 (4xxx)
+    // MARK: - Disk Errors (4xxx)
 
-    /// 磁盘未找到
+    /// Disk not found
     static let diskNotFound = 4001
-    /// 磁盘访问被拒绝
+    /// Disk access denied
     static let diskAccessDenied = 4002
-    /// 磁盘已满
+    /// Disk full
     static let diskFull = 4003
-    /// 磁盘只读
+    /// Disk read-only
     static let diskReadOnly = 4004
-    /// 磁盘已断开
+    /// Disk disconnected
     static let diskDisconnected = 4005
-    /// 磁盘格式不支持
+    /// Disk format not supported
     static let diskUnsupportedFormat = 4006
 
-    // MARK: - 权限错误 (5xxx)
+    // MARK: - Permission Errors (5xxx)
 
-    /// 权限被拒绝
+    /// Permission denied
     static let permissionDenied = 5001
-    /// 服务未授权
+    /// Service not authorized
     static let serviceNotAuthorized = 5002
-    /// TCC 权限缺失
+    /// TCC permission missing
     static let tccPermissionMissing = 5003
-    /// 需要管理员权限
+    /// Admin required
     static let adminRequired = 5004
 
-    // MARK: - 组件错误 (6xxx)
+    // MARK: - Component Errors (6xxx)
 
-    /// 组件错误 (通用)
+    /// Component error (generic)
     static let componentError = 6001
-    /// VFS 组件错误
+    /// VFS component error
     static let vfsError = 6002
-    /// 同步引擎错误
+    /// Sync engine error
     static let syncEngineError = 6003
-    /// 数据库错误
+    /// Database error
     static let databaseError = 6004
-    /// 监控组件错误
+    /// Monitor component error
     static let monitorError = 6005
 
-    // MARK: - VFS 错误 (7xxx)
+    // MARK: - VFS Errors (7xxx)
 
-    /// VFS 挂载失败
+    /// VFS mount failed
     static let vfsMountFailed = 7001
-    /// VFS 卸载失败
+    /// VFS unmount failed
     static let vfsUnmountFailed = 7002
-    /// VFS 路径无效
+    /// VFS invalid path
     static let vfsInvalidPath = 7003
-    /// macFUSE 未安装
+    /// macFUSE not installed
     static let macFUSENotInstalled = 7004
-    /// macFUSE 版本过低
+    /// macFUSE version too old
     static let macFUSEVersionTooOld = 7005
 
-    // MARK: - 文件错误 (8xxx)
+    // MARK: - File Errors (8xxx)
 
-    /// 文件未找到
+    /// File not found
     static let fileNotFound = 8001
-    /// 文件已存在
+    /// File already exists
     static let fileAlreadyExists = 8002
-    /// 文件访问被拒绝
+    /// File access denied
     static let fileAccessDenied = 8003
-    /// 文件已锁定
+    /// File locked
     static let fileLocked = 8004
-    /// 文件校验失败
+    /// File checksum mismatch
     static let fileChecksumMismatch = 8005
-    /// 文件太大
+    /// File too large
     static let fileTooLarge = 8006
 
-    // MARK: - 辅助方法
+    // MARK: - Helper Methods
 
-    /// 获取错误码所属模块
+    /// Get module for error code
     static func module(for code: Int) -> String {
         switch code {
         case 1000..<2000: return "connection"
@@ -133,7 +133,7 @@ struct ErrorCodes {
         }
     }
 
-    /// 错误码是否为严重错误
+    /// Whether error code is critical
     static func isCritical(_ code: Int) -> Bool {
         switch code {
         case connectionFailed,
@@ -148,7 +148,7 @@ struct ErrorCodes {
         }
     }
 
-    /// 错误码是否可恢复
+    /// Whether error code is recoverable
     static func isRecoverable(_ code: Int) -> Bool {
         switch code {
         case connectionInterrupted,
@@ -162,10 +162,10 @@ struct ErrorCodes {
         }
     }
 
-    /// 获取错误码的默认消息
+    /// Get default message for error code
     static func defaultMessage(for code: Int) -> String {
         switch code {
-        // 连接错误
+        // Connection errors
         case connectionFailed: return "error.connection.failed".localized
         case connectionInterrupted: return "error.connection.interrupted".localized
         case connectionTimeout: return "error.connection.timeout".localized
@@ -173,7 +173,7 @@ struct ErrorCodes {
         case serviceUnavailable: return "error.service.unavailable".localized
         case versionIncompatible: return "error.version.incompatible".localized
 
-        // 同步错误
+        // Sync errors
         case syncFailed: return "error.sync.failed".localized
         case syncConflict: return "error.sync.conflict".localized
         case syncTimeout: return "error.sync.timeout".localized
@@ -181,29 +181,29 @@ struct ErrorCodes {
         case syncPathNotFound: return "error.sync.path.notfound".localized
         case syncPermissionDenied: return "error.sync.permission.denied".localized
 
-        // 配置错误
+        // Config errors
         case configInvalid: return "error.config.invalid".localized
         case configSaveFailed: return "error.config.save.failed".localized
         case configLoadFailed: return "error.config.load.failed".localized
 
-        // 磁盘错误
+        // Disk errors
         case diskNotFound: return "error.disk.notfound".localized
         case diskAccessDenied: return "error.disk.access.denied".localized
         case diskFull: return "error.disk.full".localized
         case diskDisconnected: return "error.disk.disconnected".localized
 
-        // 权限错误
+        // Permission errors
         case permissionDenied: return "error.permission.denied".localized
         case serviceNotAuthorized: return "error.service.notauthorized".localized
         case tccPermissionMissing: return "error.tcc.missing".localized
 
-        // VFS 错误
+        // VFS errors
         case vfsMountFailed: return "error.vfs.mount.failed".localized
         case vfsUnmountFailed: return "error.vfs.unmount.failed".localized
         case macFUSENotInstalled: return "error.macfuse.notinstalled".localized
         case macFUSEVersionTooOld: return "error.macfuse.outdated".localized
 
-        // 文件错误
+        // File errors
         case fileNotFound: return "error.file.notfound".localized
         case fileAlreadyExists: return "error.file.exists".localized
         case fileAccessDenied: return "error.file.access.denied".localized

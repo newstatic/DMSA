@@ -1,18 +1,18 @@
 import Foundation
 
-/// 应用常量
+/// App constants
 enum Constants {
     /// Bundle ID
     static let bundleId = "com.ttttt.dmsa"
 
-    /// 应用名称
+    /// App name
     static let appName = "DMSA"
     static let appFullName = "Delt MACOS Sync App"
 
-    /// 版本
+    /// Version
     static let version = "4.7"
 
-    /// 服务版本信息
+    /// Service version info
     enum ServiceVersion {
         static let protocolVersion = 1
         static let buildNumber = 20260126
@@ -22,7 +22,7 @@ enum Constants {
         }
     }
 
-    /// 路径
+    /// Paths
     enum Paths {
         static let appSupport = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/DMSA")
@@ -31,21 +31,21 @@ enum Constants {
         static let configBackup = appSupport.appendingPathComponent("config.backup.json")
         static let database = appSupport.appendingPathComponent("Database")
 
-        /// 共享数据目录
+        /// Shared data directory
         static var sharedData: URL {
             appSupport.appendingPathComponent("SharedData")
         }
 
-        /// 共享状态文件
+        /// Shared state file
         static var sharedState: URL {
             sharedData.appendingPathComponent("shared_state.json")
         }
 
-        /// Downloads_Local - 原始 ~/Downloads 重命名后的本地存储目录
+        /// Downloads_Local - local storage directory after renaming ~/Downloads
         static let downloadsLocal = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Downloads_Local")
 
-        /// 虚拟 Downloads - FUSE 挂载点
+        /// Virtual Downloads - FUSE mount point
         static let virtualDownloads = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Downloads")
 
@@ -53,7 +53,7 @@ enum Constants {
             .appendingPathComponent("Library/Logs/DMSA")
         static let logFile = logs.appendingPathComponent("app.log")
 
-        /// 服务日志 (Service 以 root 运行，日志在 /var/log/dmsa/)
+        /// Service log (Service runs as root, logs in /var/log/dmsa/)
         static let serviceLogDir = URL(fileURLWithPath: "/var/log/dmsa")
         static let serviceLog = serviceLogDir.appendingPathComponent("service.log")
 
@@ -61,7 +61,7 @@ enum Constants {
             .appendingPathComponent("Library/LaunchAgents/com.ttttt.dmsa.plist")
     }
 
-    /// 默认配置值
+    /// Default config values
     enum Defaults {
         static let debounceSeconds: Int = 5
         static let maxRetryCount: Int = 3
@@ -70,7 +70,7 @@ enum Constants {
         static let writeBackDelay: TimeInterval = 5.0
     }
 
-    /// 排除文件模式
+    /// Exclude file patterns
     static let defaultExcludePatterns: [String] = [
         ".DS_Store", ".Trash", ".Spotlight-V100", ".fseventsd",
         ".TemporaryItems", ".Trashes", ".vol",
@@ -79,13 +79,13 @@ enum Constants {
         "*.part", "*.crdownload", "*.download", "*.partial"
     ]
 
-    /// XPC Service Identifier (统一服务)
+    /// XPC Service Identifier (unified service)
     enum XPCService {
-        /// 统一服务 (v4.1 - VFS + Sync + Privileged)
+        /// Unified service (v4.1 - VFS + Sync + Privileged)
         static let service = "com.ttttt.dmsa.service"
     }
 
-    /// 分布式通知名称
+    /// Distributed notification names
     enum Notifications {
         static let vfsMounted = "com.ttttt.dmsa.vfs.mounted"
         static let vfsUnmounted = "com.ttttt.dmsa.vfs.unmounted"
@@ -96,17 +96,17 @@ enum Constants {
         static let diskConnected = "com.ttttt.dmsa.diskConnected"
         static let diskDisconnected = "com.ttttt.dmsa.diskDisconnected"
 
-        /// 全局状态变更
+        /// Global state changed
         static let stateChanged = "com.ttttt.dmsa.notification.stateChanged"
-        /// 服务启动完成，下发配置
+        /// Service startup complete, push config
         static let serviceReady = "com.ttttt.dmsa.notification.serviceReady"
-        /// 配置已更新（Service → App）
+        /// Config updated (Service -> App)
         static let configUpdated = "com.ttttt.dmsa.notification.configUpdated"
-        /// 同步进度实时更新
+        /// Sync progress real-time update
         static let syncProgress = "com.ttttt.dmsa.notification.syncProgress"
-        /// 同步状态变更（开始/完成/失败）
+        /// Sync status changed (start/complete/fail)
         static let syncStatusChanged = "com.ttttt.dmsa.notification.syncStatusChanged"
-        /// 索引构建完成
+        /// Index build complete
         static let indexReady = "com.ttttt.dmsa.notification.indexReady"
     }
 }

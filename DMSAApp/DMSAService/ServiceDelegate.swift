@@ -1,10 +1,10 @@
 import Foundation
 import Security
 
-/// DMSAService XPC 委托
+/// DMSAService XPC Delegate
 final class ServiceDelegate: NSObject, NSXPCListenerDelegate {
 
-    /// 单例引用 (用于信号处理和全局访问)
+    /// Singleton reference (for signal handling and global access)
     static weak var shared: ServiceDelegate?
 
     private let logger = Logger.forService("DMSAService")
@@ -22,55 +22,55 @@ final class ServiceDelegate: NSObject, NSXPCListenerDelegate {
     func listener(_ listener: NSXPCListener,
                   shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
 
-        // 验证连接来源
+        // Verify connection source
         guard verifyConnection(newConnection) else {
-            logger.error("拒绝未授权连接: PID \(newConnection.processIdentifier)")
+            logger.error("Rejected unauthorized connection: PID \(newConnection.processIdentifier)")
             return false
         }
 
-        logger.info("接受新连接: PID \(newConnection.processIdentifier)")
+        logger.info("Accepted new connection: PID \(newConnection.processIdentifier)")
 
-        // 配置 Service -> App 接口 (exportedInterface)
+        // Configure Service -> App interface (exportedInterface)
         newConnection.exportedInterface = NSXPCInterface(with: DMSAServiceProtocol.self)
         newConnection.exportedObject = implementation
 
-        // 配置 App -> Service 回调接口 (remoteObjectInterface)
-        // 允许 Service 通过此接口主动通知 App
+        // Configure App -> Service callback interface (remoteObjectInterface)
+        // Allows Service to proactively notify App via this interface
         newConnection.remoteObjectInterface = NSXPCInterface(with: DMSAClientProtocol.self)
 
-        // 连接断开处理
+        // Connection invalidation handler
         newConnection.invalidationHandler = { [weak self, weak newConnection] in
             guard let self = self, let conn = newConnection else { return }
-            self.logger.info("连接断开: PID \(conn.processIdentifier)")
+            self.logger.info("Connection invalidated: PID \(conn.processIdentifier)")
             self.removeConnection(conn)
         }
 
         newConnection.interruptionHandler = { [weak self] in
-            self?.logger.warning("连接中断")
+            self?.logger.warning("Connection interrupted")
         }
 
-        // 记录活跃连接
+        // Track active connections
         addConnection(newConnection)
 
         newConnection.resume()
         return true
     }
 
-    // MARK: - 连接验证
+    // MARK: - Connection Verification
 
     private func verifyConnection(_ connection: NSXPCConnection) -> Bool {
         let pid = connection.processIdentifier
 
-        // 开发模式下允许所有连接
+        // Allow all connections in debug mode
         #if DEBUG
-        logger.debug("开发模式：允许 PID \(pid) 连接")
+        logger.debug("Debug mode: allowing PID \(pid) to connect")
         return true
         #endif
 
-        // 生产模式：验证代码签名
+        // Production mode: verify code signature
         var code: SecCode?
 
-        // 通过 PID 获取代码引用
+        // Get code reference via PID
         let attributes: [CFString: Any] = [
             kSecGuestAttributePid: pid
         ]
@@ -83,11 +83,11 @@ final class ServiceDelegate: NSObject, NSXPCListenerDelegate {
         )
 
         guard status == errSecSuccess, let code = code else {
-            logger.error("无法获取代码引用: \(status)")
+            logger.error("Failed to get code reference: \(status)")
             return false
         }
 
-        // 验证签名要求
+        // Verify signature requirements
         var requirement: SecRequirement?
         let requirementString = """
             identifier "com.ttttt.dmsa" and anchor apple generic
@@ -96,21 +96,21 @@ final class ServiceDelegate: NSObject, NSXPCListenerDelegate {
         let reqStatus = SecRequirementCreateWithString(requirementString as CFString, [], &requirement)
 
         guard reqStatus == errSecSuccess, let requirement = requirement else {
-            logger.error("创建签名要求失败: \(reqStatus)")
+            logger.error("Failed to create signature requirement: \(reqStatus)")
             return false
         }
 
         let validStatus = SecCodeCheckValidity(code, [], requirement)
 
         if validStatus != errSecSuccess {
-            logger.error("签名验证失败: \(validStatus)")
+            logger.error("Signature verification failed: \(validStatus)")
             return false
         }
 
         return true
     }
 
-    // MARK: - 连接管理
+    // MARK: - Connection Management
 
     private func addConnection(_ connection: NSXPCConnection) {
         connectionLock.lock()
@@ -124,7 +124,7 @@ final class ServiceDelegate: NSObject, NSXPCListenerDelegate {
         activeConnections.removeAll { $0 === connection }
     }
 
-    /// 获取所有活跃连接的客户端代理
+    /// Get client proxies for all active connections
     private func getClientProxies() -> [DMSAClientProtocol] {
         connectionLock.lock()
         defer { connectionLock.unlock() }
@@ -134,142 +134,142 @@ final class ServiceDelegate: NSObject, NSXPCListenerDelegate {
         }
     }
 
-    // MARK: - 客户端通知
+    // MARK: - Client Notifications
 
-    /// 通知所有连接的客户端状态变更
+    /// Notify all connected clients of state change
     func notifyStateChanged(oldState: Int, newState: Int, data: Data?) {
-        logger.debug("[XPC通知] 状态变更: \(oldState) -> \(newState)")
+        logger.debug("[XPC Notify] State changed: \(oldState) -> \(newState)")
         for client in getClientProxies() {
             client.onStateChanged(oldState: oldState, newState: newState, data: data)
         }
     }
 
-    /// 通知索引进度
+    /// Notify index progress
     func notifyIndexProgress(data: Data) {
         for client in getClientProxies() {
             client.onIndexProgress(data: data)
         }
     }
 
-    /// 通知索引就绪
+    /// Notify index ready
     func notifyIndexReady(syncPairId: String) {
-        logger.debug("[XPC通知] 索引就绪: \(syncPairId)")
+        logger.debug("[XPC Notify] Index ready: \(syncPairId)")
         for client in getClientProxies() {
             client.onIndexReady(syncPairId: syncPairId)
         }
     }
 
-    /// 通知同步进度
+    /// Notify sync progress
     func notifySyncProgress(data: Data) {
         for client in getClientProxies() {
             client.onSyncProgress(data: data)
         }
     }
 
-    /// 通知同步状态变更
+    /// Notify sync status change
     func notifySyncStatusChanged(syncPairId: String, status: Int, message: String?) {
-        logger.debug("[XPC通知] 同步状态变更: \(syncPairId) -> \(status)")
+        logger.debug("[XPC Notify] Sync status changed: \(syncPairId) -> \(status)")
         for client in getClientProxies() {
             client.onSyncStatusChanged(syncPairId: syncPairId, status: status, message: message)
         }
     }
 
-    /// 通知同步完成
+    /// Notify sync completed
     func notifySyncCompleted(syncPairId: String, filesCount: Int, bytesCount: Int64) {
-        logger.debug("[XPC通知] 同步完成: \(syncPairId), \(filesCount) 文件")
+        logger.debug("[XPC Notify] Sync completed: \(syncPairId), \(filesCount) files")
         for client in getClientProxies() {
             client.onSyncCompleted(syncPairId: syncPairId, filesCount: filesCount, bytesCount: bytesCount)
         }
     }
 
-    /// 通知淘汰进度
+    /// Notify eviction progress
     func notifyEvictionProgress(data: Data) {
         for client in getClientProxies() {
             client.onEvictionProgress(data: data)
         }
     }
 
-    /// 通知组件错误
+    /// Notify component error
     func notifyComponentError(component: String, code: Int, message: String, isCritical: Bool) {
-        logger.debug("[XPC通知] 组件错误: \(component) - \(message)")
+        logger.debug("[XPC Notify] Component error: \(component) - \(message)")
         for client in getClientProxies() {
             client.onComponentError(component: component, code: code, message: message, isCritical: isCritical)
         }
     }
 
-    /// 通知配置更新
+    /// Notify configuration updated
     func notifyConfigUpdated() {
-        logger.debug("[XPC通知] 配置已更新")
+        logger.debug("[XPC Notify] Configuration updated")
         for client in getClientProxies() {
             client.onConfigUpdated()
         }
     }
 
-    /// 通知服务就绪
+    /// Notify service ready
     func notifyServiceReady() {
-        logger.debug("[XPC通知] 服务就绪")
+        logger.debug("[XPC Notify] Service ready")
         for client in getClientProxies() {
             client.onServiceReady()
         }
     }
 
-    /// 通知冲突检测
+    /// Notify conflict detected
     func notifyConflictDetected(data: Data) {
-        logger.debug("[XPC通知] 冲突检测")
+        logger.debug("[XPC Notify] Conflict detected")
         for client in getClientProxies() {
             client.onConflictDetected(data: data)
         }
     }
 
-    /// 通知磁盘状态变更
+    /// Notify disk status change
     func notifyDiskChanged(diskName: String, isConnected: Bool) {
-        logger.debug("[XPC通知] 磁盘变更: \(diskName) -> \(isConnected ? "连接" : "断开")")
+        logger.debug("[XPC Notify] Disk changed: \(diskName) -> \(isConnected ? "connected" : "disconnected")")
         for client in getClientProxies() {
             client.onDiskChanged(diskName: diskName, isConnected: isConnected)
         }
     }
 
-    /// 通知活动更新
+    /// Notify activities updated
     func notifyActivitiesUpdated(data: Data) {
-        logger.debug("[XPC通知] 活动更新")
+        logger.debug("[XPC Notify] Activities updated")
         for client in getClientProxies() {
             client.onActivitiesUpdated(data: data)
         }
     }
 
-    // MARK: - 生命周期
+    // MARK: - Lifecycle
 
-    /// 自动挂载配置的 VFS
+    /// Auto-mount configured VFS
     func autoMount() async {
-        logger.info("开始自动挂载...")
+        logger.info("Starting auto-mount...")
         await implementation.autoMount()
     }
 
-    /// 启动同步调度器
+    /// Start sync scheduler
     func startScheduler() async {
-        logger.info("启动同步调度器...")
+        logger.info("Starting sync scheduler...")
         await implementation.startScheduler()
     }
 
-    /// 准备关闭
+    /// Prepare for shutdown
     func prepareForShutdown() async {
-        logger.info("准备关闭 DMSAService...")
+        logger.info("Preparing to shut down DMSAService...")
 
-        // 停止调度器
+        // Stop scheduler
         await implementation.stopScheduler()
 
-        // 卸载所有 VFS
+        // Unmount all VFS
         await implementation.unmountAllVFS()
 
-        // 等待同步完成
+        // Wait for sync completion
         await implementation.waitForSyncCompletion()
 
-        logger.info("DMSAService 已安全关闭")
+        logger.info("DMSAService shut down safely")
     }
 
-    /// 重新加载配置
+    /// Reload configuration
     func reloadConfiguration() async {
-        logger.info("重新加载配置...")
+        logger.info("Reloading configuration...")
         await implementation.reloadConfig()
     }
 }

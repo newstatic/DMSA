@@ -1,104 +1,104 @@
 import Foundation
 import Combine
 
-/// 同步进度追踪 (Service 内部使用)
+/// Sync progress tracking (internal to Service)
 class ServiceSyncProgress: ObservableObject {
-    // MARK: - 阶段状态
+    // MARK: - Phase State
 
-    /// 当前同步阶段
+    /// Current sync phase
     @Published var phase: SyncPhase = .idle
 
-    /// 总体进度 (0.0 - 1.0)
+    /// Overall progress (0.0 - 1.0)
     @Published var overallProgress: Double = 0
 
-    // MARK: - 当前文件进度
+    // MARK: - Current File Progress
 
-    /// 当前正在处理的文件路径
+    /// Path of the file currently being processed
     @Published var currentFile: String = ""
 
-    /// 当前文件进度 (0.0 - 1.0)
+    /// Current file progress (0.0 - 1.0)
     @Published var currentFileProgress: Double = 0
 
-    /// 当前文件大小
+    /// Current file size
     @Published var currentFileSize: Int64 = 0
 
-    /// 当前文件已传输字节数
+    /// Current file bytes transferred
     @Published var currentFileBytesTransferred: Int64 = 0
 
-    // MARK: - 统计数据
+    // MARK: - Statistics
 
-    /// 已处理文件数
+    /// Processed file count
     @Published var processedFiles: Int = 0
 
-    /// 总文件数
+    /// Total file count
     @Published var totalFiles: Int = 0
 
-    /// 已处理字节数
+    /// Processed bytes
     @Published var processedBytes: Int64 = 0
 
-    /// 总字节数
+    /// Total bytes
     @Published var totalBytes: Int64 = 0
 
-    /// 跳过的文件数
+    /// Skipped file count
     @Published var skippedFiles: Int = 0
 
-    /// 失败的文件数
+    /// Failed file count
     @Published var failedFiles: Int = 0
 
-    // MARK: - 速度和时间
+    // MARK: - Speed and Time
 
-    /// 传输速度 (bytes/s)
+    /// Transfer speed (bytes/s)
     @Published var bytesPerSecond: Int64 = 0
 
-    /// 预计剩余时间
+    /// Estimated time remaining
     @Published var estimatedTimeRemaining: TimeInterval?
 
-    /// 已用时间
+    /// Elapsed time
     @Published var elapsedTime: TimeInterval = 0
 
-    /// 开始时间
+    /// Start time
     var startTime: Date?
 
-    // MARK: - 校验进度
+    // MARK: - Checksum Progress
 
-    /// 校验进度 (0.0 - 1.0)
+    /// Checksum progress (0.0 - 1.0)
     @Published var checksumProgress: Double?
 
-    /// 当前校验阶段描述
+    /// Current checksum phase description
     @Published var checksumPhase: String?
 
-    /// 已校验文件数
+    /// Checksummed file count
     @Published var checksummedFiles: Int = 0
 
-    /// 待校验文件数
+    /// Total files to checksum
     @Published var totalFilesToChecksum: Int = 0
 
-    // MARK: - 验证进度
+    // MARK: - Verification Progress
 
-    /// 验证进度 (0.0 - 1.0)
+    /// Verification progress (0.0 - 1.0)
     @Published var verificationProgress: Double?
 
-    /// 已验证文件数
+    /// Verified file count
     @Published var verifiedFiles: Int = 0
 
-    /// 验证失败数
+    /// Verification failure count
     @Published var verificationFailures: Int = 0
 
-    // MARK: - 错误信息
+    // MARK: - Error Info
 
-    /// 最后一个错误信息
+    /// Last error message
     @Published var lastError: String?
 
-    /// 错误详情列表
+    /// Error details list
     @Published var errors: [SyncError] = []
 
-    /// 错误消息 (兼容属性)
+    /// Error message (compatibility property)
     var errorMessage: String? {
         get { lastError }
         set { lastError = newValue }
     }
 
-    // MARK: - 错误记录
+    // MARK: - Error Record
 
     struct SyncError: Identifiable {
         let id = UUID()
@@ -108,21 +108,21 @@ class ServiceSyncProgress: ObservableObject {
         let isRecoverable: Bool
     }
 
-    // MARK: - 计算属性
+    // MARK: - Computed Properties
 
-    /// 文件进度描述
+    /// File progress description
     var fileProgressDescription: String {
-        "\(processedFiles)/\(totalFiles) 文件"
+        "\(processedFiles)/\(totalFiles) files"
     }
 
-    /// 字节进度描述
+    /// Bytes progress description
     var bytesProgressDescription: String {
         let processed = ByteCountFormatter.string(fromByteCount: processedBytes, countStyle: .file)
         let total = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
         return "\(processed)/\(total)"
     }
 
-    /// 速度描述
+    /// Speed description
     var speedDescription: String {
         if bytesPerSecond > 0 {
             return ByteCountFormatter.string(fromByteCount: bytesPerSecond, countStyle: .file) + "/s"
@@ -130,7 +130,7 @@ class ServiceSyncProgress: ObservableObject {
         return "--"
     }
 
-    /// 剩余时间描述
+    /// Time remaining description
     var timeRemainingDescription: String {
         guard let remaining = estimatedTimeRemaining, remaining > 0 else {
             return "--"
@@ -144,7 +144,7 @@ class ServiceSyncProgress: ObservableObject {
         return formatter.string(from: remaining) ?? "--"
     }
 
-    /// 已用时间描述
+    /// Elapsed time description
     var elapsedTimeDescription: String {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.hour, .minute, .second]
@@ -154,14 +154,14 @@ class ServiceSyncProgress: ObservableObject {
         return formatter.string(from: elapsedTime) ?? "0s"
     }
 
-    /// 百分比描述
+    /// Percentage description
     var percentageDescription: String {
         String(format: "%.1f%%", overallProgress * 100)
     }
 
-    // MARK: - 方法
+    // MARK: - Methods
 
-    /// 重置进度
+    /// Reset progress
     func reset() {
         phase = .idle
         overallProgress = 0
@@ -190,20 +190,20 @@ class ServiceSyncProgress: ObservableObject {
         errors.removeAll()
     }
 
-    /// 开始计时
+    /// Start timer
     func start() {
         startTime = Date()
         elapsedTime = 0
     }
 
-    /// 更新已用时间
+    /// Update elapsed time
     func updateElapsedTime() {
         if let start = startTime {
             elapsedTime = Date().timeIntervalSince(start)
         }
     }
 
-    /// 更新当前文件进度
+    /// Update current file progress
     func updateFileProgress(file: String, bytesTransferred: Int64, totalSize: Int64) {
         currentFile = file
         currentFileSize = totalSize
@@ -211,7 +211,7 @@ class ServiceSyncProgress: ObservableObject {
         currentFileProgress = totalSize > 0 ? Double(bytesTransferred) / Double(totalSize) : 0
     }
 
-    /// 完成一个文件
+    /// Complete a file
     func completeFile(bytes: Int64) {
         processedFiles += 1
         processedBytes += bytes
@@ -219,14 +219,14 @@ class ServiceSyncProgress: ObservableObject {
         updateSpeed()
     }
 
-    /// 跳过一个文件
+    /// Skip a file
     func skipFile() {
         skippedFiles += 1
         processedFiles += 1
         updateOverallProgress()
     }
 
-    /// 文件失败
+    /// File failed
     func failFile(path: String, error: String, recoverable: Bool = false) {
         failedFiles += 1
         processedFiles += 1
@@ -240,11 +240,11 @@ class ServiceSyncProgress: ObservableObject {
         updateOverallProgress()
     }
 
-    /// 更新总体进度
+    /// Update overall progress
     private func updateOverallProgress() {
         guard totalFiles > 0 else { return }
 
-        // 基于当前阶段计算进度权重
+        // Calculate progress weight based on current phase
         let phaseWeight: Double
         let phaseProgress: Double
 
@@ -269,7 +269,7 @@ class ServiceSyncProgress: ObservableObject {
             phaseProgress = 0
         }
 
-        // 累积之前阶段的进度
+        // Accumulate progress from previous phases
         var baseProgress: Double = 0
         switch phase {
         case .calculating: baseProgress = 0.15
@@ -283,24 +283,24 @@ class ServiceSyncProgress: ObservableObject {
         overallProgress = min(1.0, baseProgress + phaseWeight * phaseProgress)
     }
 
-    /// 更新传输速度
+    /// Update transfer speed
     private func updateSpeed() {
         guard elapsedTime > 0 else { return }
 
         bytesPerSecond = Int64(Double(processedBytes) / elapsedTime)
 
-        // 计算预计剩余时间
+        // Calculate estimated time remaining
         let remainingBytes = totalBytes - processedBytes
         if bytesPerSecond > 0 {
             estimatedTimeRemaining = TimeInterval(remainingBytes) / TimeInterval(bytesPerSecond)
         }
     }
 
-    /// 设置阶段
+    /// Set phase
     func setPhase(_ newPhase: SyncPhase) {
         phase = newPhase
 
-        // 根据阶段重置相关进度
+        // Reset related progress based on phase
         switch newPhase {
         case .scanning:
             processedFiles = 0
@@ -320,7 +320,7 @@ class ServiceSyncProgress: ObservableObject {
         }
     }
 
-    /// 转换为可传输的 SyncProgress struct
+    /// Convert to transferable SyncProgress struct
     func toSyncProgress(syncPairId: String) -> SyncProgress {
         var sp = SyncProgress(syncPairId: syncPairId)
         sp.phase = phase

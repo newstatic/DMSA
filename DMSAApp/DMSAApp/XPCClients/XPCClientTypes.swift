@@ -1,9 +1,9 @@
 import Foundation
 
 // MARK: - VFS Types
-// Note: MountInfo, SyncStatusInfo, ServiceVersionInfo 定义在 DMSAShared/Models/SharedState.swift
+// Note: MountInfo, SyncStatusInfo, ServiceVersionInfo are defined in DMSAShared/Models/SharedState.swift
 
-/// 索引统计信息
+/// Index statistics
  struct IndexStats: Codable {
      var totalFiles: Int
      var totalDirectories: Int
@@ -34,9 +34,9 @@ import Foundation
 }
 
 // MARK: - Sync Types
-// Note: SyncStatusInfo 定义在 DMSAShared/Models/SharedState.swift
+// Note: SyncStatusInfo is defined in DMSAShared/Models/SharedState.swift
 
-/// 同步进度 XPC 响应 (从服务返回的可解码版本)
+/// Sync progress XPC response (decodable version returned from service)
  struct SyncProgressResponse: Codable {
      var syncPairId: String
      var status: SyncStatus
@@ -78,23 +78,23 @@ import Foundation
         return Double(processedFiles) / Double(totalFiles)
     }
 
-    /// 总体进度 (字节维度)
+    /// Overall progress (byte-based)
     var overallProgress: Double {
         return progress
     }
 
-    /// 是否正在运行
+    /// Whether currently running
     var isRunning: Bool {
         return status == .inProgress
     }
 
-    /// 是否已暂停
+    /// Whether paused
     var isPaused: Bool {
         return status == .paused
     }
 }
 
-/// 同步统计 XPC 响应
+/// Sync statistics XPC response
  struct SyncStatisticsResponse: Codable {
      var syncPairId: String
      var totalSyncs: Int
@@ -122,7 +122,7 @@ import Foundation
 // MARK: - FileEntry Extension
 
 extension FileEntry {
-    /// 从字典创建 FileEntry
+    /// Create FileEntry from dictionary
     static func from(dictionary: [String: Any]) -> FileEntry? {
         let entry = FileEntry()
 
@@ -152,7 +152,7 @@ extension FileEntry {
         return entry
     }
 
-    /// 转换为字典
+    /// Convert to dictionary
     func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "virtualPath": virtualPath,
@@ -186,7 +186,7 @@ extension FileEntry {
 
 // MARK: - Eviction Types
 
-/// 淘汰配置
+/// Eviction configuration
 struct EvictionConfig: Codable {
     var triggerThreshold: Int64
     var targetFreeSpace: Int64
@@ -210,7 +210,7 @@ struct EvictionConfig: Codable {
     }
 }
 
-/// 淘汰统计
+/// Eviction statistics
 struct EvictionStats: Codable {
     var evictedCount: Int
     var evictedSize: Int64
@@ -234,7 +234,7 @@ struct EvictionStats: Codable {
     }
 }
 
-/// 淘汰结果
+/// Eviction result
 struct EvictionResult: Codable {
     var evictedFiles: [String]
     var freedSpace: Int64
@@ -251,7 +251,7 @@ struct EvictionResult: Codable {
 
 // MARK: - SyncFileRecord
 
-/// 文件级同步/淘汰记录 (App 端模型)
+/// File-level sync/eviction record (App-side model)
 struct SyncFileRecord: Codable, Identifiable {
     var id: UInt64 = 0
     var syncPairId: String = ""
@@ -259,19 +259,19 @@ struct SyncFileRecord: Codable, Identifiable {
     var virtualPath: String = ""
     var fileSize: Int64 = 0
     var syncedAt: Date = Date()
-    /// 操作状态: 0=同步成功, 1=同步失败, 2=跳过, 3=淘汰成功, 4=淘汰失败
+    /// Operation status: 0=sync success, 1=sync failed, 2=skipped, 3=eviction success, 4=eviction failed
     var status: Int = 0
     var errorMessage: String?
     var syncTaskId: UInt64 = 0
 
     var statusDescription: String {
         switch status {
-        case 0: return "同步成功"
-        case 1: return "同步失败"
-        case 2: return "跳过"
-        case 3: return "淘汰成功"
-        case 4: return "淘汰失败"
-        default: return "未知"
+        case 0: return "Sync Success"
+        case 1: return "Sync Failed"
+        case 2: return "Skipped"
+        case 3: return "Eviction Success"
+        case 4: return "Eviction Failed"
+        default: return "Unknown"
         }
     }
 
@@ -291,15 +291,15 @@ struct SyncFileRecord: Codable, Identifiable {
 // MARK: - SyncHistory Extension
 
 extension SyncHistory {
-    /// 从 Data 数组创建 SyncHistory 数组
+    /// Create SyncHistory array from Data
     static func arrayFrom(data: Data) -> [SyncHistory] {
         do {
             let histories = try JSONDecoder().decode([SyncHistory].self, from: data)
             return histories
         } catch {
-            Logger.shared.error("[SyncHistory] 解码失败: \(error)")
+            Logger.shared.error("[SyncHistory] Decode failed: \(error)")
             if let jsonStr = String(data: data, encoding: .utf8) {
-                Logger.shared.debug("[SyncHistory] 原始 JSON (前 500 字符): \(String(jsonStr.prefix(500)))")
+                Logger.shared.debug("[SyncHistory] Raw JSON (first 500 chars): \(String(jsonStr.prefix(500)))")
             }
             return []
         }

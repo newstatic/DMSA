@@ -2,34 +2,34 @@
 # encoding: utf-8
 # frozen_string_literal: true
 
-# pbxproj 操作工具 (Ruby 版)
-# 使用 CocoaPods 的 xcodeproj gem
+# pbxproj management tool (Ruby version)
+# Uses CocoaPods xcodeproj gem
 #
-# 使用方法:
+# Usage:
 #   bundle exec ruby pbxproj_tool.rb <command> [options]
 #
-# 命令:
-#   list [pattern]              列出项目中的所有文件 (可选过滤)
-#   list-targets                列出所有构建目标
-#   find <pattern>              查找匹配的文件
-#   info <filename>             显示文件详细信息
-#   add <file> <target>         添加文件到目标
-#   add-multi <target> <files>  批量添加文件到目标
-#   remove <file1> [file2...]   移除文件引用
-#   check                       检查项目完整性
-#   fix                         修复损坏的引用
-#   smart-fix [--dry-run]       智能修复 (检测未添加的文件并自动添加)
-#   backup                      手动备份项目文件
-#   restore [backup_name]       恢复备份
+# Commands:
+#   list [pattern]              List all files in the project (optional filter)
+#   list-targets                List all build targets
+#   find <pattern>              Find matching files
+#   info <filename>             Show file details
+#   add <file> <target>         Add file to target
+#   add-multi <target> <files>  Batch add files to target
+#   remove <file1> [file2...]   Remove file references
+#   check                       Check project integrity
+#   fix                         Fix broken references
+#   smart-fix [--dry-run]       Smart fix (detect unadded files and auto-add)
+#   backup                      Manually backup project file
+#   restore [backup_name]       Restore backup
 
-# 强制使用 UTF-8 编码
+# Force UTF-8 encoding
 Encoding.default_external = Encoding::UTF_8
 Encoding.default_internal = Encoding::UTF_8
 
 require 'xcodeproj'
 require 'fileutils'
 
-# 自动检测项目路径
+# Auto-detect project path
 def find_project_path
   candidates = [
     'DMSAApp.xcodeproj',
@@ -41,80 +41,80 @@ def find_project_path
     return path if File.exist?(path)
   end
 
-  raise "找不到 DMSAApp.xcodeproj (搜索路径: #{candidates.join(', ')})"
+  raise "Cannot find DMSAApp.xcodeproj (searched paths: #{candidates.join(', ')})"
 end
 
 PROJECT_PATH = find_project_path
-# 备份目录始终在项目根目录
+# Backup directory is always at the project root
 BACKUP_DIR = File.expand_path('../.pbxproj_backups', PROJECT_PATH)
 
 class PBXProjTool
   def initialize
-    # 确保读取文件时使用 UTF-8
+    # Ensure files are read with UTF-8 encoding
     @project = Xcodeproj::Project.open(PROJECT_PATH)
     @project_dir = File.dirname(File.expand_path(PROJECT_PATH))
   end
 
-  # 备份项目文件
+  # Backup project file
   def backup
     FileUtils.mkdir_p(BACKUP_DIR)
     timestamp = Time.now.strftime('%Y%m%d_%H%M%S')
     backup_path = File.join(BACKUP_DIR, "project.pbxproj.#{timestamp}")
     FileUtils.cp("#{PROJECT_PATH}/project.pbxproj", backup_path)
-    puts "✓ 已备份到: #{backup_path}"
+    puts "✓ Backed up to: #{backup_path}"
     backup_path
   end
 
-  # 恢复备份
+  # Restore backup
   def restore(backup_name = nil)
     unless Dir.exist?(BACKUP_DIR)
-      puts "✗ 备份目录不存在: #{BACKUP_DIR}"
+      puts "✗ Backup directory does not exist: #{BACKUP_DIR}"
       return false
     end
 
     backups = Dir.glob("#{BACKUP_DIR}/project.pbxproj.*").sort
     if backups.empty?
-      puts "✗ 没有找到备份文件"
+      puts "✗ No backup files found"
       return false
     end
 
     if backup_name
       backup_path = backups.find { |b| b.include?(backup_name) }
       unless backup_path
-        puts "✗ 找不到备份: #{backup_name}"
-        puts "可用备份:"
+        puts "✗ Cannot find backup: #{backup_name}"
+        puts "Available backups:"
         backups.each { |b| puts "  - #{File.basename(b)}" }
         return false
       end
     else
-      # 使用最新备份
+      # Use latest backup
       backup_path = backups.last
     end
 
-    # 先备份当前文件
+    # Backup current file first
     current_backup = backup
-    puts "当前文件已备份到: #{current_backup}"
+    puts "Current file backed up to: #{current_backup}"
 
-    # 恢复
+    # Restore
     FileUtils.cp(backup_path, "#{PROJECT_PATH}/project.pbxproj")
-    puts "✓ 已从 #{File.basename(backup_path)} 恢复"
+    puts "✓ Restored from #{File.basename(backup_path)}"
     true
   end
 
-  # 列出所有备份
+  # List all backups
   def list_backups
     unless Dir.exist?(BACKUP_DIR)
-      puts "没有备份目录"
+      puts "No backup directory"
       return []
     end
 
     backups = Dir.glob("#{BACKUP_DIR}/project.pbxproj.*").sort
     if backups.empty?
-      puts "没有备份文件"
+      puts "No backup files"
       return []
     end
 
-    puts "\n可用备份:"
+    puts "\nAvailable backups:"
     puts "-" * 50
     backups.each do |b|
       size = File.size(b)
@@ -122,13 +122,13 @@ class PBXProjTool
       puts "  #{File.basename(b)} (#{format_size(size)}, #{mtime.strftime('%Y-%m-%d %H:%M:%S')})"
     end
     puts "-" * 50
-    puts "共 #{backups.count} 个备份"
+    puts "Total: #{backups.count} backups"
     backups
   end
 
-  # 列出所有文件
+  # List all files
   def list_files(pattern = nil)
-    puts "\n项目文件列表:"
+    puts "\nProject file list:"
     puts "-" * 80
 
     files = @project.files.sort_by { |f| f.path&.downcase || '' }
@@ -145,27 +145,27 @@ class PBXProjTool
     end
 
     puts "-" * 80
-    puts "共 #{count} 个文件" + (pattern ? " (匹配 '#{pattern}')" : "")
+    puts "Total: #{count} files" + (pattern ? " (matching '#{pattern}')" : "")
   end
 
-  # 列出所有目标
+  # List all targets
   def list_targets
-    puts "\n构建目标:"
+    puts "\nBuild targets:"
     puts "-" * 60
 
     @project.targets.each do |target|
       type = target.product_type&.split('.')&.last || '?'
       files_count = target.source_build_phase&.files&.count || 0
-      puts "  [#{type.ljust(12)}] #{target.name} (#{files_count} 个源文件)"
+      puts "  [#{type.ljust(12)}] #{target.name} (#{files_count} source files)"
     end
 
     puts "-" * 60
-    puts "共 #{@project.targets.count} 个目标"
+    puts "Total: #{@project.targets.count} targets"
   end
 
-  # 查找文件
+  # Find files
   def find_files(pattern)
-    puts "\n查找文件: '#{pattern}'"
+    puts "\nSearching files: '#{pattern}'"
     puts "-" * 80
 
     results = []
@@ -177,116 +177,116 @@ class PBXProjTool
     end
 
     if results.empty?
-      puts "没有找到匹配的文件"
+      puts "No matching files found"
     else
       results.each do |file|
-        # 找出包含此文件的目标
+        # Find targets containing this file
         targets = find_targets_for_file(file)
-        targets_str = targets.empty? ? "(未加入任何目标)" : targets.join(', ')
+        targets_str = targets.empty? ? "(not added to any target)" : targets.join(', ')
         puts "  #{file.path}"
-        puts "    -> 目标: #{targets_str}"
+        puts "    -> Targets: #{targets_str}"
       end
       puts "-" * 80
-      puts "找到 #{results.count} 个匹配文件"
+      puts "Found #{results.count} matching files"
     end
     results
   end
 
-  # 显示文件详情
+  # Show file details
   def file_info(filename)
-    puts "\n文件信息: '#{filename}'"
+    puts "\nFile info: '#{filename}'"
     puts "-" * 60
 
     file = @project.files.find { |f| f.path&.end_with?(filename) }
     unless file
-      puts "✗ 未找到文件: #{filename}"
+      puts "✗ File not found: #{filename}"
       return nil
     end
 
-    puts "路径:       #{file.path}"
-    puts "类型:       #{file.last_known_file_type || file.explicit_file_type || '未知'}"
-    puts "源树:       #{file.source_tree}"
+    puts "Path:       #{file.path}"
+    puts "Type:       #{file.last_known_file_type || file.explicit_file_type || 'unknown'}"
+    puts "Source tree: #{file.source_tree}"
     puts "UUID:       #{file.uuid}"
 
-    # 完整路径
+    # Full path
     full_path = build_path_from_group(file)
-    puts "完整路径:   #{full_path}"
-    puts "文件存在:   #{File.exist?(full_path) ? '✓ 是' : '✗ 否'}"
+    puts "Full path:  #{full_path}"
+    puts "File exists: #{File.exist?(full_path) ? '✓ Yes' : '✗ No'}"
 
-    # 查找包含的目标
+    # Find containing targets
     targets = find_targets_for_file(file)
     if targets.any?
-      puts "所属目标:   #{targets.join(', ')}"
+      puts "Targets:    #{targets.join(', ')}"
     else
-      puts "所属目标:   (未加入任何目标)"
+      puts "Targets:    (not added to any target)"
     end
 
-    # 父组信息
+    # Parent group info
     if file.parent
-      puts "父组:       #{file.parent.display_name rescue file.parent.path}"
+      puts "Parent group: #{file.parent.display_name rescue file.parent.path}"
     end
 
     puts "-" * 60
     file
   end
 
-  # 添加文件到目标
+  # Add file to target
   def add_file(file_path, target_name)
     unless File.exist?(file_path)
-      puts "✗ 文件不存在: #{file_path}"
+      puts "✗ File does not exist: #{file_path}"
       return false
     end
 
     target = @project.targets.find { |t| t.name == target_name }
     unless target
-      puts "✗ 目标不存在: #{target_name}"
-      puts "可用目标: #{@project.targets.map(&:name).join(', ')}"
+      puts "✗ Target does not exist: #{target_name}"
+      puts "Available targets: #{@project.targets.map(&:name).join(', ')}"
       return false
     end
 
-    # 检查是否已存在
+    # Check if already exists
     file_name = File.basename(file_path)
     existing = @project.files.find { |f| f.path&.end_with?(file_name) }
     if existing
-      puts "! 文件已存在于项目中: #{existing.path}"
-      # 检查是否已在目标中
+      puts "! File already exists in project: #{existing.path}"
+      # Check if already in target
       if find_targets_for_file(existing).include?(target_name)
-        puts "  且已在目标 #{target_name} 中"
+        puts "  and already in target #{target_name}"
         return true
       end
-      # 添加到目标
+      # Add to target
       if file_path.end_with?('.swift', '.m', '.mm', '.c', '.cpp')
         target.source_build_phase.add_file_reference(existing)
         @project.save
-        puts "✓ 已添加到目标: #{target_name}"
+        puts "✓ Added to target: #{target_name}"
         return true
       end
     end
 
     backup
 
-    # 查找或创建组
+    # Find or create group
     group = find_or_create_group_for_file(file_path)
 
-    # 添加文件引用 - 只用文件名
+    # Add file reference - use filename only
     file_ref = group.new_file(file_name)
 
-    # 添加到目标的编译源
+    # Add to target's compile sources
     if file_path.end_with?('.swift', '.m', '.mm', '.c', '.cpp')
       target.source_build_phase.add_file_reference(file_ref)
     end
 
     @project.save
-    puts "✓ 已添加: #{file_path} -> #{target_name}"
+    puts "✓ Added: #{file_path} -> #{target_name}"
     true
   end
 
-  # 批量添加文件
+  # Batch add files
   def add_files(file_paths, target_name)
     target = @project.targets.find { |t| t.name == target_name }
     unless target
-      puts "✗ 目标不存在: #{target_name}"
-      puts "可用目标: #{@project.targets.map(&:name).join(', ')}"
+      puts "✗ Target does not exist: #{target_name}"
+      puts "Available targets: #{@project.targets.map(&:name).join(', ')}"
       return false
     end
 
@@ -296,7 +296,7 @@ class PBXProjTool
 
     file_paths.each do |file_path|
       unless File.exist?(file_path)
-        puts "✗ 文件不存在: #{file_path}"
+        puts "✗ File does not exist: #{file_path}"
         next
       end
 
@@ -304,17 +304,17 @@ class PBXProjTool
       existing = @project.files.find { |f| f.path&.end_with?(file_name) }
 
       if existing && find_targets_for_file(existing).include?(target_name)
-        puts "- 跳过 (已存在): #{file_path}"
+        puts "- Skipped (already exists): #{file_path}"
         skipped += 1
         next
       end
 
       if existing
-        # 文件存在但不在目标中，添加到目标
+        # File exists but not in target, add to target
         if file_path.end_with?('.swift', '.m', '.mm', '.c', '.cpp')
           target.source_build_phase.add_file_reference(existing)
         end
-        puts "✓ 添加到目标: #{file_path}"
+        puts "✓ Added to target: #{file_path}"
       else
         group = find_or_create_group_for_file(file_path)
         file_ref = group.new_file(file_name)
@@ -322,17 +322,17 @@ class PBXProjTool
         if file_path.end_with?('.swift', '.m', '.mm', '.c', '.cpp')
           target.source_build_phase.add_file_reference(file_ref)
         end
-        puts "✓ 新增: #{file_path}"
+        puts "✓ New: #{file_path}"
       end
       added += 1
     end
 
     @project.save
-    puts "\n共添加 #{added} 个文件" + (skipped > 0 ? ", 跳过 #{skipped} 个" : "")
+    puts "\nTotal: #{added} files added" + (skipped > 0 ? ", #{skipped} skipped" : "")
     true
   end
 
-  # 移除文件引用
+  # Remove file references
   def remove_files(file_names)
     backup
     removed = 0
@@ -348,10 +348,10 @@ class PBXProjTool
       end
 
       if files_to_remove.empty?
-        puts "✗ 未找到: #{name}"
+        puts "✗ Not found: #{name}"
       else
         files_to_remove.each do |file|
-          puts "✓ 移除: #{file.path}"
+          puts "✓ Removed: #{file.path}"
           file.remove_from_project
           removed += 1
         end
@@ -360,73 +360,73 @@ class PBXProjTool
 
     if removed > 0
       @project.save
-      puts "\n共移除 #{removed} 个文件引用"
+      puts "\nTotal: #{removed} file references removed"
     end
     removed
   end
 
-  # 检查项目完整性
+  # Check project integrity
   def check
-    puts "\n项目完整性检查:"
+    puts "\nProject integrity check:"
     puts "-" * 60
 
     warnings = []
     errors = []
 
-    # 检查文件引用是否存在
+    # Check if file references exist
     @project.files.each do |file|
       next unless file.path
-      next if file.path.start_with?('System/') # 跳过系统文件
-      next if file.parent.is_a?(Xcodeproj::Project::Object::PBXVariantGroup) # 跳过 i18n 文件
+      next if file.path.start_with?('System/') # Skip system files
+      next if file.parent.is_a?(Xcodeproj::Project::Object::PBXVariantGroup) # Skip i18n files
 
       full_path = build_path_from_group(file)
       if full_path && !File.exist?(full_path)
-        errors << "文件不存在: #{file.path} (#{full_path})"
+        errors << "File does not exist: #{file.path} (#{full_path})"
       end
     end
 
-    # 检查重复引用
+    # Check duplicate references
     paths = @project.files.map(&:path).compact
     duplicates = paths.group_by(&:itself).select { |_, v| v.size > 1 }.keys
     duplicates.each do |path|
-      warnings << "重复引用: #{path}"
+      warnings << "Duplicate reference: #{path}"
     end
 
-    # 检查空组
+    # Check empty groups
     check_empty_groups(@project.main_group, warnings)
 
-    # 输出结果
+    # Output results
     if errors.any?
-      puts "\n❌ 发现 #{errors.count} 个错误:"
+      puts "\n❌ Found #{errors.count} errors:"
       errors.first(20).each { |e| puts "  ✗ #{e}" }
-      puts "  ... 还有 #{errors.count - 20} 个错误" if errors.count > 20
+      puts "  ... and #{errors.count - 20} more errors" if errors.count > 20
     end
 
     if warnings.any?
-      puts "\n⚠️  发现 #{warnings.count} 个警告:"
+      puts "\n⚠️  Found #{warnings.count} warnings:"
       warnings.first(10).each { |w| puts "  ! #{w}" }
-      puts "  ... 还有 #{warnings.count - 10} 个警告" if warnings.count > 10
+      puts "  ... and #{warnings.count - 10} more warnings" if warnings.count > 10
     end
 
     if errors.empty? && warnings.empty?
-      puts "✓ 项目完整性良好"
+      puts "✓ Project integrity is good"
     end
 
     { errors: errors, warnings: warnings }
   end
 
-  # 修复损坏的引用
+  # Fix broken references
   def fix
-    puts "\n修复项目..."
+    puts "\nFixing project..."
     backup
     fixed = 0
 
-    # 移除不存在的文件引用
+    # Remove non-existent file references
     files_to_remove = []
     @project.files.each do |file|
       next unless file.path
       next if file.path.start_with?('System/')
-      next if file.parent.is_a?(Xcodeproj::Project::Object::PBXVariantGroup) # 跳过 i18n 文件
+      next if file.parent.is_a?(Xcodeproj::Project::Object::PBXVariantGroup) # Skip i18n files
 
       full_path = build_path_from_group(file)
       if full_path && !File.exist?(full_path)
@@ -435,17 +435,17 @@ class PBXProjTool
     end
 
     files_to_remove.each do |file|
-      puts "✓ 移除不存在的文件: #{file.path}"
+      puts "✓ Removed non-existent file: #{file.path}"
       file.remove_from_project
       fixed += 1
     end
 
-    # 移除重复引用
+    # Remove duplicate references
     paths_seen = {}
     @project.files.each do |file|
       next unless file.path
       if paths_seen[file.path]
-        puts "✓ 移除重复引用: #{file.path}"
+        puts "✓ Removed duplicate reference: #{file.path}"
         file.remove_from_project
         fixed += 1
       else
@@ -455,31 +455,31 @@ class PBXProjTool
 
     if fixed > 0
       @project.save
-      puts "\n共修复 #{fixed} 个问题"
+      puts "\nTotal: #{fixed} issues fixed"
     else
-      puts "没有需要修复的问题"
+      puts "No issues to fix"
     end
     fixed
   end
 
-  # 智能修复 - 检测未添加的文件并自动添加到正确的目标
+  # Smart fix - detect unadded files and auto-add to correct targets
   def smart_fix(dry_run: false)
-    puts "\n🔍 智能修复" + (dry_run ? " (预览模式)" : "") + ":"
+    puts "\n🔍 Smart fix" + (dry_run ? " (preview mode)" : "") + ":"
     puts "=" * 70
 
     issues = []
     fixes = []
 
-    # 1. 收集项目中已有的文件
+    # 1. Collect files already in the project
     existing_files = Set.new
     @project.files.each do |file|
       next unless file.path
-      # 保存文件名和完整路径两种形式
+      # Save both filename and full path forms
       existing_files.add(File.basename(file.path))
       existing_files.add(file.path)
     end
 
-    # 2. 定义目录到目标的映射规则
+    # 2. Define directory-to-target mapping rules
     target_rules = {
       'DMSAApp' => {
         dirs: ['DMSAApp/DMSAApp'],
@@ -494,12 +494,12 @@ class PBXProjTool
       'DMSAShared' => {
         dirs: ['DMSAApp/DMSAShared'],
         exclude: [],
-        target: nil  # 共享文件需要同时添加到两个目标
+        target: nil  # Shared files need to be added to both targets
       }
     }
 
-    # 3. 扫描磁盘上的 Swift 文件
-    puts "\n📂 扫描磁盘文件..."
+    # 3. Scan Swift files on disk
+    puts "\n📂 Scanning disk files..."
     disk_files = {}
 
     ['DMSAApp', 'DMSAService', 'DMSAShared'].each do |scan_dir|
@@ -510,30 +510,30 @@ class PBXProjTool
         relative_path = file_path.sub("#{@project_dir}/", '')
         file_name = File.basename(file_path)
 
-        # 跳过已存在的文件
+        # Skip already existing files
         next if existing_files.include?(file_name)
         next if existing_files.include?(relative_path)
-        # 跳过生成的文件
+        # Skip generated files
         next if file_name.include?('.generated.')
         next if file_name.start_with?('._')
 
-        # 推断目标
+        # Infer target
         target = infer_target(relative_path)
         disk_files[relative_path] = target
       end
     end
 
-    # 4. 报告发现
+    # 4. Report findings
     if disk_files.empty?
-      puts "✅ 没有发现未添加的 Swift 文件"
+      puts "✅ No unadded Swift files found"
     else
-      puts "\n📋 发现 #{disk_files.count} 个未添加的文件:"
+      puts "\n📋 Found #{disk_files.count} unadded files:"
       puts "-" * 70
 
       grouped = disk_files.group_by { |_, target| target }
 
       grouped.each do |target, files|
-        target_name = target.is_a?(Array) ? target.join(' + ') : (target || '(无法推断)')
+        target_name = target.is_a?(Array) ? target.join(' + ') : (target || '(cannot infer)')
         puts "\n  [#{target_name}]"
         files.each do |path, _|
           puts "    + #{path}"
@@ -542,15 +542,15 @@ class PBXProjTool
       end
     end
 
-    # 5. 检查损坏的引用
-    puts "\n🔗 检查损坏的引用..."
+    # 5. Check broken references
+    puts "\n🔗 Checking broken references..."
     broken_refs = []
     @project.files.each do |file|
       next unless file.path
       next if file.path.start_with?('System/')
-      # 跳过产物文件
+      # Skip product files
       next if file.path.end_with?('.app', '.service')
-      # 跳过 PBXVariantGroup 子项 (i18n 本地化文件，如 en.lproj/Localizable.strings)
+      # Skip PBXVariantGroup children (i18n localization files, e.g. en.lproj/Localizable.strings)
       next if file.parent.is_a?(Xcodeproj::Project::Object::PBXVariantGroup)
 
       full_path = build_path_from_group(file)
@@ -560,23 +560,23 @@ class PBXProjTool
     end
 
     if broken_refs.empty?
-      puts "✅ 没有损坏的文件引用"
+      puts "✅ No broken file references"
     else
-      puts "\n⚠️  发现 #{broken_refs.count} 个损坏的引用:"
+      puts "\n⚠️  Found #{broken_refs.count} broken references:"
       broken_refs.first(10).each do |ref|
         puts "    ✗ #{ref[:file].path}"
       end
-      puts "    ... 还有 #{broken_refs.count - 10} 个" if broken_refs.count > 10
+      puts "    ... and #{broken_refs.count - 10} more" if broken_refs.count > 10
     end
 
-    # 6. 检查重复引用 (排除 DMSAShared 的预期重复)
-    puts "\n🔄 检查重复引用..."
+    # 6. Check duplicate references (excluding expected DMSAShared duplicates)
+    puts "\n🔄 Checking duplicate references..."
     paths = @project.files.map(&:path).compact
     duplicates = paths.group_by(&:itself).select { |_, v| v.size > 1 }
 
-    # 过滤掉 DMSAShared 的预期重复 (共享代码在两个 target 中)
+    # Filter out expected DMSAShared duplicates (shared code in both targets)
     unexpected_dups = duplicates.reject do |path, _|
-      # 检查是否是共享文件 (通过检查是否同时在两个 target 中)
+      # Check if it's a shared file (by checking if it's in both targets)
       file_refs = @project.files.select { |f| f.path == path }
       if file_refs.size == 2
         targets = file_refs.flat_map { |f| find_targets_for_file(f) }.uniq
@@ -587,20 +587,20 @@ class PBXProjTool
     end
 
     if unexpected_dups.empty?
-      puts "✅ 没有异常的重复引用"
-      puts "   (DMSAShared 共享文件在两个 target 中是预期行为)"
+      puts "✅ No unexpected duplicate references"
+      puts "   (DMSAShared files appearing in both targets is expected behavior)"
     else
-      puts "\n⚠️  发现 #{unexpected_dups.count} 个异常重复引用:"
+      puts "\n⚠️  Found #{unexpected_dups.count} unexpected duplicate references:"
       unexpected_dups.keys.first(10).each do |path|
-        puts "    ! #{path} (#{unexpected_dups[path].size} 次)"
+        puts "    ! #{path} (#{unexpected_dups[path].size} times)"
       end
     end
 
-    # 7. 执行修复
+    # 7. Execute fixes
     if dry_run
       puts "\n" + "=" * 70
-      puts "📝 预览模式 - 未执行任何修改"
-      puts "   使用 'smart-fix' (不带 --dry-run) 执行修复"
+      puts "📝 Preview mode - no changes made"
+      puts "   Use 'smart-fix' (without --dry-run) to execute fixes"
       return { added: 0, removed: 0, fixed: 0 }
     end
 
@@ -611,7 +611,7 @@ class PBXProjTool
     removed = 0
     fixed = 0
 
-    # 添加缺失的文件
+    # Add missing files
     fixes.each do |fix|
       targets = fix[:target].is_a?(Array) ? fix[:target] : [fix[:target]]
       targets.compact.each do |target_name|
@@ -624,25 +624,25 @@ class PBXProjTool
         group = find_or_create_group_for_file(fix[:path])
         file_ref = group.new_file(File.basename(fix[:path]))
         target.source_build_phase.add_file_reference(file_ref)
-        puts "✓ 添加: #{fix[:path]} -> #{target_name}"
+        puts "✓ Added: #{fix[:path]} -> #{target_name}"
         added += 1
       end
     end
 
-    # 移除损坏的引用
+    # Remove broken references
     broken_refs.each do |ref|
       ref[:file].remove_from_project
-      puts "✓ 移除损坏引用: #{ref[:file].path}"
+      puts "✓ Removed broken reference: #{ref[:file].path}"
       removed += 1
     end
 
-    # 只移除异常的重复引用
+    # Only remove unexpected duplicate references
     unexpected_dups.keys.each do |path|
       file_refs = @project.files.select { |f| f.path == path }
-      # 保留第一个，移除其他
+      # Keep the first, remove the rest
       file_refs[1..].each do |file|
         file.remove_from_project
-        puts "✓ 移除异常重复引用: #{file.path}"
+        puts "✓ Removed unexpected duplicate reference: #{file.path}"
         fixed += 1
       end
     end
@@ -650,35 +650,35 @@ class PBXProjTool
     @project.save
 
     puts "\n" + "=" * 70
-    puts "✅ 修复完成:"
-    puts "   添加: #{added} 个文件"
-    puts "   移除: #{removed} 个损坏引用"
-    puts "   去重: #{fixed} 个重复引用"
+    puts "✅ Fix complete:"
+    puts "   Added: #{added} files"
+    puts "   Removed: #{removed} broken references"
+    puts "   Deduped: #{fixed} duplicate references"
 
     { added: added, removed: removed, fixed: fixed }
   end
 
-  # 显示项目统计
+  # Show project statistics
   def stats
-    puts "\n项目统计:"
+    puts "\nProject statistics:"
     puts "-" * 60
 
-    # 文件类型统计
+    # File type statistics
     type_counts = Hash.new(0)
     @project.files.each do |file|
       ext = File.extname(file.path || '').downcase
-      ext = '(无扩展名)' if ext.empty?
+      ext = '(no extension)' if ext.empty?
       type_counts[ext] += 1
     end
 
-    puts "\n文件类型分布:"
+    puts "\nFile type distribution:"
     type_counts.sort_by { |_, count| -count }.each do |ext, count|
       bar = '█' * [count / 2, 30].min
       puts "  #{ext.ljust(15)} #{count.to_s.rjust(4)} #{bar}"
     end
 
-    # 目标统计
-    puts "\n目标源文件统计:"
+    # Target statistics
+    puts "\nTarget source file statistics:"
     @project.targets.each do |target|
       count = target.source_build_phase&.files&.count || 0
       bar = '█' * [count / 5, 30].min
@@ -686,26 +686,26 @@ class PBXProjTool
     end
 
     puts "-" * 60
-    puts "总文件数: #{@project.files.count}"
+    puts "Total files: #{@project.files.count}"
   end
 
   private
 
   def find_or_create_group_for_file(file_path)
-    # file_path 格式: DMSAService/Monitor/ServicePowerMonitor.swift
-    # 磁盘实际路径: DMSAApp/DMSAService/Monitor/ServicePowerMonitor.swift
-    # pbxproj 组层级: main_group > DMSAApp > DMSAService > Monitor
+    # file_path format: DMSAService/Monitor/ServicePowerMonitor.swift
+    # Actual disk path: DMSAApp/DMSAService/Monitor/ServicePowerMonitor.swift
+    # pbxproj group hierarchy: main_group > DMSAApp > DMSAService > Monitor
     #
-    # 扫描目录是 DMSAApp, DMSAService, DMSAShared (都在 DMSAApp/ 磁盘目录下)
-    # 所以路径前缀 DMSAService/ 在 pbxproj 中对应 DMSAApp > DMSAService 两级组
+    # Scan directories are DMSAApp, DMSAService, DMSAShared (all under DMSAApp/ on disk)
+    # So path prefix DMSAService/ maps to DMSAApp > DMSAService two-level groups in pbxproj
 
     parts = file_path.split('/')
-    parts.pop  # 移除文件名
+    parts.pop  # Remove filename
 
-    # 构建完整的组路径 (从 main_group 开始)
-    # DMSAApp/xxx -> 组路径: ['DMSAApp', 'DMSAApp', ...]  (磁盘目录和组名恰好相同)
-    # DMSAService/xxx -> 组路径: ['DMSAApp', 'DMSAService', ...]
-    # DMSAShared/xxx -> 组路径: ['DMSAApp', 'DMSAShared', ...]
+    # Build full group path (starting from main_group)
+    # DMSAApp/xxx -> group path: ['DMSAApp', 'DMSAApp', ...]  (disk dir and group name happen to be the same)
+    # DMSAService/xxx -> group path: ['DMSAApp', 'DMSAService', ...]
+    # DMSAShared/xxx -> group path: ['DMSAApp', 'DMSAShared', ...]
     group_parts = if parts[0] == 'DMSAApp'
                     parts  # DMSAApp/App/xxx -> ['DMSAApp', 'App', ...]
                   elsif parts[0] == 'DMSAService' || parts[0] == 'DMSAShared'
@@ -714,7 +714,7 @@ class PBXProjTool
                     parts
                   end
 
-    # 遍历或创建组
+    # Traverse or create groups
     current_group = @project.main_group
     group_parts.each do |part|
       child = current_group.children.find do |c|
@@ -733,13 +733,13 @@ class PBXProjTool
   end
 
   def build_path_from_group(file_ref)
-    # PBXVariantGroup 子项 (i18n 文件如 en.lproj/Localizable.strings) 特殊处理
-    # VariantGroup 子项的 path 是 "en.lproj/Localizable.strings"，
-    # 父级是 PBXVariantGroup (name="Localizable.strings")，再上级才是普通 PBXGroup
+    # PBXVariantGroup children (i18n files like en.lproj/Localizable.strings) need special handling
+    # VariantGroup child's path is "en.lproj/Localizable.strings",
+    # parent is PBXVariantGroup (name="Localizable.strings"), grandparent is a regular PBXGroup
     if file_ref.parent.is_a?(Xcodeproj::Project::Object::PBXVariantGroup)
-      # 跳过 VariantGroup 层，从 VariantGroup 的父组开始构建路径
+      # Skip VariantGroup layer, build path from VariantGroup's parent group
       parts = [file_ref.path]  # e.g. "en.lproj/Localizable.strings"
-      parent = file_ref.parent.parent  # 跳过 PBXVariantGroup
+      parent = file_ref.parent.parent  # Skip PBXVariantGroup
       while parent && parent.respond_to?(:path) && parent.path
         parts.unshift(parent.path)
         parent = parent.parent
@@ -776,7 +776,7 @@ class PBXProjTool
       if child.is_a?(Xcodeproj::Project::Object::PBXGroup)
         child_path = path.empty? ? child.display_name : "#{path}/#{child.display_name}"
         if child.children.empty?
-          warnings << "空组: #{child_path}"
+          warnings << "Empty group: #{child_path}"
         else
           check_empty_groups(child, warnings, child_path)
         end
@@ -794,14 +794,14 @@ class PBXProjTool
     end
   end
 
-  # 根据文件路径推断目标
+  # Infer target based on file path
   def infer_target(file_path)
     if file_path.start_with?('DMSAApp/')
       'DMSAApp'
     elsif file_path.start_with?('DMSAService/')
       'com.ttttt.dmsa.service'
     elsif file_path.start_with?('DMSAShared/')
-      # 共享代码需要添加到两个目标
+      # Shared code needs to be added to both targets
       ['DMSAApp', 'com.ttttt.dmsa.service']
     else
       nil
@@ -809,45 +809,45 @@ class PBXProjTool
   end
 end
 
-# 主程序
+# Main program
 def main
   if ARGV.empty?
     puts <<~USAGE
-      pbxproj_tool.rb - Xcode 项目管理工具 (Ruby 版)
+      pbxproj_tool.rb - Xcode project management tool (Ruby version)
 
-      用法: bundle exec ruby pbxproj_tool.rb <命令> [参数]
+      Usage: bundle exec ruby pbxproj_tool.rb <command> [arguments]
 
-      文件管理:
-        list [pattern]              列出文件 (可选过滤)
-        find <pattern>              查找匹配的文件
-        info <filename>             显示文件详细信息
-        add <file> <target>         添加文件到目标
-        add-multi <target> <files>  批量添加文件到目标
-        remove <file1> [file2...]   移除文件引用
+      File management:
+        list [pattern]              List files (optional filter)
+        find <pattern>              Find matching files
+        info <filename>             Show file details
+        add <file> <target>         Add file to target
+        add-multi <target> <files>  Batch add files to target
+        remove <file1> [file2...]   Remove file references
 
-      项目管理:
-        list-targets                列出构建目标
-        check                       检查项目完整性
-        fix                         修复损坏的引用
-        smart-fix [--dry-run]       智能修复 (自动检测并添加缺失文件)
-        stats                       显示项目统计
+      Project management:
+        list-targets                List build targets
+        check                       Check project integrity
+        fix                         Fix broken references
+        smart-fix [--dry-run]       Smart fix (auto-detect and add missing files)
+        stats                       Show project statistics
 
-      备份管理:
-        backup                      手动备份项目文件
-        list-backups                列出所有备份
-        restore [backup_name]       恢复备份 (默认最新)
+      Backup management:
+        backup                      Manually backup project file
+        list-backups                List all backups
+        restore [backup_name]       Restore backup (latest by default)
 
-      示例:
-        ruby pbxproj_tool.rb list swift          # 列出包含 'swift' 的文件
-        ruby pbxproj_tool.rb find ViewModel      # 查找 ViewModel 相关文件
+      Examples:
+        ruby pbxproj_tool.rb list swift          # List files containing 'swift'
+        ruby pbxproj_tool.rb find ViewModel      # Find ViewModel related files
         ruby pbxproj_tool.rb info StateManager.swift
         ruby pbxproj_tool.rb add DMSAApp/Models/NewModel.swift DMSAApp
         ruby pbxproj_tool.rb add-multi com.ttttt.dmsa.service file1.swift file2.swift
         ruby pbxproj_tool.rb remove OldView.swift
         ruby pbxproj_tool.rb check
         ruby pbxproj_tool.rb fix
-        ruby pbxproj_tool.rb smart-fix --dry-run   # 预览模式
-        ruby pbxproj_tool.rb smart-fix             # 执行修复
+        ruby pbxproj_tool.rb smart-fix --dry-run   # Preview mode
+        ruby pbxproj_tool.rb smart-fix             # Execute fix
     USAGE
     exit 1
   end
@@ -864,21 +864,21 @@ def main
     when 'find'
       pattern = ARGV[0]
       unless pattern
-        puts "用法: find <pattern>"
+        puts "Usage: find <pattern>"
         exit 1
       end
       tool.find_files(pattern)
     when 'info'
       filename = ARGV[0]
       unless filename
-        puts "用法: info <filename>"
+        puts "Usage: info <filename>"
         exit 1
       end
       tool.file_info(filename)
     when 'add'
       file, target = ARGV[0], ARGV[1]
       unless file && target
-        puts "用法: add <file> <target>"
+        puts "Usage: add <file> <target>"
         exit 1
       end
       tool.add_file(file, target)
@@ -886,13 +886,13 @@ def main
       target = ARGV.shift
       files = ARGV
       unless target && files.any?
-        puts "用法: add-multi <target> <file1> [file2...]"
+        puts "Usage: add-multi <target> <file1> [file2...]"
         exit 1
       end
       tool.add_files(files, target)
     when 'remove'
       unless ARGV.any?
-        puts "用法: remove <file1> [file2...]"
+        puts "Usage: remove <file1> [file2...]"
         exit 1
       end
       tool.remove_files(ARGV)
@@ -912,12 +912,12 @@ def main
     when 'restore'
       tool.restore(ARGV[0])
     else
-      puts "未知命令: #{command}"
-      puts "使用 'ruby pbxproj_tool.rb' 查看帮助"
+      puts "Unknown command: #{command}"
+      puts "Use 'ruby pbxproj_tool.rb' to see help"
       exit 1
     end
   rescue StandardError => e
-    puts "错误: #{e.message}"
+    puts "Error: #{e.message}"
     puts e.backtrace.first(5).join("\n") if ENV['DEBUG']
     exit 1
   end

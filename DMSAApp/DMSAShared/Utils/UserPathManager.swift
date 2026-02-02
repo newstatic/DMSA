@@ -1,8 +1,8 @@
 import Foundation
 
-/// 用户路径管理器 (Service 需要知道真实用户的 home 目录)
-/// 当 Service 以 root 身份运行时，~ 会被扩展为 /var/root
-/// 通过 App 调用 setUserHome 来设置正确的用户 home 目录
+/// User path manager (Service needs to know the real user's home directory)
+/// When Service runs as root, ~ expands to /var/root
+/// App calls setUserHome to set the correct user home directory
 public final class UserPathManager: @unchecked Sendable {
     public static let shared = UserPathManager()
 
@@ -11,14 +11,14 @@ public final class UserPathManager: @unchecked Sendable {
 
     private init() {}
 
-    /// 设置用户 home 目录 (由 App 通过 XPC 调用)
+    /// Set user home directory (called by App via XPC)
     public func setUserHome(_ path: String) {
         lock.lock()
         defer { lock.unlock() }
         _userHome = path
     }
 
-    /// 获取用户 home 目录
+    /// Get user home directory
     public var userHome: String {
         lock.lock()
         defer { lock.unlock() }
@@ -27,19 +27,19 @@ public final class UserPathManager: @unchecked Sendable {
             return home
         }
 
-        // 回退逻辑
+        // Fallback logic
         if getuid() == 0 {
-            // root 身份: 尝试环境变量或硬编码
+            // Running as root: try environment variables or hardcoded path
             if let sudoUser = ProcessInfo.processInfo.environment["SUDO_USER"],
                let pw = getpwnam(sudoUser) {
                 return String(cString: pw.pointee.pw_dir)
             }
-            return "/Users/ttttt"  // 硬编码回退
+            return "/Users/ttttt"  // Hardcoded fallback
         }
         return FileManager.default.homeDirectoryForCurrentUser.path
     }
 
-    /// 扩展 tilde (~) 为实际用户路径
+    /// Expand tilde (~) to actual user path
     public func expandTilde(_ path: String) -> String {
         if path.hasPrefix("~/") {
             return userHome + String(path.dropFirst(1))

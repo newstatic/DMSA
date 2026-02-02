@@ -1,6 +1,6 @@
 import Foundation
 
-/// 同步任务
+/// Sync task
 public struct SyncTask: Codable, Identifiable, Sendable {
     public let id: String
     public let syncPairId: String
@@ -38,12 +38,12 @@ public struct SyncTask: Codable, Identifiable, Sendable {
         self.createdAt = Date()
     }
 
-    /// 是否完成
+    /// Whether completed
     public var isCompleted: Bool {
         status == .completed || status == .failed || status == .cancelled
     }
 
-    /// 是否正在运行
+    /// Whether running
     public var isRunning: Bool {
         status == .inProgress
     }

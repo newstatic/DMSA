@@ -1,104 +1,104 @@
 import Foundation
 
-/// 文件元数据 - 用于同步比较
+/// File metadata - used for sync comparison
 struct FileMetadata: Codable, Hashable, Identifiable {
     var id: String { relativePath }
 
-    /// 相对路径 (相对于同步根目录)
+    /// Relative path (relative to sync root directory)
     let relativePath: String
 
-    /// 文件大小 (字节)
+    /// File size (bytes)
     let size: Int64
 
-    /// 修改时间
+    /// Modification time
     let modifiedTime: Date
 
-    /// 创建时间
+    /// Creation time
     let createdTime: Date
 
-    /// 是否为目录
+    /// Whether this is a directory
     let isDirectory: Bool
 
-    /// 是否为符号链接
+    /// Whether this is a symbolic link
     let isSymlink: Bool
 
-    /// 符号链接目标 (如果是符号链接)
+    /// Symbolic link target (if symlink)
     let symlinkTarget: String?
 
-    /// 校验和 (MD5/SHA256)
+    /// Checksum (MD5/SHA256)
     var checksum: String?
 
-    /// 文件权限 (POSIX)
+    /// File permissions (POSIX)
     let permissions: UInt16
 
-    /// 文件所有者 UID
+    /// File owner UID
     let ownerUID: UInt32
 
-    /// 文件所属组 GID
+    /// File group GID
     let ownerGID: UInt32
 
-    // MARK: - 计算属性
+    // MARK: - Computed Properties
 
-    /// 文件名
+    /// File name
     var fileName: String {
         (relativePath as NSString).lastPathComponent
     }
 
-    /// 文件扩展名
+    /// File extension
     var fileExtension: String {
         (relativePath as NSString).pathExtension
     }
 
-    /// 父目录路径
+    /// Parent directory path
     var parentPath: String {
         (relativePath as NSString).deletingLastPathComponent
     }
 
-    /// 格式化的文件大小
+    /// Formatted file size
     var formattedSize: String {
         ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
     }
 
-    // MARK: - 比较方法
+    // MARK: - Comparison Methods
 
-    /// 快速比较 (仅比较大小和修改时间)
+    /// Quick comparison (size and modification time only)
     func quickEquals(_ other: FileMetadata) -> Bool {
         return size == other.size &&
                abs(modifiedTime.timeIntervalSince(other.modifiedTime)) < 1.0 &&
                isDirectory == other.isDirectory
     }
 
-    /// 完整比较 (包含校验和)
+    /// Full comparison (including checksum)
     func fullEquals(_ other: FileMetadata) -> Bool {
         guard quickEquals(other) else { return false }
 
-        // 如果都有校验和，比较校验和
+        // If both have checksums, compare them
         if let myChecksum = checksum, let otherChecksum = other.checksum {
             return myChecksum == otherChecksum
         }
 
-        // 如果没有校验和，认为快速比较通过即相等
+        // If no checksums available, quick comparison pass means equal
         return true
     }
 
-    /// 判断是否比另一个文件新
+    /// Check if this file is newer than another
     func isNewerThan(_ other: FileMetadata) -> Bool {
         return modifiedTime > other.modifiedTime
     }
 
-    /// 判断内容是否可能不同
+    /// Check if content may differ from another file
     func contentMayDiffer(from other: FileMetadata) -> Bool {
-        // 大小不同肯定不同
+        // Different size means definitely different
         if size != other.size {
             return true
         }
 
-        // 修改时间不同可能不同
+        // Different modification time may indicate different content
         if abs(modifiedTime.timeIntervalSince(other.modifiedTime)) >= 1.0 {
             return true
         }
 
-        // 如果有校验和且不同
+        // If checksums exist and differ
         if let myChecksum = checksum, let otherChecksum = other.checksum {
             return myChecksum != otherChecksum
         }
@@ -106,7 +106,7 @@ struct FileMetadata: Codable, Hashable, Identifiable {
         return false
     }
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     init(
         relativePath: String,
@@ -134,7 +134,7 @@ struct FileMetadata: Codable, Hashable, Identifiable {
         self.ownerGID = ownerGID
     }
 
-    /// 从文件 URL 创建元数据
+    /// Create metadata from a file URL
     static func from(url: URL, relativeTo baseURL: URL) throws -> FileMetadata {
         let fileManager = FileManager.default
         let attributes = try fileManager.attributesOfItem(atPath: url.path)
@@ -176,28 +176,28 @@ struct FileMetadata: Codable, Hashable, Identifiable {
     }
 }
 
-// MARK: - 文件元数据快照
+// MARK: - File Metadata Snapshot
 
-/// 目录快照 - 包含所有文件的元数据
+/// Directory snapshot - contains metadata for all files
 struct DirectorySnapshot: Codable {
-    /// 快照创建时间
+    /// Snapshot creation time
     let createdAt: Date
 
-    /// 根目录路径
+    /// Root directory path
     let rootPath: String
 
-    /// 文件元数据字典 (相对路径 -> 元数据)
+    /// File metadata dictionary (relative path -> metadata)
     var files: [String: FileMetadata]
 
-    /// 文件总数
+    /// Total file count
     var fileCount: Int { files.count }
 
-    /// 总大小
+    /// Total size
     var totalSize: Int64 {
         files.values.reduce(0) { $0 + $1.size }
     }
 
-    /// 目录数量
+    /// Directory count
     var directoryCount: Int {
         files.values.filter { $0.isDirectory }.count
     }
@@ -208,17 +208,17 @@ struct DirectorySnapshot: Codable {
         self.files = files
     }
 
-    /// 获取指定路径的元数据
+    /// Get metadata for a given path
     func metadata(for relativePath: String) -> FileMetadata? {
         return files[relativePath]
     }
 
-    /// 添加或更新文件元数据
+    /// Add or update file metadata
     mutating func update(_ metadata: FileMetadata) {
         files[metadata.relativePath] = metadata
     }
 
-    /// 移除文件元数据
+    /// Remove file metadata
     mutating func remove(relativePath: String) {
         files.removeValue(forKey: relativePath)
     }

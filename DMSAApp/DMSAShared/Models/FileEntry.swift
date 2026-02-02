@@ -1,18 +1,18 @@
 import Foundation
 
-/// 同步锁定状态
+/// Sync lock state
 public enum LockState: Int, Codable, Sendable {
     case unlocked = 0
     case syncLocked = 1
 }
 
-/// 同步方向（用于锁定时确定源路径）
+/// Sync direction (used to determine source path when locked)
 public enum SyncLockDirection: Int, Codable, Sendable {
     case localToExternal = 0
     case externalToLocal = 1
 }
 
-/// 文件索引实体
+/// File index entity
 public final class FileEntry: Identifiable, Codable, @unchecked Sendable {
     public var id: UInt64
     public var virtualPath: String
@@ -29,7 +29,7 @@ public final class FileEntry: Identifiable, Codable, @unchecked Sendable {
     public var diskId: String?
     public var isDirectory: Bool
 
-    // 同步锁定相关
+    // Sync lock related
     public var lockState: LockState
     public var lockTime: Date?
     public var lockDirection: SyncLockDirection?
@@ -135,7 +135,7 @@ public final class FileEntry: Identifiable, Codable, @unchecked Sendable {
         lockDirection = nil
     }
 
-    /// 转换为字典 (用于 XPC 传输)
+    /// Convert to dictionary (for XPC transport)
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "id": id,
@@ -159,7 +159,7 @@ public final class FileEntry: Identifiable, Codable, @unchecked Sendable {
         return dict
     }
 
-    /// 从字典创建 (用于 XPC 传输)
+    /// Create from dictionary (for XPC transport)
     public static func from(dictionary dict: [String: Any]) -> FileEntry? {
         guard let virtualPath = dict["virtualPath"] as? String else { return nil }
 

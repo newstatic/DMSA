@@ -1,69 +1,69 @@
 import Foundation
 
-/// 同步状态管理器 - 支持暂停/恢复同步
+/// Sync state manager - supports pause/resume sync
 class SyncStateManager {
 
-    // MARK: - 状态数据结构
+    // MARK: - State Data Structure
 
-    /// 同步状态快照
+    /// Sync state snapshot
     struct SyncState: Codable {
-        /// 同步对 ID
+        /// Sync pair ID
         let syncPairId: String
 
-        /// 开始时间
+        /// Start time
         let startedAt: Date
 
-        /// 最后更新时间
+        /// Last updated time
         var lastUpdatedAt: Date
 
-        /// 当前阶段
+        /// Current phase
         var phase: SyncPhase
 
-        /// 已完成的动作索引
+        /// Completed action indices
         var completedActionIndices: Set<Int>
 
-        /// 待处理的动作索引
+        /// Pending action indices
         var pendingActionIndices: Set<Int>
 
-        /// 原始同步计划
+        /// Original sync plan
         var plan: SyncPlan
 
-        /// 源目录快照
+        /// Source directory snapshot
         var sourceSnapshot: DirectorySnapshot?
 
-        /// 目标目录快照
+        /// Destination directory snapshot
         var destinationSnapshot: DirectorySnapshot?
 
-        /// 已处理字节数
+        /// Processed bytes
         var processedBytes: Int64
 
-        /// 已处理文件数
+        /// Processed files
         var processedFiles: Int
 
-        /// 失败的动作
+        /// Failed actions
         var failedActions: [FailedAction]
 
-        /// 是否可恢复
+        /// Whether resumable
         var isResumable: Bool {
             !pendingActionIndices.isEmpty && phase != .completed && phase != .cancelled
         }
 
-        /// 恢复进度
+        /// Resume progress
         var resumeProgress: Double {
             let total = completedActionIndices.count + pendingActionIndices.count
             return total > 0 ? Double(completedActionIndices.count) / Double(total) : 0
         }
     }
 
-    // MARK: - 属性
+    // MARK: - Properties
 
-    /// 状态文件目录
+    /// State file directory
     private let stateDirectory: URL
 
-    /// 文件管理器
+    /// File manager
     private let fileManager = FileManager.default
 
-    /// JSON 编码器
+    /// JSON encoder
     private let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -71,26 +71,26 @@ class SyncStateManager {
         return encoder
     }()
 
-    /// JSON 解码器
+    /// JSON decoder
     private let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder
     }()
 
-    /// 自动保存间隔（文件数）
+    /// Auto-save interval (in file count)
     var checkpointInterval: Int = 50
 
     /// Logger
     private let logger = Logger.forService("SyncStateManager")
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     init(stateDirectory: URL? = nil) {
         if let dir = stateDirectory {
             self.stateDirectory = dir
         } else {
-            // 默认使用 Application Support 目录
+            // Default to Application Support directory
             let appSupport = FileManager.default.urls(
                 for: .applicationSupportDirectory,
                 in: .userDomainMask
@@ -98,13 +98,13 @@ class SyncStateManager {
             self.stateDirectory = appSupport.appendingPathComponent("DMSA/SyncState")
         }
 
-        // 确保目录存在
+        // Ensure directory exists
         try? fileManager.createDirectory(at: self.stateDirectory, withIntermediateDirectories: true)
     }
 
-    // MARK: - 公共方法
+    // MARK: - Public Methods
 
-    /// 创建新的同步状态
+    /// Create new sync state
     func createState(for plan: SyncPlan) -> SyncState {
         let actionIndices = Set(0..<plan.actions.count)
 
@@ -124,7 +124,7 @@ class SyncStateManager {
         )
     }
 
-    /// 保存同步状态
+    /// Save sync state
     func saveState(_ state: SyncState) throws {
         var mutableState = state
         mutableState.lastUpdatedAt = Date()
@@ -134,10 +134,10 @@ class SyncStateManager {
 
         try data.write(to: filePath, options: .atomic)
 
-        logger.debug("同步状态已保存: \(state.syncPairId)")
+        logger.debug("Sync state saved: \(state.syncPairId)")
     }
 
-    /// 加载同步状态
+    /// Load sync state
     func loadState(for syncPairId: String) throws -> SyncState? {
         let filePath = stateFilePath(for: syncPairId)
 
@@ -148,21 +148,21 @@ class SyncStateManager {
         let data = try Data(contentsOf: filePath)
         let state = try decoder.decode(SyncState.self, from: data)
 
-        logger.debug("同步状态已加载: \(syncPairId)")
+        logger.debug("Sync state loaded: \(syncPairId)")
         return state
     }
 
-    /// 清除同步状态
+    /// Clear sync state
     func clearState(for syncPairId: String) throws {
         let filePath = stateFilePath(for: syncPairId)
 
         if fileManager.fileExists(atPath: filePath.path) {
             try fileManager.removeItem(at: filePath)
-            logger.debug("同步状态已清除: \(syncPairId)")
+            logger.debug("Sync state cleared: \(syncPairId)")
         }
     }
 
-    /// 获取所有可恢复的状态
+    /// Get all resumable states
     func getResumableStates() throws -> [SyncState] {
         guard fileManager.fileExists(atPath: stateDirectory.path) else {
             return []
@@ -183,14 +183,14 @@ class SyncStateManager {
                     states.append(state)
                 }
             } catch {
-                logger.warning("无法加载状态文件: \(file.path), 错误: \(error)")
+                logger.warning("Failed to load state file: \(file.path), error: \(error)")
             }
         }
 
         return states.sorted { $0.lastUpdatedAt > $1.lastUpdatedAt }
     }
 
-    /// 清理过期状态（默认 7 天）
+    /// Clean up expired states (default 7 days)
     func cleanupExpiredStates(olderThan days: Int = 7) throws {
         let cutoffDate = Calendar.current.date(byAdding: .day, value: -days, to: Date())!
 
@@ -207,12 +207,12 @@ class SyncStateManager {
             let attrs = try file.resourceValues(forKeys: [.contentModificationDateKey])
             if let modDate = attrs.contentModificationDate, modDate < cutoffDate {
                 try fileManager.removeItem(at: file)
-                logger.info("已清理过期状态: \(file.lastPathComponent)")
+                logger.info("Cleaned up expired state: \(file.lastPathComponent)")
             }
         }
     }
 
-    /// 更新状态进度
+    /// Update state progress
     func updateProgress(
         state: inout SyncState,
         completedIndex: Int,
@@ -224,13 +224,13 @@ class SyncStateManager {
         state.processedBytes += bytes
         state.lastUpdatedAt = Date()
 
-        // 检查是否需要自动保存
+        // Check if auto-save is needed
         if state.processedFiles % checkpointInterval == 0 {
             try? saveState(state)
         }
     }
 
-    /// 标记动作失败
+    /// Mark action as failed
     func markFailed(
         state: inout SyncState,
         index: Int,
@@ -248,14 +248,14 @@ class SyncStateManager {
         state.lastUpdatedAt = Date()
     }
 
-    /// 更新阶段
+    /// Update phase
     func updatePhase(state: inout SyncState, phase: SyncPhase) {
         state.phase = phase
         state.lastUpdatedAt = Date()
         try? saveState(state)
     }
 
-    /// 获取剩余动作
+    /// Get pending actions
     func getPendingActions(from state: SyncState) -> [SyncAction] {
         return state.pendingActionIndices.sorted().compactMap { index in
             guard index < state.plan.actions.count else { return nil }
@@ -263,7 +263,7 @@ class SyncStateManager {
         }
     }
 
-    /// 检查是否有可恢复的同步
+    /// Check if there is a resumable sync
     func hasResumableSync(for syncPairId: String) -> Bool {
         guard let state = try? loadState(for: syncPairId) else {
             return false
@@ -271,7 +271,7 @@ class SyncStateManager {
         return state.isResumable
     }
 
-    // MARK: - 私有方法
+    // MARK: - Private Methods
 
     private func stateFilePath(for syncPairId: String) -> URL {
         let safeId = syncPairId.replacingOccurrences(of: "/", with: "_")
@@ -279,11 +279,11 @@ class SyncStateManager {
     }
 }
 
-// MARK: - 状态恢复辅助
+// MARK: - State Recovery Helper
 
 extension SyncStateManager {
 
-    /// 从状态恢复同步进度对象
+    /// Restore sync progress object from state
     func restoreProgress(from state: SyncState) -> ServiceSyncProgress {
         let progress = ServiceSyncProgress()
 
@@ -301,7 +301,7 @@ extension SyncStateManager {
         return progress
     }
 
-    /// 生成恢复摘要
+    /// Generate resume summary
     func getResumeSummary(from state: SyncState) -> String {
         let completed = state.completedActionIndices.count
         let pending = state.pendingActionIndices.count
@@ -315,11 +315,11 @@ extension SyncStateManager {
         let lastUpdate = formatter.string(from: state.lastUpdatedAt)
 
         return """
-        同步对: \(state.syncPairId)
-        进度: \(completed)/\(total) (\(progress)%)
-        已处理: \(ByteCountFormatter.string(fromByteCount: state.processedBytes, countStyle: .file))
-        最后更新: \(lastUpdate)
-        阶段: \(state.phase.description)
+        Sync pair: \(state.syncPairId)
+        Progress: \(completed)/\(total) (\(progress)%)
+        Processed: \(ByteCountFormatter.string(fromByteCount: state.processedBytes, countStyle: .file))
+        Last updated: \(lastUpdate)
+        Phase: \(state.phase.description)
         """
     }
 }

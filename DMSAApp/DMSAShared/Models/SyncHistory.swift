@@ -1,6 +1,6 @@
 import Foundation
 
-/// 同步历史记录
+/// Sync history record
 public struct SyncHistory: Codable, Identifiable, Sendable {
     public var id: String
     public var syncPairId: String
@@ -40,11 +40,11 @@ public struct SyncHistory: Codable, Identifiable, Sendable {
     public var formattedDuration: String? {
         guard let dur = duration else { return nil }
         if dur < 60 {
-            return String(format: "%.1f 秒", dur)
+            return String(format: "%.1f sec", dur)
         } else if dur < 3600 {
-            return String(format: "%.1f 分钟", dur / 60)
+            return String(format: "%.1f min", dur / 60)
         } else {
-            return String(format: "%.1f 小时", dur / 3600)
+            return String(format: "%.1f hr", dur / 3600)
         }
     }
 
@@ -56,23 +56,23 @@ public struct SyncHistory: Codable, Identifiable, Sendable {
         return formatBytes(bytesTransferred)
     }
 
-    /// 转换为 Data (用于 XPC 传输)
+    /// Convert to Data (for XPC transport)
     public func toData() -> Data? {
         return try? JSONEncoder().encode(self)
     }
 
-    /// 从 Data 创建 (用于 XPC 传输)
+    /// Create from Data (for XPC transport)
     public static func from(data: Data) -> SyncHistory? {
         return try? JSONDecoder().decode(SyncHistory.self, from: data)
     }
 
-    /// 从 Data 数组创建
+    /// Create array from Data
     public static func arrayFrom(data: Data) -> [SyncHistory] {
         return (try? JSONDecoder().decode([SyncHistory].self, from: data)) ?? []
     }
 }
 
-/// 同步操作详情
+/// Sync operation detail
 public struct SyncOperationDetail: Codable, Identifiable, Sendable {
     public var id: String
     public var path: String
@@ -101,11 +101,11 @@ public struct SyncOperationDetail: Codable, Identifiable, Sendable {
 
         public var displayName: String {
             switch self {
-            case .add: return "添加"
-            case .update: return "更新"
-            case .delete: return "删除"
-            case .skip: return "跳过"
-            case .conflict: return "冲突"
+            case .add: return "Add"
+            case .update: return "Update"
+            case .delete: return "Delete"
+            case .skip: return "Skip"
+            case .conflict: return "Conflict"
             }
         }
 
@@ -121,7 +121,7 @@ public struct SyncOperationDetail: Codable, Identifiable, Sendable {
     }
 }
 
-/// 同步统计
+/// Sync statistics
 public struct SyncStatistics: Codable, Sendable {
     public var syncPairId: String
     public var date: Date

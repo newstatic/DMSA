@@ -1,30 +1,30 @@
 import Foundation
 
-// MARK: - Service 配置管理器
-// 使用 JSON 存储服务配置和运行时状态
-// 配置目录: /Library/Application Support/DMSA/ServiceData/
+// MARK: - Service Config Manager
+// Uses JSON to store service configuration and runtime state
+// Config directory: /Library/Application Support/DMSA/ServiceData/
 
-/// 服务运行时状态
+/// Service runtime state
 public struct ServiceRuntimeState: Codable, Sendable {
-    /// VFS 挂载状态
+    /// VFS mount states
     public var mountedPairs: [String: MountState] = [:]
 
-    /// 同步状态
+    /// Sync states
     public var syncStates: [String: SyncState] = [:]
 
-    /// 硬盘连接状态
+    /// Disk connection states
     public var diskStates: [String: DiskState] = [:]
 
-    /// 服务启动时间
+    /// Service start time
     public var serviceStartTime: Date?
 
-    /// 最后活动时间
+    /// Last active time
     public var lastActiveTime: Date = Date()
 
     public init() {}
 }
 
-/// VFS 挂载状态
+/// VFS mount state
 public struct MountState: Codable, Sendable {
     public var syncPairId: String
     public var targetDir: String
@@ -43,7 +43,7 @@ public struct MountState: Codable, Sendable {
     }
 }
 
-/// 同步状态
+/// Sync state
 public struct SyncState: Codable, Sendable {
     public var syncPairId: String
     public var status: String = "idle"  // idle, syncing, paused, error
@@ -60,7 +60,7 @@ public struct SyncState: Codable, Sendable {
     }
 }
 
-/// 硬盘状态
+/// Disk state
 public struct DiskState: Codable, Sendable {
     public var diskId: String
     public var diskName: String
@@ -77,83 +77,83 @@ public struct DiskState: Codable, Sendable {
     }
 }
 
-/// 淘汰配置
+/// Eviction config
 public struct EvictionConfig: Codable, Sendable {
-    /// 触发淘汰的可用空间阈值 (bytes)
+    /// Available space threshold to trigger eviction (bytes)
     public var triggerThreshold: Int64 = 5 * 1024 * 1024 * 1024  // 5GB
 
-    /// 淘汰目标可用空间 (bytes)
+    /// Target free space after eviction (bytes)
     public var targetFreeSpace: Int64 = 10 * 1024 * 1024 * 1024  // 10GB
 
-    /// 单次淘汰最大文件数
+    /// Max files per eviction run
     public var maxFilesPerRun: Int = 100
 
-    /// 最小文件年龄 (秒) - 防止淘汰刚访问的文件
-    public var minFileAge: TimeInterval = 3600  // 1小时
+    /// Min file age (seconds) - prevents evicting recently accessed files
+    public var minFileAge: TimeInterval = 3600  // 1 hour
 
-    /// 自动淘汰间隔 (秒)
-    public var checkInterval: TimeInterval = 300  // 5分钟
+    /// Auto eviction check interval (seconds)
+    public var checkInterval: TimeInterval = 300  // 5 minutes
 
-    /// 是否启用自动淘汰
+    /// Whether auto eviction is enabled
     public var autoEnabled: Bool = true
 
     public init() {}
 }
 
-/// 同步配置 (服务端)
+/// Sync config (service-side)
 public struct ServiceSyncConfig: Codable, Sendable {
-    /// 启用校验和
+    /// Enable checksum
     public var enableChecksum: Bool = true
 
-    /// 校验算法
+    /// Checksum algorithm
     public var checksumAlgorithm: String = "md5"
 
-    /// 复制后验证
+    /// Verify after copy
     public var verifyAfterCopy: Bool = true
 
-    /// 冲突策略
+    /// Conflict strategy
     public var conflictStrategy: String = "localWinsWithBackup"
 
-    /// 启用删除同步
+    /// Enable delete sync
     public var enableDelete: Bool = false
 
-    /// 排除模式
+    /// Exclude patterns
     public var excludePatterns: [String] = []
 
-    /// 防抖间隔 (秒)
+    /// Debounce interval (seconds)
     public var debounceInterval: TimeInterval = 5.0
 
-    /// 自动同步间隔 (秒)
-    public var autoSyncInterval: TimeInterval = 3600  // 1小时
+    /// Auto sync interval (seconds)
+    public var autoSyncInterval: TimeInterval = 3600  // 1 hour
 
     public init() {}
 }
 
-/// 服务配置
+/// Service config
 public struct ServiceConfig: Codable, Sendable {
-    /// 淘汰配置
+    /// Eviction config
     public var eviction: EvictionConfig = EvictionConfig()
 
-    /// 同步配置
+    /// Sync config
     public var sync: ServiceSyncConfig = ServiceSyncConfig()
 
-    /// 日志级别
+    /// Log level
     public var logLevel: String = "info"
 
-    /// 启用性能监控
+    /// Enable performance monitoring
     public var enablePerformanceMonitoring: Bool = false
 
-    /// 健康检查间隔 (秒)
+    /// Health check interval (seconds)
     public var healthCheckInterval: TimeInterval = 60
 
     public init() {}
 }
 
-// MARK: - Service 配置管理器
+// MARK: - Service Config Manager
 
-/// DMSAService 配置管理器
-/// - 配置文件: /Library/Application Support/DMSA/ServiceData/config.json
-/// - 状态文件: /Library/Application Support/DMSA/ServiceData/state.json
+/// DMSAService config manager
+/// - Config file: /Library/Application Support/DMSA/ServiceData/config.json
+/// - State file: /Library/Application Support/DMSA/ServiceData/state.json
 actor ServiceConfigManager {
 
     static let shared = ServiceConfigManager()
@@ -161,18 +161,18 @@ actor ServiceConfigManager {
     private let logger = Logger.forService("Config")
     private let fileManager = FileManager.default
 
-    // 配置目录
+    // Config directory
     private let dataDirectory: URL
 
-    // 文件路径
+    // File paths
     private let configURL: URL
     private let stateURL: URL
 
-    // 内存数据
+    // In-memory data
     private var config: ServiceConfig = ServiceConfig()
     private var state: ServiceRuntimeState = ServiceRuntimeState()
 
-    // 保存防抖
+    // Save debounce
     private var saveTask: Task<Void, Never>?
     private let saveDebounce: TimeInterval = 1.0
 
@@ -186,42 +186,42 @@ actor ServiceConfigManager {
         }
     }
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     private func initialize() async {
-        // 确保目录存在
+        // Ensure directory exists
         do {
             try fileManager.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
         } catch {
-            logger.error("创建配置目录失败: \(error)")
+            logger.error("Failed to create config directory: \(error)")
         }
 
-        // 加载配置
+        // Load config
         await loadConfig()
         await loadState()
 
-        // 更新服务启动时间
+        // Update service start time
         state.serviceStartTime = Date()
         state.lastActiveTime = Date()
         await saveState()
 
-        logger.info("ServiceConfigManager 初始化完成")
+        logger.info("ServiceConfigManager initialized")
     }
 
-    // MARK: - Config 操作
+    // MARK: - Config Operations
 
     private func loadConfig() async {
         guard let data = try? Data(contentsOf: configURL) else {
-            logger.info("配置文件不存在，使用默认配置")
+            logger.info("Config file not found, using defaults")
             await saveConfig()
             return
         }
 
         do {
             config = try JSONDecoder().decode(ServiceConfig.self, from: data)
-            logger.info("加载服务配置")
+            logger.info("Service config loaded")
         } catch {
-            logger.error("解析配置失败: \(error)")
+            logger.error("Failed to parse config: \(error)")
         }
     }
 
@@ -250,13 +250,13 @@ actor ServiceConfigManager {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(config)
             try data.write(to: configURL, options: .atomic)
-            logger.debug("保存服务配置")
+            logger.debug("Service config saved")
         } catch {
-            logger.error("保存配置失败: \(error)")
+            logger.error("Failed to save config: \(error)")
         }
     }
 
-    // MARK: - State 操作
+    // MARK: - State Operations
 
     private func loadState() async {
         guard let data = try? Data(contentsOf: stateURL) else {
@@ -265,9 +265,9 @@ actor ServiceConfigManager {
 
         do {
             state = try JSONDecoder().decode(ServiceRuntimeState.self, from: data)
-            logger.info("加载运行时状态")
+            logger.info("Runtime state loaded")
         } catch {
-            logger.error("解析状态失败: \(error)")
+            logger.error("Failed to parse state: \(error)")
             state = ServiceRuntimeState()
         }
     }
@@ -317,7 +317,7 @@ actor ServiceConfigManager {
         syncState.currentFile = currentFile
         state.syncStates[syncPairId] = syncState
         state.lastActiveTime = Date()
-        // 不立即保存进度更新，避免频繁 I/O
+        // Don't save progress updates immediately to avoid frequent I/O
     }
 
     func markSyncCompleted(syncPairId: String) async {
@@ -347,7 +347,7 @@ actor ServiceConfigManager {
         diskState.mountPath = mountPath
         diskState.lastConnectedAt = Date()
 
-        // 获取磁盘空间
+        // Get disk space
         if let attrs = try? fileManager.attributesOfFileSystem(forPath: mountPath) {
             diskState.totalSpace = attrs[.systemSize] as? Int64 ?? 0
             diskState.freeSpace = attrs[.systemFreeSize] as? Int64 ?? 0
@@ -372,7 +372,7 @@ actor ServiceConfigManager {
         return Array(state.diskStates.values)
     }
 
-    // MARK: - 保存状态
+    // MARK: - Save State
 
     private func scheduleSaveState() {
         saveTask?.cancel()
@@ -390,7 +390,7 @@ actor ServiceConfigManager {
             let data = try encoder.encode(state)
             try data.write(to: stateURL, options: .atomic)
         } catch {
-            logger.error("保存状态失败: \(error)")
+            logger.error("Failed to save state: \(error)")
         }
     }
 
@@ -399,7 +399,7 @@ actor ServiceConfigManager {
         await saveState()
     }
 
-    // MARK: - 清理
+    // MARK: - Cleanup
 
     func clearState() async {
         state = ServiceRuntimeState()
@@ -407,34 +407,34 @@ actor ServiceConfigManager {
         await saveState()
     }
 
-    // MARK: - 健康检查
+    // MARK: - Health Check
 
     func healthCheck() -> Bool {
         return fileManager.fileExists(atPath: dataDirectory.path)
     }
 
-    // MARK: - 配置冲突检测
-    // 参考文档: SERVICE_FLOW/02_配置管理.md
+    // MARK: - Config Conflict Detection
+    // Reference: SERVICE_FLOW/02_config_management.md
 
-    /// 检测配置冲突
-    /// 返回冲突列表，如果为空则表示无冲突
+    /// Detect config conflicts
+    /// Returns a list of conflicts; empty means no conflicts
     func detectConflicts(appConfig: AppConfig) -> [ConfigConflict] {
         var conflicts: [ConfigConflict] = []
 
-        // 1. 检测多个 syncPair 使用同一 EXTERNAL_DIR
+        // 1. Detect multiple syncPairs using the same EXTERNAL_DIR
         conflicts.append(contentsOf: detectMultipleExternalDirs(appConfig.syncPairs, disks: appConfig.disks))
 
-        // 2. 检测 LOCAL_DIR 重叠
+        // 2. Detect overlapping LOCAL_DIRs
         conflicts.append(contentsOf: detectOverlappingLocal(appConfig.syncPairs))
 
-        // 3. 检测引用的 disk 不存在
+        // 3. Detect referenced disk not found
         conflicts.append(contentsOf: detectDiskNotFound(appConfig.syncPairs, disks: appConfig.disks))
 
-        // 4. 检测循环同步
+        // 4. Detect circular sync
         conflicts.append(contentsOf: detectCircularSync(appConfig.syncPairs, disks: appConfig.disks))
 
         if !conflicts.isEmpty {
-            logger.warning("检测到 \(conflicts.count) 个配置冲突")
+            logger.warning("Detected \(conflicts.count) config conflicts")
             for conflict in conflicts {
                 logger.warning("  - [\(conflict.type.rawValue)] \(conflict.affectedItems.joined(separator: ", "))")
             }
@@ -443,7 +443,7 @@ actor ServiceConfigManager {
         return conflicts
     }
 
-    /// 检测多个 syncPair 使用同一 EXTERNAL_DIR
+    /// Detect multiple syncPairs using the same EXTERNAL_DIR
     private func detectMultipleExternalDirs(_ syncPairs: [SyncPairConfig], disks: [DiskConfig]) -> [ConfigConflict] {
         var conflicts: [ConfigConflict] = []
         var externalDirMap: [String: [String]] = [:]  // [fullExternalDir: [syncPairIds]]
@@ -460,13 +460,13 @@ actor ServiceConfigManager {
                 affectedItems: pairIds,
                 requiresUserAction: true
             ))
-            logger.warning("冲突: 多个 SyncPair 使用同一 EXTERNAL_DIR: \(externalDir)")
+            logger.warning("Conflict: multiple SyncPairs use the same EXTERNAL_DIR: \(externalDir)")
         }
 
         return conflicts
     }
 
-    /// 检测 LOCAL_DIR 重叠
+    /// Detect overlapping LOCAL_DIRs
     private func detectOverlappingLocal(_ syncPairs: [SyncPairConfig]) -> [ConfigConflict] {
         var conflicts: [ConfigConflict] = []
         let enabledPairs = syncPairs.filter { $0.enabled }
@@ -479,14 +479,14 @@ actor ServiceConfigManager {
                 let local1 = pair1.localDir
                 let local2 = pair2.localDir
 
-                // 检查是否重叠 (一个是另一个的子路径)
+                // Check for overlap (one is a subpath of the other)
                 if local1.hasPrefix(local2 + "/") || local2.hasPrefix(local1 + "/") || local1 == local2 {
                     conflicts.append(ConfigConflict(
                         type: .overlappingLocal,
                         affectedItems: [pair1.id, pair2.id],
                         requiresUserAction: true
                     ))
-                    logger.warning("冲突: LOCAL_DIR 重叠: \(local1) 与 \(local2)")
+                    logger.warning("Conflict: LOCAL_DIR overlap: \(local1) and \(local2)")
                 }
             }
         }
@@ -494,7 +494,7 @@ actor ServiceConfigManager {
         return conflicts
     }
 
-    /// 检测引用的 disk 不存在
+    /// Detect referenced disk not found
     private func detectDiskNotFound(_ syncPairs: [SyncPairConfig], disks: [DiskConfig]) -> [ConfigConflict] {
         var conflicts: [ConfigConflict] = []
         let diskIds = Set(disks.map { $0.id })
@@ -506,14 +506,14 @@ actor ServiceConfigManager {
                     affectedItems: [pair.id, pair.diskId],
                     requiresUserAction: true
                 ))
-                logger.warning("冲突: SyncPair '\(pair.id)' 引用的 Disk '\(pair.diskId)' 不存在")
+                logger.warning("Conflict: SyncPair '\(pair.id)' references non-existent Disk '\(pair.diskId)'")
             }
         }
 
         return conflicts
     }
 
-    /// 检测循环同步
+    /// Detect circular sync
     private func detectCircularSync(_ syncPairs: [SyncPairConfig], disks: [DiskConfig]) -> [ConfigConflict] {
         var conflicts: [ConfigConflict] = []
         let enabledPairs = syncPairs.filter { $0.enabled }
@@ -531,24 +531,24 @@ actor ServiceConfigManager {
                 let local1 = pair1.localDir
                 let local2 = pair2.localDir
 
-                // 检查循环: pair1 的 EXTERNAL_DIR 在 pair2 的 LOCAL_DIR 下，或反之
+                // Check circular: pair1's EXTERNAL_DIR is under pair2's LOCAL_DIR, or vice versa
                 if external1.hasPrefix(local2 + "/") || external2.hasPrefix(local1 + "/") {
                     conflicts.append(ConfigConflict(
                         type: .circularSync,
                         affectedItems: [pair1.id, pair2.id],
                         requiresUserAction: true
                     ))
-                    logger.warning("冲突: 检测到循环同步: \(pair1.id) 与 \(pair2.id)")
+                    logger.warning("Conflict: circular sync detected: \(pair1.id) and \(pair2.id)")
                 }
 
-                // 检查循环: pair1 的 LOCAL_DIR 在 pair2 的 EXTERNAL_DIR 下，或反之
+                // Check circular: pair1's LOCAL_DIR is under pair2's EXTERNAL_DIR, or vice versa
                 if local1.hasPrefix(external2 + "/") || local2.hasPrefix(external1 + "/") {
                     conflicts.append(ConfigConflict(
                         type: .circularSync,
                         affectedItems: [pair1.id, pair2.id],
                         requiresUserAction: true
                     ))
-                    logger.warning("冲突: 检测到循环同步: \(pair1.id) 与 \(pair2.id)")
+                    logger.warning("Conflict: circular sync detected: \(pair1.id) and \(pair2.id)")
                 }
             }
         }
@@ -556,7 +556,7 @@ actor ServiceConfigManager {
         return conflicts
     }
 
-    /// 验证配置并返回冲突状态
+    /// Validate config and return conflict status
     func validateConfig(appConfig: AppConfig) async -> ConfigStatus {
         let conflicts = detectConflicts(appConfig: appConfig)
 
@@ -569,7 +569,7 @@ actor ServiceConfigManager {
             configPath: nil
         )
 
-        // 设置配置状态
+        // Set config status
         await ServiceStateManager.shared.setConfigStatus(status)
 
         return status

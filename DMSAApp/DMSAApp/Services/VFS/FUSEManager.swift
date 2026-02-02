@@ -1,39 +1,39 @@
 import Foundation
 import AppKit
 
-/// macFUSE 管理器
-/// 负责检测 macFUSE 安装状态、版本验证和安装引导
+/// macFUSE manager
+/// Handles macFUSE installation detection, version validation, and installation guidance
 ///
-/// 使用方式:
-/// 1. 启动时调用 checkFUSEAvailability()
-/// 2. 若未安装则调用 showInstallationGuide()
-/// 3. 若版本不匹配则调用 showUpdateGuide()
+/// Usage:
+/// 1. Call checkFUSEAvailability() at startup
+/// 2. If not installed, call showInstallationGuide()
+/// 3. If version mismatch, call showUpdateGuide()
 final class FUSEManager {
 
-    // MARK: - 单例
+    // MARK: - Singleton
 
     static let shared = FUSEManager()
 
-    // MARK: - 常量
+    // MARK: - Constants
 
-    /// macFUSE Framework 路径
+    /// macFUSE Framework path
     private let macFUSEFrameworkPath = "/Library/Frameworks/macFUSE.framework"
 
-    /// macFUSE 最低支持版本
+    /// macFUSE minimum supported version
     private let minimumVersion = "4.0.0"
 
-    /// 推荐版本
+    /// Recommended version
     private let recommendedVersion = "5.1.3"
 
-    /// macFUSE 下载地址
+    /// macFUSE download URL
     private let downloadURL = URL(string: "https://macfuse.github.io/")!
 
     /// macFUSE GitHub Releases
     private let releasesURL = URL(string: "https://github.com/macfuse/macfuse/releases")!
 
-    // MARK: - 状态
+    // MARK: - Status
 
-    /// FUSE 可用性状态
+    /// FUSE availability status
     enum FUSEStatus {
         case available(version: String)
         case notInstalled
@@ -44,27 +44,27 @@ final class FUSEManager {
 
     private(set) var currentStatus: FUSEStatus = .notInstalled
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     private init() {}
 
-    // MARK: - 检测方法
+    // MARK: - Detection Methods
 
-    /// 检查 macFUSE 可用性
-    /// - Returns: 当前 FUSE 状态
+    /// Check macFUSE availability
+    /// - Returns: Current FUSE status
     @discardableResult
     func checkFUSEAvailability() -> FUSEStatus {
-        Logger.shared.info("FUSEManager: 检查 macFUSE 可用性")
+        Logger.shared.info("FUSEManager: Checking macFUSE availability")
 
-        // 1. 检查 Framework 是否存在
+        // 1. Check if Framework exists
         let fm = FileManager.default
         guard fm.fileExists(atPath: macFUSEFrameworkPath) else {
-            Logger.shared.warning("FUSEManager: macFUSE.framework 不存在")
+            Logger.shared.warning("FUSEManager: macFUSE.framework not found")
             currentStatus = .notInstalled
             return currentStatus
         }
 
-        // 2. 检查 Framework 结构完整性 (Objective-C 版本使用 GMUserFileSystem.h)
+        // 2. Check Framework structure integrity (Objective-C version uses GMUserFileSystem.h)
         let requiredFiles = [
             "\(macFUSEFrameworkPath)/Versions/A/macFUSE",
             "\(macFUSEFrameworkPath)/Headers/GMUserFileSystem.h"
@@ -72,39 +72,39 @@ final class FUSEManager {
 
         for file in requiredFiles {
             if !fm.fileExists(atPath: file) {
-                Logger.shared.warning("FUSEManager: 缺少必要文件: \(file)")
+                Logger.shared.warning("FUSEManager: Missing required file: \(file)")
                 currentStatus = .frameworkMissing
                 return currentStatus
             }
         }
 
-        // 3. 读取版本信息
+        // 3. Read version info
         guard let version = getInstalledVersion() else {
-            Logger.shared.warning("FUSEManager: 无法读取 macFUSE 版本")
+            Logger.shared.warning("FUSEManager: Unable to read macFUSE version")
             currentStatus = .frameworkMissing
             return currentStatus
         }
 
-        // 4. 版本比较
+        // 4. Version comparison
         if compareVersions(version, minimumVersion) < 0 {
-            Logger.shared.warning("FUSEManager: macFUSE 版本过旧 (\(version) < \(minimumVersion))")
+            Logger.shared.warning("FUSEManager: macFUSE version too old (\(version) < \(minimumVersion))")
             currentStatus = .versionTooOld(installed: version, required: minimumVersion)
             return currentStatus
         }
 
-        // 5. 检查 API 可用性
+        // 5. Check API availability
         if !checkAPIAvailability() {
-            Logger.shared.error("FUSEManager: macFUSE API 不可用")
+            Logger.shared.error("FUSEManager: macFUSE API unavailable")
             currentStatus = .frameworkMissing
             return currentStatus
         }
 
-        Logger.shared.info("FUSEManager: macFUSE 可用 (版本: \(version))")
+        Logger.shared.info("FUSEManager: macFUSE available (version: \(version))")
         currentStatus = .available(version: version)
         return currentStatus
     }
 
-    /// 获取已安装的 macFUSE 版本
+    /// Get installed macFUSE version
     private func getInstalledVersion() -> String? {
         let infoPlistPath = "\(macFUSEFrameworkPath)/Versions/A/Resources/Info.plist"
 
@@ -116,36 +116,36 @@ final class FUSEManager {
             ?? plist["CFBundleVersion"] as? String
     }
 
-    /// 检查 macFUSE API 可用性
+    /// Check macFUSE API availability
     private func checkAPIAvailability() -> Bool {
-        // 检查 GMUserFileSystem 类是否可加载
+        // Check if GMUserFileSystem class can be loaded
         let bundlePath = "\(macFUSEFrameworkPath)/Versions/A/macFUSE"
 
-        // 尝试动态加载 Framework
+        // Try to dynamically load Framework
         guard let bundle = Bundle(path: macFUSEFrameworkPath) else {
             return false
         }
 
-        // 检查是否已加载或可加载
+        // Check if already loaded or can be loaded
         if !bundle.isLoaded {
             do {
                 try bundle.loadAndReturnError()
             } catch {
-                Logger.shared.error("FUSEManager: 加载 macFUSE 失败: \(error)")
+                Logger.shared.error("FUSEManager: Failed to load macFUSE: \(error)")
                 return false
             }
         }
 
-        // 检查核心类是否存在
+        // Check if core class exists
         guard NSClassFromString("GMUserFileSystem") != nil else {
-            Logger.shared.warning("FUSEManager: GMUserFileSystem 类不存在")
+            Logger.shared.warning("FUSEManager: GMUserFileSystem class not found")
             return false
         }
 
         return true
     }
 
-    /// 版本比较
+    /// Version comparison
     /// - Returns: -1 if v1 < v2, 0 if equal, 1 if v1 > v2
     private func compareVersions(_ v1: String, _ v2: String) -> Int {
         let parts1 = v1.split(separator: ".").compactMap { Int($0) }
@@ -164,9 +164,9 @@ final class FUSEManager {
         return 0
     }
 
-    // MARK: - 安装引导
+    // MARK: - Installation Guide
 
-    /// 显示安装引导对话框
+    /// Show installation guide dialog
     func showInstallationGuide() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -187,7 +187,7 @@ final class FUSEManager {
         }
     }
 
-    /// 显示更新引导对话框
+    /// Show update guide dialog
     func showUpdateGuide(installedVersion: String) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -212,7 +212,7 @@ final class FUSEManager {
         }
     }
 
-    /// 显示 Framework 缺失警告
+    /// Show Framework missing alert
     func showFrameworkMissingAlert() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -230,15 +230,15 @@ final class FUSEManager {
             if response == .alertFirstButtonReturn {
                 NSWorkspace.shared.open(self.downloadURL)
             } else {
-                // 用户选择退出
+                // User chose to quit
                 NSApplication.shared.terminate(nil)
             }
         }
     }
 
-    // MARK: - 便捷方法
+    // MARK: - Convenience Methods
 
-    /// 是否可用
+    /// Whether FUSE is available
     var isAvailable: Bool {
         if case .available = currentStatus {
             return true
@@ -246,7 +246,7 @@ final class FUSEManager {
         return false
     }
 
-    /// 获取当前版本 (如果已安装)
+    /// Get current version (if installed)
     var installedVersion: String? {
         if case .available(let version) = currentStatus {
             return version
@@ -254,43 +254,43 @@ final class FUSEManager {
         return getInstalledVersion()
     }
 
-    /// 处理启动时的 FUSE 检查
-    /// - Returns: 是否可以继续启动 VFS
+    /// Handle startup FUSE check
+    /// - Returns: Whether VFS startup can proceed
     func handleStartupCheck() -> Bool {
         let status = checkFUSEAvailability()
 
         switch status {
         case .available:
-            Logger.shared.info("FUSEManager: macFUSE 检查通过")
+            Logger.shared.info("FUSEManager: macFUSE check passed")
             return true
 
         case .notInstalled:
-            Logger.shared.warning("FUSEManager: macFUSE 未安装，显示安装引导")
+            Logger.shared.warning("FUSEManager: macFUSE not installed, showing installation guide")
             showInstallationGuide()
             return false
 
         case .versionTooOld(let installed, _):
-            Logger.shared.warning("FUSEManager: macFUSE 版本过旧，显示更新引导")
+            Logger.shared.warning("FUSEManager: macFUSE version too old, showing update guide")
             showUpdateGuide(installedVersion: installed)
             return false
 
         case .frameworkMissing:
-            Logger.shared.error("FUSEManager: macFUSE Framework 不完整")
+            Logger.shared.error("FUSEManager: macFUSE Framework incomplete")
             showFrameworkMissingAlert()
             return false
 
         case .loadError(let error):
-            Logger.shared.error("FUSEManager: 加载 macFUSE 失败: \(error)")
+            Logger.shared.error("FUSEManager: Failed to load macFUSE: \(error)")
             showFrameworkMissingAlert()
             return false
         }
     }
 }
 
-// MARK: - 本地化字符串扩展
+// MARK: - Localized String Extension
 
 extension FUSEManager {
-    /// 获取状态描述
+    /// Get status description
     var statusDescription: String {
         switch currentStatus {
         case .available(let version):

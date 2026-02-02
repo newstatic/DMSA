@@ -3,7 +3,7 @@ import SwiftUI
 
 // MARK: - Connection State
 
-/// XPC 连接状态
+/// XPC connection state
 enum ConnectionState: Equatable {
     case disconnected
     case connecting
@@ -18,18 +18,18 @@ enum ConnectionState: Equatable {
 
     var description: String {
         switch self {
-        case .disconnected: return "未连接"
-        case .connecting: return "连接中..."
-        case .connected: return "已连接"
-        case .interrupted: return "连接中断"
-        case .failed(let msg): return "连接失败: \(msg)"
+        case .disconnected: return "Disconnected"
+        case .connecting: return "Connecting..."
+        case .connected: return "Connected"
+        case .interrupted: return "Interrupted"
+        case .failed(let msg): return "Failed: \(msg)"
         }
     }
 }
 
 // MARK: - UI State
 
-/// UI 显示状态
+/// UI display state
 enum UIState: Equatable {
     case initializing
     case connecting
@@ -79,8 +79,8 @@ enum UIState: Equatable {
 
 // MARK: - App Component State
 
-/// 应用组件状态 (UI 层使用)
-/// 注意: 与 ServiceState.swift 中的 ComponentState 枚举不同
+/// App component state (UI layer)
+/// Note: Different from ComponentState enum in ServiceState.swift
 struct AppComponentState: Codable, Equatable {
     var name: String
     var status: String
@@ -97,7 +97,7 @@ struct AppComponentState: Codable, Equatable {
 
 // MARK: - App Error
 
-/// 应用错误
+/// App error
 struct AppError: Error, Equatable, Identifiable {
     let id = UUID()
     var code: Int
@@ -119,7 +119,7 @@ struct AppError: Error, Equatable, Identifiable {
     }
 }
 
-/// 错误严重程度
+/// Error severity
 enum ErrorSeverity: Int, Codable {
     case info = 0
     case warning = 1
@@ -127,16 +127,16 @@ enum ErrorSeverity: Int, Codable {
 
     var description: String {
         switch self {
-        case .info: return "信息"
-        case .warning: return "警告"
-        case .critical: return "严重"
+        case .info: return "Info"
+        case .warning: return "Warning"
+        case .critical: return "Critical"
         }
     }
 }
 
 // MARK: - App Statistics
 
-/// 应用统计信息
+/// App statistics
 struct AppStatistics: Equatable {
     var totalFiles: Int = 0
     var totalSize: Int64 = 0
@@ -152,7 +152,7 @@ struct AppStatistics: Equatable {
 
 // MARK: - Sync Progress
 
-/// 同步进度
+/// Sync progress
 struct SyncProgressInfo: Equatable {
     var syncPairId: String
     var progress: Double
@@ -195,7 +195,7 @@ struct SyncProgressInfo: Equatable {
 
 // MARK: - Eviction Progress
 
-/// 淘汰进度
+/// Eviction progress
 struct EvictionProgress: Equatable {
     var progress: Double
     var freedBytes: Int64
@@ -213,11 +213,11 @@ struct EvictionProgress: Equatable {
 }
 
 // MARK: - Index Progress
-// 注意: IndexProgress 已移至 DMSAShared/Models/ServiceFullState.swift
+// Note: IndexProgress moved to DMSAShared/Models/ServiceFullState.swift
 
 // MARK: - Termination Response
 
-/// 退出确认响应
+/// Termination confirmation response
 enum TerminationResponse {
     case cancel
     case waitAndQuit

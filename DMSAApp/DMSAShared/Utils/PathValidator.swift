@@ -1,20 +1,20 @@
 import Foundation
 
-/// 路径安全验证器
+/// Path safety validator
 public struct PathValidator {
 
-    /// 验证路径是否允许操作
+    /// Check if path is allowed for operations
     public static func isAllowed(_ path: String) -> Bool {
         let resolvedPath = resolvePath(path)
 
-        // 检查禁止路径
+        // Check forbidden paths
         for forbidden in Constants.forbiddenPaths {
             if resolvedPath.hasPrefix(forbidden) {
                 return false
             }
         }
 
-        // 检查允许路径
+        // Check allowed paths
         for allowed in Constants.allowedPathPrefixes {
             if resolvedPath.hasPrefix(allowed) {
                 return true
@@ -24,20 +24,20 @@ public struct PathValidator {
         return false
     }
 
-    /// 验证路径是否安全 (没有路径遍历攻击)
+    /// Validate path is safe (no path traversal attacks)
     public static func isSafe(_ path: String) -> Bool {
         let resolvedPath = resolvePath(path)
 
-        // 检查路径遍历攻击
+        // Check for path traversal attacks
         if path.contains("..") {
-            // 解析后的路径应该不包含 .. 组件
+            // Resolved path should not contain .. components
             let components = resolvedPath.components(separatedBy: "/")
             if components.contains("..") {
                 return false
             }
         }
 
-        // 检查空字符注入
+        // Check for null byte injection
         if path.contains("\0") {
             return false
         }
@@ -45,38 +45,38 @@ public struct PathValidator {
         return true
     }
 
-    /// 验证路径是否在指定目录下
+    /// Validate path is under specified directory
     public static func isUnder(_ path: String, directory: String) -> Bool {
         let resolvedPath = resolvePath(path)
         let resolvedDir = resolvePath(directory)
 
-        // 确保目录路径以 / 结尾进行比较
+        // Ensure directory path ends with / for comparison
         let dirPrefix = resolvedDir.hasSuffix("/") ? resolvedDir : resolvedDir + "/"
 
         return resolvedPath.hasPrefix(dirPrefix) || resolvedPath == resolvedDir
     }
 
-    /// 解析路径 (展开 ~ 和解析符号链接)
+    /// Resolve path (expand ~ and resolve symlinks)
     public static func resolvePath(_ path: String) -> String {
         let expanded = (path as NSString).expandingTildeInPath
         let standardized = (expanded as NSString).standardizingPath
         return standardized
     }
 
-    /// 验证路径并返回错误信息
+    /// Validate path and return error message
     public static func validate(_ path: String) -> Result<String, HelperError> {
         guard isSafe(path) else {
-            return .failure(.pathNotAllowed("路径包含非法字符或遍历攻击: \(path)"))
+            return .failure(.pathNotAllowed("Path contains illegal characters or traversal attack: \(path)"))
         }
 
         guard isAllowed(path) else {
-            return .failure(.pathNotAllowed("路径不在允许列表中: \(path)"))
+            return .failure(.pathNotAllowed("Path not in allowed list: \(path)"))
         }
 
         return .success(resolvePath(path))
     }
 
-    /// 批量验证路径
+    /// Batch validate paths
     public static func validateAll(_ paths: [String]) -> Result<[String], HelperError> {
         var resolvedPaths: [String] = []
 
@@ -93,20 +93,20 @@ public struct PathValidator {
     }
 }
 
-// MARK: - 路径扩展
+// MARK: - Path Extensions
 
 public extension String {
-    /// 展开并标准化路径
+    /// Expand and standardize path
     var resolvedPath: String {
         return PathValidator.resolvePath(self)
     }
 
-    /// 检查路径是否允许操作
+    /// Check if path is allowed for operations
     var isAllowedPath: Bool {
         return PathValidator.isAllowed(self)
     }
 
-    /// 检查路径是否安全
+    /// Check if path is safe
     var isSafePath: Bool {
         return PathValidator.isSafe(self)
     }

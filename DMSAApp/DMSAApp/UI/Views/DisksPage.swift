@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Disks Page
 
-/// 磁盘管理页面 - Master-Detail 布局
+/// Disk management page - Master-Detail layout
 struct DisksPage: View {
     @Binding var config: AppConfig
 
@@ -669,7 +669,7 @@ struct SyncPairEditableRow: View {
     var onDelete: (() -> Void)? = nil
     @State private var isExpanded = false
 
-    // 预设的缓存大小选项
+    // Preset cache size options
     private let cacheSizeOptions: [(label: String, value: Int64)] = [
         ("1 GB", 1 * 1024 * 1024 * 1024),
         ("5 GB", 5 * 1024 * 1024 * 1024),
@@ -1007,22 +1007,22 @@ struct AddSyncPairSheet: View {
         newPair.maxLocalCacheSize = maxLocalCacheSize
         newPair.autoEvictionEnabled = autoEvictionEnabled
 
-        // 保存新同步对的 ID，用于后续触发索引
+        // Save new sync pair ID for subsequent index trigger
         let syncPairId = newPair.id
 
         onAdd(newPair)
         dismiss()
 
-        // 异步触发索引构建
+        // Trigger index building asynchronously
         Task {
             do {
-                // 先添加同步对到服务端
+                // First add sync pair to the service
                 try await ServiceClient.shared.addSyncPair(newPair)
-                // 然后触发索引构建
+                // Then trigger index building
                 try await ServiceClient.shared.rebuildIndex(syncPairId: syncPairId)
-                Logger.shared.info("[DisksPage] 同步对 \(syncPairId) 已添加并开始索引")
+                Logger.shared.info("[DisksPage] Sync pair \(syncPairId) added and indexing started")
             } catch {
-                Logger.shared.error("[DisksPage] 添加同步对或索引失败: \(error.localizedDescription)")
+                Logger.shared.error("[DisksPage] Failed to add sync pair or build index: \(error.localizedDescription)")
             }
         }
     }

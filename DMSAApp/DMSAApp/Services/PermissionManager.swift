@@ -59,12 +59,12 @@ final class PermissionManager: ObservableObject {
         // Check Notification Permission
         notificationStatus = await checkNotificationPermission()
 
-        Logger.shared.debug("权限状态 - FDA: \(fullDiskAccessStatus.rawValue), 通知: \(notificationStatus.rawValue)")
+        Logger.shared.debug("Permission status - FDA: \(fullDiskAccessStatus.rawValue), Notifications: \(notificationStatus.rawValue)")
     }
 
     /// Refresh permissions (same as checkAllPermissions but with explicit logging)
     func refreshPermissions() async {
-        Logger.shared.info("刷新权限状态...")
+        Logger.shared.info("Refreshing permission status...")
         await checkAllPermissions()
     }
 
@@ -76,19 +76,19 @@ final class PermissionManager: ObservableObject {
 
         switch status {
         case .authorized:
-            Logger.shared.debug("FDA 检测成功 (PermissionsKit)")
+            Logger.shared.debug("FDA check passed (PermissionsKit)")
             return .granted
         case .denied:
-            Logger.shared.debug("FDA 检测失败 - 已拒绝")
+            Logger.shared.debug("FDA check failed - denied")
             return .denied
         case .notDetermined:
-            Logger.shared.debug("FDA 检测 - 未确定")
+            Logger.shared.debug("FDA check - not determined")
             return .notDetermined
         case .limited:
-            Logger.shared.debug("FDA 检测 - 受限")
+            Logger.shared.debug("FDA check - limited")
             return .granted  // Limited is effectively granted for our purposes
         @unknown default:
-            Logger.shared.debug("FDA 检测 - 未知状态")
+            Logger.shared.debug("FDA check - unknown status")
             return .unknown
         }
     }
@@ -102,7 +102,7 @@ final class PermissionManager: ObservableObject {
             // because macOS doesn't provide a callback for this permission
         }
 
-        Logger.shared.info("打开系统设置 - 完全磁盘访问权限")
+        Logger.shared.info("Opening System Settings - Full Disk Access")
     }
 
     // MARK: - Notification Permission
@@ -140,15 +140,15 @@ final class PermissionManager: ObservableObject {
 
             if granted {
                 notificationStatus = .granted
-                Logger.shared.info("通知权限已授权")
+                Logger.shared.info("Notification permission granted")
             } else {
                 notificationStatus = .denied
-                Logger.shared.warn("通知权限被拒绝")
+                Logger.shared.warn("Notification permission denied")
             }
 
             return granted
         } catch {
-            Logger.shared.error("请求通知权限失败: \(error.localizedDescription)")
+            Logger.shared.error("Failed to request notification permission: \(error.localizedDescription)")
             notificationStatus = .denied
             return false
         }
@@ -167,7 +167,7 @@ final class PermissionManager: ObservableObject {
                     NSWorkspace.shared.open(url)
                 }
             }
-            Logger.shared.info("打开系统设置 - 通知")
+            Logger.shared.info("Opening System Settings - Notifications")
         } else {
             // If not determined, request permission directly
             Task {
@@ -195,7 +195,7 @@ final class PermissionManager: ObservableObject {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }
-        Logger.shared.info("打开系统设置 - 辅助功能")
+        Logger.shared.info("Opening System Settings - Accessibility")
     }
 
     // MARK: - Utility Methods

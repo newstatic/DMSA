@@ -1,7 +1,7 @@
 import Foundation
 
-/// DMSA 服务实现
-/// 实现 DMSAServiceProtocol，集成 VFS + Sync + Privileged 功能
+/// DMSA Service Implementation
+/// Implements DMSAServiceProtocol, integrating VFS + Sync + Privileged functionality
 final class ServiceImplementation: NSObject, DMSAServiceProtocol {
 
     private let logger = Logger.forService("DMSAService")
@@ -11,23 +11,23 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
     private var config: AppConfig
     private let startedAt: Date = Date()
 
-    /// XPC 调试日志开关
+    /// XPC debug logging toggle
     private let xpcDebugEnabled = true
 
     override init() {
         self.config = Self.loadConfig()
         super.init()
 
-        // 设置 EvictionManager 的依赖
+        // Set up EvictionManager dependencies
         Task {
             await evictionManager.setManagers(vfs: vfsManager, sync: syncManager)
             await evictionManager.startAutoEviction()
         }
 
-        logger.info("ServiceImplementation 初始化完成")
+        logger.info("ServiceImplementation initialization complete")
     }
 
-    // MARK: - XPC 日志辅助方法
+    // MARK: - XPC Logging Helpers
 
     private func logXPCReceive(_ method: String, params: [String: Any] = [:]) {
         guard xpcDebugEnabled else { return }
@@ -58,30 +58,30 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
     private static func loadConfig() -> AppConfig {
         let logger = Logger.forService("DMSAService")
         let configURL = Constants.Paths.config
-        logger.info("loadConfig: 从 \(configURL.path) 加载配置")
+        logger.info("loadConfig: Loading config from \(configURL.path)")
 
         guard FileManager.default.fileExists(atPath: configURL.path) else {
-            logger.warning("loadConfig: 配置文件不存在")
+            logger.warning("loadConfig: Config file not found")
             return AppConfig()
         }
 
         guard let data = try? Data(contentsOf: configURL) else {
-            logger.warning("loadConfig: 无法读取配置文件")
+            logger.warning("loadConfig: Failed to read config file")
             return AppConfig()
         }
 
         guard let config = try? JSONDecoder().decode(AppConfig.self, from: data) else {
-            logger.warning("loadConfig: JSON 解析失败")
+            logger.warning("loadConfig: JSON parsing failed")
             return AppConfig()
         }
 
-        logger.info("loadConfig: 成功加载配置")
+        logger.info("loadConfig: Config loaded successfully")
         logger.info("  syncPairs: \(config.syncPairs.map { $0.id })")
         logger.info("  disks: \(config.disks.map { $0.id })")
         return config
     }
 
-    // MARK: - ========== VFS 操作 ==========
+    // MARK: - ========== VFS Operations ==========
 
     func vfsMount(syncPairId: String,
                   localDir: String,
@@ -97,11 +97,11 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
                     externalDir: externalDir,
                     targetDir: targetDir
                 )
-                logger.info("VFS 挂载成功: \(syncPairId)")
+                logger.info("VFS mount succeeded: \(syncPairId)")
                 logXPCReply("vfsMount", success: true)
                 reply(true, nil)
             } catch {
-                logger.error("VFS 挂载失败: \(error)")
+                logger.error("VFS mount failed: \(error)")
                 logXPCReply("vfsMount", success: false, error: error.localizedDescription)
                 reply(false, error.localizedDescription)
             }
@@ -114,11 +114,11 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         Task {
             do {
                 try await vfsManager.unmount(syncPairId: syncPairId)
-                logger.info("VFS 卸载成功: \(syncPairId)")
+                logger.info("VFS unmount succeeded: \(syncPairId)")
                 logXPCReply("vfsUnmount", success: true)
                 reply(true, nil)
             } catch {
-                logger.error("VFS 卸载失败: \(error)")
+                logger.error("VFS unmount failed: \(error)")
                 logXPCReply("vfsUnmount", success: false, error: error.localizedDescription)
                 reply(false, error.localizedDescription)
             }
@@ -129,7 +129,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         logXPCReceive("vfsUnmountAll")
         Task {
             await vfsManager.unmountAll()
-            logger.info("所有 VFS 已卸载")
+            logger.info("All VFS mounts unmounted")
             logXPCReply("vfsUnmountAll", success: true)
             reply(true, nil)
         }
@@ -229,7 +229,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         }
     }
 
-    // MARK: - ========== 同步操作 ==========
+    // MARK: - ========== Sync Operations ==========
 
     func syncNow(syncPairId: String,
                  withReply reply: @escaping (Bool, String?) -> Void) {
@@ -404,7 +404,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         Task {
             await syncManager.diskConnected(diskName: diskName, mountPoint: mountPoint)
 
-            // 同时更新 VFS 的外部路径
+            // Also update VFS external paths
             for syncPair in config.syncPairs where syncPair.diskId == diskName {
                 let externalPath = mountPoint + "/" + syncPair.externalRelativePath
                 try? await vfsManager.updateExternalPath(syncPairId: syncPair.id, newPath: externalPath)
@@ -420,7 +420,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         Task {
             await syncManager.diskDisconnected(diskName: diskName)
 
-            // 同时更新 VFS 状态
+            // Also update VFS state
             for syncPair in config.syncPairs where syncPair.diskId == diskName {
                 await vfsManager.setExternalOffline(syncPairId: syncPair.id, offline: true)
             }
@@ -429,7 +429,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         }
     }
 
-    // MARK: - ========== 特权操作 ==========
+    // MARK: - ========== Privileged Operations ==========
 
     func privilegedLockDirectory(_ path: String,
                                  withReply reply: @escaping (Bool, String?) -> Void) {
@@ -501,7 +501,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         reply(result.success, result.error)
     }
 
-    // MARK: - ========== 淘汰操作 ==========
+    // MARK: - ========== Eviction Operations ==========
 
     func evictionTrigger(syncPairId: String,
                          targetFreeSpace: Int64,
@@ -571,7 +571,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         }
     }
 
-    // MARK: - ========== 数据查询操作 ==========
+    // MARK: - ========== Data Query Operations ==========
 
     func dataGetFileEntry(virtualPath: String,
                           syncPairId: String,
@@ -641,7 +641,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
                 externalDir: externalDir,
                 syncPairId: syncPairId
             )
-            // 编码结果
+            // Encode result
             let resultDict: [String: Any] = [
                 "externalConnected": result.externalConnected,
                 "needRebuildLocal": result.needRebuildLocal,
@@ -665,7 +665,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
                     syncPairId: syncPairId,
                     source: treeSource
                 )
-                // 保存到数据库
+                // Save to database
                 await ServiceDatabaseManager.shared.saveFileEntries(entries)
                 reply(true, version, nil)
             } catch {
@@ -684,11 +684,11 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         }
     }
 
-    // MARK: - ========== 通用操作 ==========
+    // MARK: - ========== General Operations ==========
 
     func setUserHome(_ path: String, withReply reply: @escaping (Bool) -> Void) {
         UserPathManager.shared.setUserHome(path)
-        logger.info("用户 Home 目录已设置: \(path)")
+        logger.info("User home directory set: \(path)")
         reply(true)
     }
 
@@ -726,27 +726,27 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
 
     func checkCompatibility(appVersion: String,
                             withReply reply: @escaping (Bool, String?, Bool) -> Void) {
-        // 比较版本号
+        // Compare version numbers
         let minVersion = Constants.ServiceVersion.minAppVersion
         let isCompatible = compareVersions(appVersion, minVersion) >= 0
 
         if !isCompatible {
-            reply(false, "App 版本 \(appVersion) 过低，需要 \(minVersion) 或更高版本", false)
+            reply(false, "App version \(appVersion) is too old, requires \(minVersion) or higher", false)
             return
         }
 
-        // 检查是否需要更新服务
+        // Check if service needs update
         let serviceVersion = Constants.version
         let needsServiceUpdate = compareVersions(appVersion, serviceVersion) > 0
 
         if needsServiceUpdate {
-            reply(true, "服务版本 \(serviceVersion) 较旧，建议更新服务", true)
+            reply(true, "Service version \(serviceVersion) is outdated, consider updating", true)
         } else {
             reply(true, nil, false)
         }
     }
 
-    /// 比较版本号 (返回: -1 小于, 0 等于, 1 大于)
+    /// Compare version numbers (returns: -1 less than, 0 equal, 1 greater than)
     private func compareVersions(_ v1: String, _ v2: String) -> Int {
         let parts1 = v1.split(separator: ".").compactMap { Int($0) }
         let parts2 = v2.split(separator: ".").compactMap { Int($0) }
@@ -773,12 +773,12 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
                 var issues: [String] = []
                 if !vfsOK { issues.append("VFS") }
                 if !syncOK { issues.append("Sync") }
-                reply(false, "问题模块: \(issues.joined(separator: ", "))")
+                reply(false, "Problematic modules: \(issues.joined(separator: ", "))")
             }
         }
     }
 
-    // MARK: - ========== 配置操作 ==========
+    // MARK: - ========== Config Operations ==========
 
     func configGetAll(withReply reply: @escaping (Data) -> Void) {
         let data = (try? JSONEncoder().encode(config)) ?? Data()
@@ -787,7 +787,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
 
     func configUpdate(configData: Data, withReply reply: @escaping (Bool, String?) -> Void) {
         guard let newConfig = try? JSONDecoder().decode(AppConfig.self, from: configData) else {
-            reply(false, "配置解析失败")
+            reply(false, "Config parsing failed")
             return
         }
         config = newConfig
@@ -807,7 +807,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
 
     func configAddDisk(diskData: Data, withReply reply: @escaping (Bool, String?) -> Void) {
         guard let disk = try? JSONDecoder().decode(DiskConfig.self, from: diskData) else {
-            reply(false, "磁盘配置解析失败")
+            reply(false, "Disk config parsing failed")
             return
         }
         config.disks.append(disk)
@@ -828,7 +828,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
 
     func configAddSyncPair(pairData: Data, withReply reply: @escaping (Bool, String?) -> Void) {
         guard let pair = try? JSONDecoder().decode(SyncPairConfig.self, from: pairData) else {
-            reply(false, "同步对配置解析失败")
+            reply(false, "Sync pair config parsing failed")
             return
         }
         config.syncPairs.append(pair)
@@ -849,7 +849,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
 
     func configUpdateNotifications(configData: Data, withReply reply: @escaping (Bool, String?) -> Void) {
         guard let notifConfig = try? JSONDecoder().decode(NotificationConfig.self, from: configData) else {
-            reply(false, "通知配置解析失败")
+            reply(false, "Notification config parsing failed")
             return
         }
         config.notifications = notifConfig
@@ -863,74 +863,74 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         }
     }
 
-    // MARK: - ========== 通知操作 ==========
+    // MARK: - ========== Notification Operations ==========
 
     func notificationSave(recordData: Data, withReply reply: @escaping (Bool) -> Void) {
-        // TODO: 实现通知记录保存
+        // TODO: Implement notification record saving
         reply(true)
     }
 
     func notificationGetAll(limit: Int, withReply reply: @escaping (Data) -> Void) {
-        // TODO: 实现从数据库获取通知记录
+        // TODO: Implement fetching notification records from database
         let emptyArray: [NotificationRecord] = []
         let data = (try? JSONEncoder().encode(emptyArray)) ?? Data()
         reply(data)
     }
 
     func notificationGetUnreadCount(withReply reply: @escaping (Int) -> Void) {
-        // TODO: 实现未读计数
+        // TODO: Implement unread count
         reply(0)
     }
 
     func notificationMarkAsRead(recordId: UInt64, withReply reply: @escaping (Bool) -> Void) {
-        // TODO: 实现标记已读
+        // TODO: Implement mark as read
         reply(true)
     }
 
     func notificationMarkAllAsRead(withReply reply: @escaping (Bool) -> Void) {
-        // TODO: 实现全部标记已读
+        // TODO: Implement mark all as read
         reply(true)
     }
 
     func notificationClearAll(withReply reply: @escaping (Bool) -> Void) {
-        // TODO: 实现清除所有通知
+        // TODO: Implement clear all notifications
         reply(true)
     }
 
-    // MARK: - 内部方法
+    // MARK: - Internal Methods
 
     func autoMount() async {
-        logger.info("autoMount: 开始处理，共 \(config.syncPairs.count) 个同步对，\(config.disks.count) 个磁盘")
+        logger.info("autoMount: Starting, \(config.syncPairs.count) sync pairs, \(config.disks.count) disks")
 
-        // 打印配置详情
+        // Print config details
         for disk in config.disks {
-            logger.info("磁盘配置: \(disk.name), id=\(disk.id), mountPath=\(disk.mountPath), isConnected=\(disk.isConnected)")
+            logger.info("Disk config: \(disk.name), id=\(disk.id), mountPath=\(disk.mountPath), isConnected=\(disk.isConnected)")
         }
 
         for syncPair in config.syncPairs {
-            logger.info("同步对配置: \(syncPair.name), id=\(syncPair.id), enabled=\(syncPair.enabled), diskId=\(syncPair.diskId)")
+            logger.info("Sync pair config: \(syncPair.name), id=\(syncPair.id), enabled=\(syncPair.enabled), diskId=\(syncPair.diskId)")
             logger.info("  - localDir=\(syncPair.localDir)")
             logger.info("  - externalRelativePath=\(syncPair.externalRelativePath)")
             logger.info("  - targetDir=\(syncPair.targetDir)")
         }
 
         for syncPair in config.syncPairs where syncPair.enabled {
-            logger.info("处理同步对: \(syncPair.name)")
+            logger.info("Processing sync pair: \(syncPair.name)")
 
-            // 查找对应的磁盘配置
+            // Find corresponding disk config
             guard let disk = config.disks.first(where: { $0.id == syncPair.diskId }) else {
-                logger.warning("找不到同步对 \(syncPair.name) 的磁盘配置 (diskId=\(syncPair.diskId))")
+                logger.warning("Disk config not found for sync pair \(syncPair.name) (diskId=\(syncPair.diskId))")
                 continue
             }
 
-            logger.info("找到磁盘: \(disk.name), isConnected=\(disk.isConnected)")
+            logger.info("Found disk: \(disk.name), isConnected=\(disk.isConnected)")
 
             do {
-                // 注意：externalDir 需要是 nil 而不是空字符串，以便正确触发保护逻辑
+                // Note: externalDir should be nil rather than empty string to correctly trigger protection logic
                 let externalPath: String? = disk.isConnected ? syncPair.fullExternalDir(diskMountPath: disk.mountPath) : nil
-                logger.info("准备挂载: syncPairId=\(syncPair.id)")
+                logger.info("Preparing mount: syncPairId=\(syncPair.id)")
                 logger.info("  - localDir=\(syncPair.localDir)")
-                logger.info("  - externalDir=\(externalPath ?? "(nil - 磁盘未连接)")")
+                logger.info("  - externalDir=\(externalPath ?? "(nil - disk not connected)")")
                 logger.info("  - targetDir=\(syncPair.targetDir)")
                 logger.info("  - disk.isConnected=\(disk.isConnected)")
 
@@ -940,13 +940,13 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
                     externalDir: externalPath,
                     targetDir: syncPair.targetDir
                 )
-                logger.info("自动挂载成功: \(syncPair.name)")
+                logger.info("Auto-mount succeeded: \(syncPair.name)")
             } catch {
-                logger.error("自动挂载失败 \(syncPair.name): \(error)")
+                logger.error("Auto-mount failed \(syncPair.name): \(error)")
             }
         }
 
-        logger.info("autoMount: 处理完成")
+        logger.info("autoMount: Processing complete")
     }
 
     func startScheduler() async {
@@ -968,24 +968,24 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
     func reloadConfig() async {
         config = Self.loadConfig()
         await syncManager.updateConfig(config)
-        logger.info("配置已重新加载")
+        logger.info("Config reloaded")
     }
 
-    /// 系统休眠前暂停同步
+    /// Pause sync before system sleep
     func pauseSyncForSleep() async {
-        logger.info("[电源] 系统即将休眠，暂停同步")
+        logger.info("[Power] System going to sleep, pausing sync")
         await syncManager.pauseAll()
     }
 
-    /// 系统唤醒后检查并恢复 FUSE 挂载
+    /// Check and recover FUSE mounts after system wake
     func checkAndRecoverAfterWake() async {
-        logger.info("[电源] 系统唤醒，检查 FUSE 挂载...")
+        logger.info("[Power] System woke up, checking FUSE mounts...")
         await vfsManager.checkAndRecoverMounts()
-        logger.info("[电源] 恢复同步")
+        logger.info("[Power] Resuming sync")
         await syncManager.resumeAll()
     }
 
-    // MARK: - ========== 状态管理操作 ==========
+    // MARK: - ========== State Management Operations ==========
 
     func getFullState(withReply reply: @escaping (Data) -> Void) {
         logXPCReceive("getFullState")
@@ -1020,7 +1020,7 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         }
     }
 
-    // MARK: - ========== 活动记录 ==========
+    // MARK: - ========== Activity Records ==========
 
     func getRecentActivities(withReply reply: @escaping (Data) -> Void) {
         logXPCReceive("getRecentActivities")

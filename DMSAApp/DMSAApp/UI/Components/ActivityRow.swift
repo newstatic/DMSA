@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Activity Row Component
 
-/// 活动记录行 - 用于最近活动列表
+/// Activity row - used in the recent activity list
 struct ActivityRow: View {
     let activity: ActivityItem
 
@@ -114,7 +114,7 @@ struct ActivityItem: Identifiable {
 
 // MARK: - Activity List
 
-/// 活动列表组件
+/// Activity list component
 struct ActivityList: View {
     let activities: [ActivityItem]
     var maxItems: Int = 5
@@ -162,7 +162,7 @@ struct EmptyActivityView: View {
 
 // MARK: - File Row Component
 
-/// 文件行 - 用于显示正在处理的文件
+/// File row - used to display files being processed
 struct FileRow: View {
     let fileName: String
     let filePath: String
@@ -214,7 +214,7 @@ struct FileRow: View {
 
 // MARK: - File Type Icon
 
-/// 文件类型图标
+/// File type icon
 struct FileTypeIcon: View {
     let fileName: String
     var size: CGFloat = 40

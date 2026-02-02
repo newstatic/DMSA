@@ -1,6 +1,6 @@
 import Foundation
 
-/// 活动记录类型
+/// Activity record type
 public enum ActivityType: Int, Codable, Sendable {
     case syncStarted = 0
     case syncCompleted = 1
@@ -14,8 +14,8 @@ public enum ActivityType: Int, Codable, Sendable {
     case error = 9
 }
 
-/// 活动记录 - 用于 Dashboard 最近活动展示
-/// Service 端维护最新 5 条，实时推送 App
+/// Activity record - for Dashboard recent activity display
+/// Service maintains latest 5, pushes to App in real-time
 public struct ActivityRecord: Codable, Identifiable, Equatable, Sendable {
     public var id: UUID
     public var type: ActivityType

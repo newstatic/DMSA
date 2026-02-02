@@ -1,7 +1,7 @@
 import Foundation
 
-/// 同步历史实体
-/// 记录每次同步操作的详细信息
+/// Sync history entity
+/// Records detailed information for each sync operation
 class SyncHistory: Identifiable, Codable {
     var id: UInt64 = 0
     var startedAt: Date = Date()
@@ -32,7 +32,7 @@ class SyncHistory: Identifiable, Codable {
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        // ObjectBox Id 可能编码为 Int64 或 UInt64
+        // ObjectBox Id may be encoded as Int64 or UInt64
         if let uint64Id = try? container.decode(UInt64.self, forKey: .id) {
             id = uint64Id
         } else if let int64Id = try? container.decode(Int64.self, forKey: .id) {
@@ -43,14 +43,14 @@ class SyncHistory: Identifiable, Codable {
         startedAt = try container.decode(Date.self, forKey: .startedAt)
         completedAt = try container.decodeIfPresent(Date.self, forKey: .completedAt)
 
-        // status 可能是 Int 或直接是 SyncStatus
+        // status may be Int or SyncStatus directly
         if let statusInt = try? container.decode(Int.self, forKey: .status) {
             status = SyncStatus(rawValue: statusInt) ?? .pending
         } else {
             status = try container.decode(SyncStatus.self, forKey: .status)
         }
 
-        // direction 可能是 Int 或 String
+        // direction may be Int or String
         if let directionInt = try? container.decode(Int.self, forKey: .direction) {
             // Int mapping: 0 = localToExternal, 1 = externalToLocal, 2 = bidirectional
             switch directionInt {
@@ -72,7 +72,7 @@ class SyncHistory: Identifiable, Codable {
         errorMessage = try container.decodeIfPresent(String.self, forKey: .errorMessage)
     }
 
-    /// 同步持续时间
+    /// Sync duration
     var duration: TimeInterval {
         guard let completed = completedAt else { return 0 }
         return completed.timeIntervalSince(startedAt)
@@ -87,23 +87,23 @@ class SyncHistory: Identifiable, Codable {
         self.startedAt = Date()
     }
 
-    /// 格式化持续时间
+    /// Formatted duration
     var formattedDuration: String {
         let seconds = Int(duration)
         if seconds < 60 {
-            return "\(seconds) 秒"
+            return "\(seconds)s"
         } else if seconds < 3600 {
             let minutes = seconds / 60
             let secs = seconds % 60
-            return "\(minutes) 分 \(secs) 秒"
+            return "\(minutes)m \(secs)s"
         } else {
             let hours = seconds / 3600
             let minutes = (seconds % 3600) / 60
-            return "\(hours) 小时 \(minutes) 分"
+            return "\(hours)h \(minutes)m"
         }
     }
 
-    /// 格式化传输大小
+    /// Formatted transfer size
     var formattedSize: String {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useAll]
@@ -111,13 +111,13 @@ class SyncHistory: Identifiable, Codable {
         return formatter.string(fromByteCount: totalSize)
     }
 
-    /// 标记为开始
+    /// Mark as started
     func markStarted() {
         status = .inProgress
         startedAt = Date()
     }
 
-    /// 标记为完成
+    /// Mark as completed
     func markCompleted(filesCount: Int, totalSize: Int64) {
         status = .completed
         completedAt = Date()
@@ -125,14 +125,14 @@ class SyncHistory: Identifiable, Codable {
         self.totalSize = totalSize
     }
 
-    /// 标记为失败
+    /// Mark as failed
     func markFailed(error: String) {
         status = .failed
         completedAt = Date()
         errorMessage = error
     }
 
-    /// 标记为取消
+    /// Mark as cancelled
     func markCancelled() {
         status = .cancelled
         completedAt = Date()

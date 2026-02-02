@@ -4,7 +4,7 @@ import ServiceManagement
 
 // MARK: - Settings Page
 
-/// 设置页面 - 合并所有设置项的统一入口
+/// Settings page - unified entry point for all settings
 struct SettingsPage: View {
     @Binding var config: AppConfig
     let configManager: ConfigManager
@@ -14,12 +14,12 @@ struct SettingsPage: View {
     // MARK: - Settings Sections
 
     enum SettingsSection: String, CaseIterable, Identifiable {
-        case general      // 通用
-        case sync         // 同步
-        case filters      // 过滤
-        case notifications // 通知
-        case vfs          // 虚拟文件系统
-        case advanced     // 高级
+        case general      // General
+        case sync         // Sync
+        case filters      // Filters
+        case notifications // Notifications
+        case vfs          // Virtual File System
+        case advanced     // Advanced
 
         var id: String { rawValue }
 
@@ -879,12 +879,12 @@ struct PermissionStatusRow: View {
 class VFSSettingsViewModel: ObservableObject {
     @Published var isMacFUSEInstalled = false
     @Published var macFUSEVersion: String?
-    @Published var macFUSEStatusText = "检查中..."
+    @Published var macFUSEStatusText = "Checking..."
     @Published var macFUSEStatusColor: Color = .secondary
 
     @Published var isHelperInstalled = false
     @Published var helperVersion: String?
-    @Published var helperStatusText = "检查中..."
+    @Published var helperStatusText = "Checking..."
     @Published var helperStatusColor: Color = .secondary
 
     @Published var mountedVFS: [VFSMountInfo] = []
@@ -908,22 +908,22 @@ class VFSSettingsViewModel: ObservableObject {
             case .available(let version):
                 self.isMacFUSEInstalled = true
                 self.macFUSEVersion = version
-                self.macFUSEStatusText = "已安装"
+                self.macFUSEStatusText = "Installed"
                 self.macFUSEStatusColor = .green
             case .notInstalled, .frameworkMissing:
                 self.isMacFUSEInstalled = false
                 self.macFUSEVersion = nil
-                self.macFUSEStatusText = "未安装"
+                self.macFUSEStatusText = "Not Installed"
                 self.macFUSEStatusColor = .red
             case .versionTooOld(let current, _):
                 self.isMacFUSEInstalled = true
                 self.macFUSEVersion = current
-                self.macFUSEStatusText = "版本过旧"
+                self.macFUSEStatusText = "Version Too Old"
                 self.macFUSEStatusColor = .orange
             case .loadError(let error):
                 self.isMacFUSEInstalled = false
                 self.macFUSEVersion = nil
-                self.macFUSEStatusText = "加载失败: \(error.localizedDescription)"
+                self.macFUSEStatusText = "Load failed: \(error.localizedDescription)"
                 self.macFUSEStatusColor = .red
             }
         }
@@ -946,14 +946,14 @@ class VFSSettingsViewModel: ObservableObject {
                 await MainActor.run {
                     self.isHelperInstalled = isHealthy
                     self.helperVersion = version
-                    self.helperStatusText = isHealthy ? "运行中" : "未响应"
+                    self.helperStatusText = isHealthy ? "Running" : "Not Responding"
                     self.helperStatusColor = isHealthy ? .green : .red
                 }
             } catch {
                 await MainActor.run {
                     self.isHelperInstalled = false
                     self.helperVersion = nil
-                    self.helperStatusText = "未连接"
+                    self.helperStatusText = "Not Connected"
                     self.helperStatusColor = .red
                 }
             }
@@ -967,10 +967,10 @@ class VFSSettingsViewModel: ObservableObject {
                 try service.register()
                 checkService()
             } catch {
-                Logger.shared.error("安装服务失败: \(error.localizedDescription)")
+                Logger.shared.error("Failed to install service: \(error.localizedDescription)")
             }
         } else {
-            Logger.shared.warn("macOS 13.0 以下版本需要手动安装服务")
+            Logger.shared.warn("macOS versions below 13.0 require manual service installation")
         }
     }
 
@@ -980,7 +980,7 @@ class VFSSettingsViewModel: ObservableObject {
                 let service = SMAppService.daemon(plistName: "com.ttttt.dmsa.service.plist")
                 try service.unregister()
             } catch {
-                Logger.shared.warn("卸载服务失败: \(error.localizedDescription)")
+                Logger.shared.warn("Failed to uninstall service: \(error.localizedDescription)")
             }
         }
         installHelper()
@@ -993,7 +993,7 @@ class VFSSettingsViewModel: ObservableObject {
             try service.unregister()
             checkService()
         } catch {
-            Logger.shared.error("卸载服务失败: \(error.localizedDescription)")
+            Logger.shared.error("Failed to uninstall service: \(error.localizedDescription)")
         }
     }
 
@@ -1013,7 +1013,7 @@ class VFSSettingsViewModel: ObservableObject {
                     }
                 }
             } catch {
-                Logger.shared.error("获取挂载信息失败: \(error)")
+                Logger.shared.error("Failed to get mount info: \(error)")
             }
         }
     }

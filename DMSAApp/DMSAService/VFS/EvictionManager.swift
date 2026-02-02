@@ -1,6 +1,6 @@
 import Foundation
 
-/// 淘汰统计
+/// Eviction statistics
 struct EvictionStats: Codable, Sendable {
     var evictedCount: Int
     var evictedSize: Int64
@@ -10,33 +10,33 @@ struct EvictionStats: Codable, Sendable {
     var failedSync: Int
 }
 
-/// 淘汰结果
+/// Eviction result
 struct EvictionResult: Sendable {
     let evictedFiles: [String]
     let freedSpace: Int64
     let errors: [String]
 }
 
-/// LRU 淘汰管理器
-/// 负责在本地空间不足时清理已同步的文件
+/// LRU Eviction Manager
+/// Responsible for cleaning up synced files when local space is low
 actor EvictionManager {
 
     private let logger = Logger.forService("Eviction")
 
-    /// 淘汰配置
+    /// Eviction config
     struct Config {
-        /// 触发淘汰的阈值 (可用空间低于此值)
+        /// Eviction trigger threshold (when available space falls below this)
         var triggerThreshold: Int64 = 5 * 1024 * 1024 * 1024  // 5GB
-        /// 目标可用空间 (淘汰到此值)
+        /// Target free space (evict until this level)
         var targetFreeSpace: Int64 = 10 * 1024 * 1024 * 1024  // 10GB
-        /// 单次淘汰最大文件数
+        /// Maximum files per eviction run
         var maxFilesPerRun: Int = 100
-        /// 最小文件年龄 (秒) - 防止淘汰刚创建的文件
-        var minFileAge: TimeInterval = 3600  // 1小时
-        /// 是否启用自动淘汰
+        /// Minimum file age (seconds) - prevents evicting newly created files
+        var minFileAge: TimeInterval = 3600  // 1 hour
+        /// Whether auto eviction is enabled
         var autoEvictionEnabled: Bool = true
-        /// 自动检查间隔 (秒)
-        var checkInterval: TimeInterval = 300  // 5分钟
+        /// Auto check interval (seconds)
+        var checkInterval: TimeInterval = 300  // 5 minutes
     }
 
     private var config = Config()
@@ -55,7 +55,7 @@ actor EvictionManager {
     private var checkTimer: DispatchSourceTimer?
     private var isRunning = false
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     func setManagers(vfs: VFSManager, sync: SyncManager) {
         self.vfsManager = vfs
@@ -74,11 +74,11 @@ actor EvictionManager {
         return stats
     }
 
-    // MARK: - 自动淘汰
+    // MARK: - Auto Eviction
 
     func startAutoEviction() {
         guard config.autoEvictionEnabled else {
-            logger.info("自动淘汰已禁用")
+            logger.info("Auto eviction is disabled")
             return
         }
 
@@ -89,7 +89,7 @@ actor EvictionManager {
         timer.setEventHandler { [weak self] in
             Task {
                 guard let self = self else {
-                    Logger.forService("Eviction").warning("淘汰定时器: self 已释放")
+                    Logger.forService("Eviction").warning("Eviction timer: self has been deallocated")
                     return
                 }
                 await self.checkAndEvictIfNeeded()
@@ -98,71 +98,71 @@ actor EvictionManager {
         timer.resume()
         checkTimer = timer
 
-        logger.info("自动淘汰已启动，检查间隔: \(Int(config.checkInterval))秒")
+        logger.info("Auto eviction started, check interval: \(Int(config.checkInterval))s")
     }
 
     func stopAutoEviction() {
         checkTimer?.cancel()
         checkTimer = nil
-        logger.info("自动淘汰已停止")
+        logger.info("Auto eviction stopped")
     }
 
-    // MARK: - 淘汰逻辑
+    // MARK: - Eviction Logic
 
-    /// 检查并执行淘汰 (如果需要)
-    /// 判断依据: LOCAL_DIR 文件总大小 (索引统计) > triggerThreshold
+    /// Check and evict if needed
+    /// Criteria: LOCAL_DIR total file size (index stats) > triggerThreshold
     func checkAndEvictIfNeeded() async {
-        logger.info("========== 淘汰检查开始 ==========")
+        logger.info("========== Eviction check start ==========")
 
         guard !isRunning else {
-            logger.info("淘汰检查: 跳过 (上一次淘汰正在进行中)")
+            logger.info("Eviction check: skipped (previous eviction still running)")
             return
         }
 
         guard let vfsManager = vfsManager else {
-            logger.warning("淘汰检查: 跳过 (VFSManager 未设置，可能已被释放)")
+            logger.warning("Eviction check: skipped (VFSManager not set, may have been deallocated)")
             return
         }
 
-        // 获取所有挂载点
+        // Get all mount points
         let mounts = await vfsManager.getAllMounts()
-        logger.info("淘汰检查: 挂载点数量=\(mounts.count), 缓存上限=\(formatBytes(config.triggerThreshold))")
+        logger.info("Eviction check: mount count=\(mounts.count), cache limit=\(formatBytes(config.triggerThreshold))")
 
         if mounts.isEmpty {
-            logger.info("淘汰检查: 无挂载点，跳过")
+            logger.info("Eviction check: no mount points, skipping")
             return
         }
 
         let database = ServiceDatabaseManager.shared
 
         for mount in mounts {
-            // 基于索引统计的 LOCAL 文件实际占用大小
+            // LOCAL file actual usage based on index stats
             let stats = await database.getIndexStats(syncPairId: mount.syncPairId)
             let localSize = stats.localSize
             let needsEviction = localSize > config.triggerThreshold
 
-            logger.info("淘汰检查: syncPair=\(mount.syncPairId), 本地占用=\(formatBytes(localSize)), 缓存上限=\(formatBytes(config.triggerThreshold)), 需要淘汰=\(needsEviction)")
+            logger.info("Eviction check: syncPair=\(mount.syncPairId), local usage=\(formatBytes(localSize)), cache limit=\(formatBytes(config.triggerThreshold)), needs eviction=\(needsEviction)")
 
             if needsEviction {
-                logger.info("触发淘汰: \(mount.syncPairId), 目标降到 \(formatBytes(config.targetFreeSpace))")
+                logger.info("Triggering eviction: \(mount.syncPairId), target down to \(formatBytes(config.targetFreeSpace))")
 
                 let result = await evict(
                     syncPairId: mount.syncPairId,
                     targetFreeSpace: config.targetFreeSpace
                 )
 
-                logger.info("淘汰完成: 释放 \(formatBytes(result.freedSpace)), 淘汰 \(result.evictedFiles.count) 个文件, 错误 \(result.errors.count) 个")
+                logger.info("Eviction complete: freed \(formatBytes(result.freedSpace)), evicted \(result.evictedFiles.count) files, errors \(result.errors.count)")
             }
         }
 
-        logger.info("========== 淘汰检查结束 ==========")
+        logger.info("========== Eviction check end ==========")
     }
 
-    /// 执行淘汰
+    /// Execute eviction
     /// - Parameters:
-    ///   - syncPairId: 同步对 ID
-    ///   - targetFreeSpace: 目标可用空间 (可选，默认使用配置)
-    /// - Returns: 淘汰结果
+    ///   - syncPairId: Sync pair ID
+    ///   - targetFreeSpace: Target free space (optional, defaults to config)
+    /// - Returns: Eviction result
     func evict(syncPairId: String, targetFreeSpace: Int64? = nil) async -> EvictionResult {
         isRunning = true
         defer { isRunning = false }
@@ -173,87 +173,87 @@ actor EvictionManager {
         var errors: [String] = []
 
         guard let vfsManager = vfsManager else {
-            errors.append("VFSManager 未设置")
+            errors.append("VFSManager not set")
             return EvictionResult(evictedFiles: [], freedSpace: 0, errors: errors)
         }
 
-        // 获取挂载点信息
+        // Get mount point info
         let mounts = await vfsManager.getAllMounts()
         guard let mount = mounts.first(where: { $0.syncPairId == syncPairId }) else {
-            errors.append("同步对未挂载: \(syncPairId)")
+            errors.append("Sync pair not mounted: \(syncPairId)")
             return EvictionResult(evictedFiles: [], freedSpace: 0, errors: errors)
         }
 
-        // 基于索引统计获取 LOCAL 实际占用
+        // Get LOCAL actual usage based on index stats
         let database = ServiceDatabaseManager.shared
         let indexStats = await database.getIndexStats(syncPairId: syncPairId)
         var currentLocalSize = indexStats.localSize
 
-        logger.info("开始淘汰: 本地占用 \(formatBytes(currentLocalSize)), 目标降到 \(formatBytes(target))")
+        logger.info("Starting eviction: local usage \(formatBytes(currentLocalSize)), target down to \(formatBytes(target))")
 
-        // 获取可淘汰的文件列表 (按 LRU 排序)
+        // Get evictable file list (sorted by LRU)
         let candidates = await getEvictionCandidates(syncPairId: syncPairId)
 
-        logger.info("找到 \(candidates.count) 个候选文件")
+        logger.info("Found \(candidates.count) candidate files")
 
         let fm = FileManager.default
         var processedCount = 0
 
         for entry in candidates {
-            // 检查是否已达到目标 (本地占用降到目标以下)
+            // Check if target reached (local usage below target)
             if currentLocalSize <= target {
-                logger.info("已达到目标: 本地占用 \(formatBytes(currentLocalSize)) <= \(formatBytes(target))")
+                logger.info("Target reached: local usage \(formatBytes(currentLocalSize)) <= \(formatBytes(target))")
                 break
             }
 
-            // 检查单次限制
+            // Check per-run limit
             if processedCount >= config.maxFilesPerRun {
-                logger.info("已达到单次最大文件数限制")
+                logger.info("Per-run max file count limit reached")
                 break
             }
 
-            // 跳过目录
+            // Skip directories
             if entry.isDirectory { continue }
 
-            // 跳过脏文件 (需要先同步)
+            // Skip dirty files (need sync first)
             if entry.isDirty {
                 stats.skippedDirty += 1
                 continue
             }
 
-            // 跳过被锁定的文件
+            // Skip locked files
             if entry.isLocked {
                 stats.skippedLocked += 1
                 continue
             }
 
-            // 跳过太新的文件
+            // Skip files that are too new
             let fileAge = Date().timeIntervalSince(entry.accessedAt)
             if fileAge < config.minFileAge {
                 continue
             }
 
-            // 确保文件在 EXTERNAL 存在
+            // Ensure file exists in EXTERNAL
             guard let externalPath = entry.externalPath,
                   fm.fileExists(atPath: externalPath) else {
-                // 需要先同步到 EXTERNAL
+                // Need to sync to EXTERNAL first
                 if let syncManager = syncManager {
                     do {
                         try await syncManager.syncFile(virtualPath: entry.virtualPath, syncPairId: entry.syncPairId)
-                        // 同步成功后跳过淘汰，等下次检查时再处理
+                        // Skip eviction after sync success, handle in next check
                         continue
                     } catch {
                         stats.failedSync += 1
-                        errors.append("同步失败: \(entry.virtualPath) - \(error.localizedDescription)")
+                        errors.append("Sync failed: \(entry.virtualPath) - \(error.localizedDescription)")
                         continue
                     }
                 } else {
-                    errors.append("SyncManager 未设置: \(entry.virtualPath)")
+                    errors.append("SyncManager not set: \(entry.virtualPath)")
                     continue
                 }
             }
 
-            // 执行淘汰 (删除本地副本)
+            // Execute eviction (delete local copy)
             guard let localPath = entry.localPath else { continue }
 
             do {
@@ -265,33 +265,33 @@ actor EvictionManager {
                 currentLocalSize -= fileSize
                 processedCount += 1
 
-                // 更新索引 (位置变为 externalOnly)
+                // Update index (location becomes externalOnly)
                 await updateEntryLocation(entry: entry, vfsManager: vfsManager)
 
-                // 记录淘汰成功
+                // Record eviction success
                 let record = ServiceSyncFileRecord(syncPairId: syncPairId, diskId: "", virtualPath: entry.virtualPath, fileSize: fileSize)
-                record.status = 3  // 淘汰成功
+                record.status = 3  // Eviction success
                 await ServiceDatabaseManager.shared.saveSyncFileRecord(record)
 
-                logger.debug("淘汰: \(entry.virtualPath) (\(formatBytes(fileSize)))")
+                logger.debug("Evicted: \(entry.virtualPath) (\(formatBytes(fileSize)))")
 
             } catch {
-                errors.append("删除失败: \(entry.virtualPath) - \(error.localizedDescription)")
+                errors.append("Delete failed: \(entry.virtualPath) - \(error.localizedDescription)")
 
-                // 记录淘汰失败
+                // Record eviction failure
                 let record = ServiceSyncFileRecord(syncPairId: syncPairId, diskId: "", virtualPath: entry.virtualPath, fileSize: 0)
-                record.status = 4  // 淘汰失败
+                record.status = 4  // Eviction failure
                 record.errorMessage = error.localizedDescription
                 await ServiceDatabaseManager.shared.saveSyncFileRecord(record)
             }
         }
 
-        // 更新统计
+        // Update statistics
         stats.evictedCount += evictedFiles.count
         stats.evictedSize += freedSpace
         stats.lastEvictionTime = Date()
 
-        // 记录活动
+        // Record activity
         if !evictedFiles.isEmpty || !errors.isEmpty {
             await ActivityManager.shared.addEvictionActivity(
                 filesCount: evictedFiles.count,
@@ -304,15 +304,15 @@ actor EvictionManager {
         return EvictionResult(evictedFiles: evictedFiles, freedSpace: freedSpace, errors: errors)
     }
 
-    /// 获取淘汰候选文件 (按 LRU 排序)
+    /// Get eviction candidates (sorted by LRU)
     private func getEvictionCandidates(syncPairId: String) async -> [ServiceFileEntry] {
         guard let vfsManager = vfsManager else { return [] }
 
-        // 获取所有索引条目
+        // Get all index entries
         let allStats = await vfsManager.getIndexStats(syncPairId: syncPairId)
         guard allStats != nil else { return [] }
 
-        // 获取状态为 BOTH 的文件 (两端都有的可以安全淘汰)
+        // Get files with BOTH status (safe to evict)
         var candidates: [ServiceFileEntry] = []
 
         let mounts = await vfsManager.getAllMounts()
@@ -320,7 +320,7 @@ actor EvictionManager {
             return []
         }
 
-        // 扫描本地目录获取文件
+        // Scan local directory for files
         let fm = FileManager.default
         guard let contents = try? fm.subpathsOfDirectory(atPath: mount.localDir) else {
             return []
@@ -330,13 +330,13 @@ actor EvictionManager {
             let localPath = (mount.localDir as NSString).appendingPathComponent(relativePath)
             let virtualPath = "/" + relativePath
 
-            // 获取文件属性
+            // Get file attributes
             guard let attrs = try? fm.attributesOfItem(atPath: localPath) else { continue }
 
-            // 跳过目录
+            // Skip directories
             if (attrs[.type] as? FileAttributeType) == .typeDirectory { continue }
 
-            // 检查 EXTERNAL 是否存在
+            // Check if EXTERNAL exists
             var externalPath: String? = nil
             if let externalDir = mount.externalDir {
                 let extPath = (externalDir as NSString).appendingPathComponent(relativePath)
@@ -345,7 +345,7 @@ actor EvictionManager {
                 }
             }
 
-            // 只有当 EXTERNAL 存在时才是候选
+            // Only a candidate if EXTERNAL exists
             guard externalPath != nil else { continue }
 
             let entry = ServiceFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
@@ -353,26 +353,26 @@ actor EvictionManager {
             entry.externalPath = externalPath
             entry.size = attrs[.size] as? Int64 ?? 0
             entry.modifiedAt = attrs[.modificationDate] as? Date ?? Date()
-            entry.accessedAt = attrs[.creationDate] as? Date ?? Date()  // 使用创建时间作为近似访问时间
+            entry.accessedAt = attrs[.creationDate] as? Date ?? Date()  // Use creation time as approximate access time
             entry.fileLocation = .both
 
             candidates.append(entry)
         }
 
-        // 按访问时间排序 (最旧的在前)
+        // Sort by access time (oldest first)
         candidates.sort { $0.accessedAt < $1.accessedAt }
 
         return candidates
     }
 
-    /// 更新文件条目位置 (淘汰: both → externalOnly)
+    /// Update file entry location (eviction: both -> externalOnly)
     private func updateEntryLocation(entry: ServiceFileEntry, vfsManager: VFSManager) async {
         await vfsManager.onFileEvicted(virtualPath: entry.virtualPath, syncPairId: entry.syncPairId)
     }
 
-    // MARK: - 手动淘汰
+    // MARK: - Manual Eviction
 
-    /// 淘汰指定文件
+    /// Evict specified file
     func evictFile(virtualPath: String, syncPairId: String) async throws {
         guard let vfsManager = vfsManager else {
             throw EvictionError.managerNotSet
@@ -382,7 +382,7 @@ actor EvictionManager {
             throw EvictionError.fileNotFound(virtualPath)
         }
 
-        // 检查文件是否可淘汰
+        // Check if file is evictable
         if entry.isDirty {
             throw EvictionError.fileIsDirty(virtualPath)
         }
@@ -399,19 +399,19 @@ actor EvictionManager {
             throw EvictionError.noLocalPath(virtualPath)
         }
 
-        // 删除本地副本
+        // Delete local copy
         try FileManager.default.removeItem(atPath: localPath)
 
-        // 更新索引
+        // Update index
         await updateEntryLocation(entry: entry, vfsManager: vfsManager)
 
         stats.evictedCount += 1
         stats.evictedSize += entry.size
 
-        logger.info("手动淘汰: \(virtualPath)")
+        logger.info("Manual eviction: \(virtualPath)")
     }
 
-    /// 预取文件 (从 EXTERNAL 复制到 LOCAL)
+    /// Prefetch file (copy from EXTERNAL to LOCAL)
     func prefetchFile(virtualPath: String, syncPairId: String) async throws {
         guard let vfsManager = vfsManager else {
             throw EvictionError.managerNotSet
@@ -422,7 +422,7 @@ actor EvictionManager {
         }
 
         guard entry.fileLocation == .externalOnly else {
-            logger.debug("文件已在本地: \(virtualPath)")
+            logger.debug("File already local: \(virtualPath)")
             return
         }
 
@@ -430,27 +430,27 @@ actor EvictionManager {
             throw EvictionError.noExternalPath(virtualPath)
         }
 
-        // 获取挂载点信息
+        // Get mount point info
         let mounts = await vfsManager.getAllMounts()
         guard let mount = mounts.first(where: { $0.syncPairId == syncPairId }) else {
             throw EvictionError.notMounted(syncPairId)
         }
 
-        // 计算本地路径
-        let relativePath = String(virtualPath.dropFirst())  // 去掉开头的 /
+        // Calculate local path
+        let relativePath = String(virtualPath.dropFirst())  // Remove leading /
         let localPath = (mount.localDir as NSString).appendingPathComponent(relativePath)
 
-        // 确保父目录存在
+        // Ensure parent directory exists
         let parentDir = (localPath as NSString).deletingLastPathComponent
         try FileManager.default.createDirectory(atPath: parentDir, withIntermediateDirectories: true)
 
-        // 复制文件
+        // Copy file
         try FileManager.default.copyItem(atPath: externalPath, toPath: localPath)
 
-        logger.info("预取完成: \(virtualPath)")
+        logger.info("Prefetch complete: \(virtualPath)")
     }
 
-    // MARK: - 工具方法
+    // MARK: - Utility Methods
 
     private func getAvailableSpace(at path: String) -> Int64 {
         do {
@@ -469,7 +469,7 @@ actor EvictionManager {
     }
 }
 
-// MARK: - 错误类型
+// MARK: - Error Types
 
 enum EvictionError: Error, LocalizedError {
     case managerNotSet
@@ -484,21 +484,21 @@ enum EvictionError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .managerNotSet:
-            return "管理器未设置"
+            return "Manager not set"
         case .fileNotFound(let path):
-            return "文件未找到: \(path)"
+            return "File not found: \(path)"
         case .fileIsDirty(let path):
-            return "文件有未同步更改: \(path)"
+            return "File has unsynced changes: \(path)"
         case .fileIsLocked(let path):
-            return "文件被锁定: \(path)"
+            return "File is locked: \(path)"
         case .notSynced(let path):
-            return "文件未同步到外部: \(path)"
+            return "File not synced to external: \(path)"
         case .noLocalPath(let path):
-            return "无本地路径: \(path)"
+            return "No local path: \(path)"
         case .noExternalPath(let path):
-            return "无外部路径: \(path)"
+            return "No external path: \(path)"
         case .notMounted(let id):
-            return "同步对未挂载: \(id)"
+            return "Sync pair not mounted: \(id)"
         }
     }
 }

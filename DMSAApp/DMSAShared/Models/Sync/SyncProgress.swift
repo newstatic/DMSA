@@ -2,7 +2,7 @@ import Foundation
 
 // Note: SyncStatus is defined in DMSAShared/Models/Config.swift
 
-/// 同步进度
+/// Sync progress
 public struct SyncProgress: Codable, Sendable {
     public var syncPairId: String
     public var status: SyncStatus
@@ -16,7 +16,7 @@ public struct SyncProgress: Codable, Sendable {
     public var errorMessage: String?
     public var speed: Int64  // bytes per second
 
-    /// 当前阶段
+    /// Current phase
     public var phase: SyncPhase
 
     public init(syncPairId: String) {
@@ -66,26 +66,26 @@ public struct SyncProgress: Codable, Sendable {
     public var formattedETA: String? {
         guard let eta = estimatedTimeRemaining else { return nil }
         if eta < 60 {
-            return String(format: "%.0f 秒", eta)
+            return String(format: "%.0f sec", eta)
         } else if eta < 3600 {
-            return String(format: "%.0f 分钟", eta / 60)
+            return String(format: "%.0f min", eta / 60)
         } else {
-            return String(format: "%.1f 小时", eta / 3600)
+            return String(format: "%.1f hr", eta / 3600)
         }
     }
 
-    /// 转换为 Data (用于 XPC 传输)
+    /// Convert to Data (for XPC transport)
     public func toData() -> Data? {
         return try? JSONEncoder().encode(self)
     }
 
-    /// 从 Data 创建 (用于 XPC 传输)
+    /// Create from Data (for XPC transport)
     public static func from(data: Data) -> SyncProgress? {
         return try? JSONDecoder().decode(SyncProgress.self, from: data)
     }
 }
 
-/// 同步阶段
+/// Sync phase
 public enum SyncPhase: String, Codable, Sendable {
     case idle = "idle"
     case scanning = "scanning"
@@ -102,18 +102,18 @@ public enum SyncPhase: String, Codable, Sendable {
 
     public var description: String {
         switch self {
-        case .idle: return "空闲"
-        case .scanning: return "扫描文件"
-        case .calculating: return "计算差异"
-        case .checksumming: return "计算校验和"
-        case .resolving: return "解决冲突"
-        case .diffing: return "比较差异"
-        case .syncing: return "同步文件"
-        case .verifying: return "验证完整性"
-        case .completed: return "已完成"
-        case .failed: return "失败"
-        case .cancelled: return "已取消"
-        case .paused: return "已暂停"
+        case .idle: return "Idle"
+        case .scanning: return "Scanning Files"
+        case .calculating: return "Calculating Diff"
+        case .checksumming: return "Computing Checksum"
+        case .resolving: return "Resolving Conflicts"
+        case .diffing: return "Comparing Diff"
+        case .syncing: return "Syncing Files"
+        case .verifying: return "Verifying Integrity"
+        case .completed: return "Completed"
+        case .failed: return "Failed"
+        case .cancelled: return "Cancelled"
+        case .paused: return "Paused"
         }
     }
 }

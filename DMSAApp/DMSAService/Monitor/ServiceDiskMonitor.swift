@@ -1,7 +1,7 @@
 import Foundation
 
-/// Service 端磁盘监控器
-/// 处理来自 App 端的磁盘事件通知，执行相关业务逻辑
+/// Service-side disk monitor
+/// Handles disk event notifications from the App side and executes related business logic
 actor ServiceDiskMonitor {
 
     // MARK: - Properties
@@ -9,66 +9,66 @@ actor ServiceDiskMonitor {
     private let logger = Logger.forService("DiskMonitor")
     private let fileManager = FileManager.default
 
-    /// 当前已连接的磁盘 [diskId: mountPath]
+    /// Currently connected disks [diskId: mountPath]
     private var connectedDisks: [String: String] = [:]
 
-    /// 磁盘连接回调
+    /// Disk connected callback
     var onDiskConnected: ((String, String) async -> Void)?
 
-    /// 磁盘断开回调
+    /// Disk disconnected callback
     var onDiskDisconnected: ((String) async -> Void)?
 
     // MARK: - Public Methods
 
-    /// 处理磁盘连接事件 (由 App 通过 XPC 通知)
+    /// Handle disk connected event (notified by App via XPC)
     func handleDiskConnected(diskName: String, mountPath: String) async {
-        logger.info("磁盘已连接: \(diskName) at \(mountPath)")
+        logger.info("Disk connected: \(diskName) at \(mountPath)")
 
-        // 验证路径存在
+        // Verify path exists
         guard fileManager.fileExists(atPath: mountPath) else {
-            logger.error("磁盘路径不存在: \(mountPath)")
+            logger.error("Disk path does not exist: \(mountPath)")
             return
         }
 
         connectedDisks[diskName] = mountPath
 
-        // 触发回调
+        // Trigger callback
         await onDiskConnected?(diskName, mountPath)
     }
 
-    /// 处理磁盘断开事件 (由 App 通过 XPC 通知)
+    /// Handle disk disconnected event (notified by App via XPC)
     func handleDiskDisconnected(diskName: String) async {
-        logger.info("磁盘已断开: \(diskName)")
+        logger.info("Disk disconnected: \(diskName)")
 
         connectedDisks.removeValue(forKey: diskName)
 
-        // 触发回调
+        // Trigger callback
         await onDiskDisconnected?(diskName)
     }
 
-    /// 检查磁盘是否已连接
+    /// Check if a disk is connected
     func isDiskConnected(_ diskName: String) -> Bool {
         return connectedDisks[diskName] != nil
     }
 
-    /// 获取磁盘挂载路径
+    /// Get disk mount path
     func getDiskMountPath(_ diskName: String) -> String? {
         return connectedDisks[diskName]
     }
 
-    /// 获取所有已连接磁盘
+    /// Get all connected disks
     func getConnectedDisks() -> [String: String] {
         return connectedDisks
     }
 
-    /// 检查任意磁盘是否已连接
+    /// Check if any disk is connected
     var isAnyDiskConnected: Bool {
         !connectedDisks.isEmpty
     }
 
     // MARK: - Disk Info
 
-    /// 获取磁盘信息
+    /// Get disk info
     func getDiskInfo(at path: String) -> DiskInfo? {
         do {
             let attrs = try fileManager.attributesOfFileSystem(forPath: path)
@@ -83,25 +83,25 @@ actor ServiceDiskMonitor {
                 path: path
             )
         } catch {
-            logger.error("获取磁盘信息失败 (\(path)): \(error.localizedDescription)")
+            logger.error("Failed to get disk info (\(path)): \(error.localizedDescription)")
             return nil
         }
     }
 
-    /// 获取磁盘使用率
+    /// Get disk usage percentage
     func getDiskUsagePercentage(at path: String) -> Double? {
         guard let info = getDiskInfo(at: path) else { return nil }
         guard info.totalSpace > 0 else { return nil }
         return Double(info.usedSpace) / Double(info.totalSpace) * 100.0
     }
 
-    /// 检查磁盘可用空间是否充足
+    /// Check if disk has enough available space
     func hasEnoughSpace(at path: String, requiredBytes: Int64, reserveBuffer: Int64 = 1_073_741_824) -> Bool {
         guard let info = getDiskInfo(at: path) else { return false }
         return info.availableSpace >= (requiredBytes + reserveBuffer)
     }
 
-    /// 健康检查
+    /// Health check
     func healthCheck() -> Bool {
         return true
     }

@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Conflict Card Component
 
-/// 冲突文件卡片 - 用于冲突解决页面
+/// Conflict file card - used in the conflict resolution page
 struct ConflictCard: View {
     let conflict: ConflictItem
     let onResolve: (ConflictResolution) -> Void
@@ -125,7 +125,7 @@ struct ConflictCard: View {
 
 // MARK: - Version Card Component
 
-/// 版本对比卡片 - 显示本地或外部版本信息
+/// Version comparison card - displays local or external version info
 struct VersionCard: View {
     let title: String
     let icon: String
@@ -179,7 +179,7 @@ struct VersionCard: View {
 }
 
 // MARK: - Conflict Item
-// 注意: ConflictResolution 使用 DMSAShared/Models/Sync/ConflictInfo.swift 中的定义
+// Note: ConflictResolution uses the definition from DMSAShared/Models/Sync/ConflictInfo.swift
 
 struct ConflictItem: Identifiable {
     let id = UUID()
@@ -197,7 +197,7 @@ struct ConflictItem: Identifiable {
 
 // MARK: - Conflict List Header
 
-/// 冲突列表头部
+/// Conflict list header
 struct ConflictListHeader: View {
     let conflictCount: Int
     let onResolveAll: (ConflictResolution) -> Void
@@ -250,7 +250,7 @@ struct ConflictListHeader: View {
 
 // MARK: - Empty Conflicts View
 
-/// 无冲突状态视图
+/// Empty conflicts state view
 struct EmptyConflictsView: View {
     var body: some View {
         VStack(spacing: 16) {

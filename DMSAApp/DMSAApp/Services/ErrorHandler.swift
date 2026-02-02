@@ -1,8 +1,8 @@
 import Foundation
 import AppKit
 
-/// 错误处理器
-/// 负责错误分类、自动恢复尝试、用户提示与引导
+/// Error handler
+/// Handles error classification, auto-recovery attempts, user prompts and guidance
 @MainActor
 final class ErrorHandler {
 
@@ -10,56 +10,56 @@ final class ErrorHandler {
 
     static let shared = ErrorHandler()
 
-    // MARK: - 依赖
+    // MARK: - Dependencies
 
     private let stateManager = StateManager.shared
     private let serviceClient = ServiceClient.shared
     private let logger = Logger.shared
 
-    // MARK: - 重试配置
+    // MARK: - Retry Configuration
 
     private var retryCount: [Int: Int] = [:] // [errorCode: retryCount]
     private let maxRetries = 3
-    private let retryDelays: [TimeInterval] = [1, 2, 5] // 递增延迟
+    private let retryDelays: [TimeInterval] = [1, 2, 5] // Incremental delays
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     private init() {}
 
-    // MARK: - 公共方法
+    // MARK: - Public Methods
 
-    /// 处理错误
+    /// Handle error
     func handle(_ error: AppError) {
-        // 记录日志
+        // Log the error
         logError(error)
 
-        // 更新状态
+        // Update state
         stateManager.updateError(error)
 
-        // 根据严重程度处理
+        // Handle based on severity
         switch error.severity {
         case .critical:
             handleCriticalError(error)
         case .warning:
             handleWarningError(error)
         case .info:
-            // 仅记录，不显示
+            // Log only, no display
             break
         }
 
-        // 尝试自动恢复
+        // Attempt auto-recovery
         if error.isRecoverable {
             attemptAutoRecovery(error)
         }
     }
 
-    /// 从 ServiceError 创建并处理 AppError
+    /// Create and handle AppError from ServiceError
     func handle(_ serviceError: ServiceError) {
         let appError = mapServiceError(serviceError)
         handle(appError)
     }
 
-    /// 从通用 Error 创建并处理 AppError
+    /// Create and handle AppError from generic Error
     func handle(_ error: Error, context: String? = nil) {
         if let serviceError = error as? ServiceError {
             handle(serviceError)
@@ -76,13 +76,13 @@ final class ErrorHandler {
         }
     }
 
-    /// 清除错误状态
+    /// Clear error state
     func clearError() {
         stateManager.clearError()
         retryCount.removeAll()
     }
 
-    // MARK: - 错误映射
+    // MARK: - Error Mapping
 
     private func mapServiceError(_ error: ServiceError) -> AppError {
         switch error {
@@ -96,7 +96,7 @@ final class ErrorHandler {
             )
 
         case .operationFailed(let message):
-            // 根据消息内容判断具体错误类型
+            // Infer specific error type from message content
             let code = inferErrorCode(from: message)
             return AppError(
                 code: code,
@@ -142,10 +142,10 @@ final class ErrorHandler {
             return ErrorCodes.permissionDenied
         }
 
-        return 9999 // 未知错误
+        return 9999 // Unknown error
     }
 
-    // MARK: - 错误处理
+    // MARK: - Error Handling
 
     private func logError(_ error: AppError) {
         let module = ErrorCodes.module(for: error.code)
@@ -160,29 +160,29 @@ final class ErrorHandler {
     }
 
     private func handleCriticalError(_ error: AppError) {
-        // 显示严重错误弹窗
+        // Show critical error alert
         showCriticalErrorAlert(error)
     }
 
     private func handleWarningError(_ error: AppError) {
-        // 显示警告通知
+        // Show warning notification
         showWarningNotification(error)
     }
 
-    // MARK: - 自动恢复
+    // MARK: - Auto Recovery
 
     private func attemptAutoRecovery(_ error: AppError) {
         let currentRetry = retryCount[error.code, default: 0]
 
         guard currentRetry < maxRetries else {
-            logger.warning("已达到最大重试次数 (\(maxRetries))，放弃自动恢复: \(error.code)")
+            logger.warning("Max retry count reached (\(maxRetries)), giving up auto-recovery: \(error.code)")
             return
         }
 
         retryCount[error.code] = currentRetry + 1
         let delay = retryDelays[min(currentRetry, retryDelays.count - 1)]
 
-        logger.info("尝试自动恢复 (第 \(currentRetry + 1) 次，延迟 \(delay) 秒): \(error.code)")
+        logger.info("Attempting auto-recovery (attempt \(currentRetry + 1), delay \(delay)s): \(error.code)")
 
         Task {
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
@@ -193,38 +193,38 @@ final class ErrorHandler {
     private func performRecoveryAction(for error: AppError) async {
         do {
             switch error.code {
-            // 连接错误 - 尝试重连
+            // Connection error - attempt reconnect
             case ErrorCodes.connectionFailed,
                  ErrorCodes.connectionInterrupted,
                  ErrorCodes.connectionTimeout,
                  ErrorCodes.serviceUnavailable:
                 try await reconnect()
 
-            // 同步错误 - 尝试重新同步
+            // Sync error - attempt re-sync
             case ErrorCodes.syncFailed,
                  ErrorCodes.syncTimeout:
                 try await retrySync()
 
-            // 磁盘断开 - 等待重新连接
+            // Disk disconnected - wait for reconnection
             case ErrorCodes.diskDisconnected:
-                // 磁盘断开由 DiskManager 自动处理
+                // Disk disconnection handled automatically by DiskManager
                 break
 
             default:
-                logger.debug("错误码 \(error.code) 没有自动恢复逻辑")
+                logger.debug("Error code \(error.code) has no auto-recovery logic")
             }
 
-            // 恢复成功，清除该错误的重试计数
+            // Recovery successful, clear retry count for this error
             retryCount[error.code] = nil
-            logger.info("自动恢复成功: \(error.code)")
+            logger.info("Auto-recovery successful: \(error.code)")
 
         } catch {
-            logger.warning("自动恢复失败: \(error)")
+            logger.warning("Auto-recovery failed: \(error)")
         }
     }
 
     private func reconnect() async throws {
-        logger.info("尝试重新连接到服务...")
+        logger.info("Attempting to reconnect to service...")
         serviceClient.disconnect()
         try await Task.sleep(nanoseconds: 500_000_000) // 500ms
         _ = try await serviceClient.connect()
@@ -233,11 +233,11 @@ final class ErrorHandler {
     }
 
     private func retrySync() async throws {
-        logger.info("尝试重新同步...")
+        logger.info("Attempting to re-sync...")
         try await serviceClient.syncAll()
     }
 
-    // MARK: - UI 提示
+    // MARK: - UI Prompts
 
     private func showCriticalErrorAlert(_ error: AppError) {
         let alert = NSAlert()
@@ -255,7 +255,7 @@ final class ErrorHandler {
         let response = alert.runModal()
 
         if response == .alertFirstButtonReturn, error.recoveryAction != nil {
-            // 用户选择了恢复操作
+            // User chose recovery action
             Task {
                 await performRecoveryAction(for: error)
             }
@@ -263,7 +263,7 @@ final class ErrorHandler {
     }
 
     private func showWarningNotification(_ error: AppError) {
-        // 使用系统通知显示警告
+        // Show warning via system notification
         let content = UNMutableNotificationContent()
         content.title = "warning".localized
         content.body = error.message
@@ -279,11 +279,11 @@ final class ErrorHandler {
     }
 }
 
-// MARK: - 便捷扩展
+// MARK: - Convenience Extensions
 
 extension ErrorHandler {
 
-    /// 快捷方法：处理连接错误
+    /// Convenience: handle connection error
     func handleConnectionError(_ message: String) {
         let error = AppError(
             code: ErrorCodes.connectionFailed,
@@ -295,7 +295,7 @@ extension ErrorHandler {
         handle(error)
     }
 
-    /// 快捷方法：处理同步错误
+    /// Convenience: handle sync error
     func handleSyncError(_ message: String, syncPairId: String? = nil) {
         let fullMessage = syncPairId.map { "[\($0)] \(message)" } ?? message
         let error = AppError(
@@ -307,7 +307,7 @@ extension ErrorHandler {
         handle(error)
     }
 
-    /// 快捷方法：处理配置错误
+    /// Convenience: handle config error
     func handleConfigError(_ message: String) {
         let error = AppError(
             code: ErrorCodes.configInvalid,
@@ -318,7 +318,7 @@ extension ErrorHandler {
         handle(error)
     }
 
-    /// 快捷方法：处理 VFS 错误
+    /// Convenience: handle VFS error
     func handleVFSError(_ message: String) {
         let error = AppError(
             code: ErrorCodes.vfsMountFailed,

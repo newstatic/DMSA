@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Stat Card Component
 
-/// 统计卡片 - 用于显示数字统计信息
+/// Stat card - used to display numerical statistics
 struct StatCard: View {
     let icon: String
     let label: String
@@ -52,7 +52,7 @@ struct StatCard: View {
 
 // MARK: - Stat Card Grid
 
-/// 统计卡片网格
+/// Stat card grid
 struct StatCardGrid: View {
     let cards: [StatCardItem]
     var columns: Int = 4
@@ -76,7 +76,7 @@ struct StatCardGrid: View {
     }
 }
 
-/// 统计卡片数据模型
+/// Stat card data model
 struct StatCardItem: Identifiable {
     let id = UUID()
     let icon: String
@@ -88,7 +88,7 @@ struct StatCardItem: Identifiable {
 
 // MARK: - Stat Chip Component
 
-/// 小型统计标签 - 用于状态横幅中的统计信息
+/// Small stat chip - used for statistics in the status banner
 struct StatChip: View {
     let icon: String
     let value: String
@@ -119,7 +119,7 @@ struct StatChip: View {
 
 // MARK: - Storage Card Component
 
-/// 存储卡片 - 显示存储空间使用情况
+/// Storage card - displays storage space usage
 struct StorageCard: View {
     let title: String
     let icon: String
@@ -200,7 +200,7 @@ struct StorageCard: View {
 
 // MARK: - Info Row Component
 
-/// 信息行 - 用于显示键值对信息
+/// Info row - used to display key-value pair information
 struct InfoRow: View {
     let label: String
     let value: String
@@ -222,7 +222,7 @@ struct InfoRow: View {
 
 // MARK: - Info Grid Component
 
-/// 信息网格 - 用于显示多个键值对
+/// Info grid - used to display multiple key-value pairs
 struct InfoGrid: View {
     let items: [(label: String, value: String)]
     var columns: Int = 2

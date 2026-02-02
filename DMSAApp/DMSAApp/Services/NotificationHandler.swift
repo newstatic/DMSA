@@ -1,7 +1,7 @@
 import Foundation
 import UserNotifications
 
-/// 通知类型枚举
+/// Notification type enum
 enum NotificationType: String, CaseIterable {
     case stateChanged = "stateChanged"
     case indexProgress = "indexProgress"
@@ -16,8 +16,8 @@ enum NotificationType: String, CaseIterable {
     case configUpdated = "configUpdated"
 }
 
-/// 通知处理器
-/// 负责处理所有 Service 通知，解析数据，分发到 StateManager，触发系统通知
+/// Notification handler
+/// Handles all Service notifications, parses data, dispatches to StateManager, triggers system notifications
 @MainActor
 final class NotificationHandler {
 
@@ -25,50 +25,50 @@ final class NotificationHandler {
 
     static let shared = NotificationHandler()
 
-    // MARK: - 依赖
+    // MARK: - Dependencies
 
     private let stateManager = StateManager.shared
     private let userNotificationCenter = UNUserNotificationCenter.current()
     private let logger = Logger.shared
 
-    // MARK: - 节流配置
+    // MARK: - Throttle Config
 
     private var lastProgressNotification: Date = .distantPast
-    private let progressThrottleInterval: TimeInterval = 0.1 // 100ms 节流
+    private let progressThrottleInterval: TimeInterval = 0.1 // 100ms throttle
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     private init() {
         setupDistributedNotificationObservers()
         requestNotificationPermission()
     }
 
-    // MARK: - 通知权限
+    // MARK: - Notification Permission
 
     private func requestNotificationPermission() {
         userNotificationCenter.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
-                Logger.shared.error("通知权限请求失败: \(error)")
+                Logger.shared.error("Notification permission request failed: \(error)")
             } else if granted {
-                Logger.shared.debug("通知权限已授予")
+                Logger.shared.debug("Notification permission granted")
             }
         }
     }
 
-    // MARK: - 分布式通知监听
+    // MARK: - Distributed Notification Listeners
 
     private func setupDistributedNotificationObservers() {
         let dnc = DistributedNotificationCenter.default()
 
-        logger.info("设置分布式通知监听器...")
+        logger.info("Setting up distributed notification listeners...")
 
-        // 设置挂起行为：即使 App 在后台也接收通知
-        // .deliverImmediately: 立即投递，即使 App 被挂起
-        // .coalesce: 合并多个相同通知
-        // .drop: 丢弃 App 被挂起期间的通知
-        // 默认是 .coalesce，但对于状态变更我们需要立即投递
+        // Set suspension behavior: receive notifications even when App is in background
+        // .deliverImmediately: deliver immediately even if App is suspended
+        // .coalesce: coalesce multiple identical notifications
+        // .drop: drop notifications while App is suspended
+        // Default is .coalesce, but for state changes we need immediate delivery
 
-        // 监听服务就绪通知
+        // Listen for service ready notification
         dnc.addObserver(
             self,
             selector: #selector(handleServiceReadyNotification(_:)),
@@ -77,16 +77,16 @@ final class NotificationHandler {
             suspensionBehavior: .deliverImmediately
         )
 
-        // 监听同步进度通知
+        // Listen for sync progress notification
         dnc.addObserver(
             self,
             selector: #selector(handleSyncProgressNotification(_:)),
             name: NSNotification.Name(Constants.Notifications.syncProgress),
             object: nil,
-            suspensionBehavior: .coalesce  // 进度通知可以合并
+            suspensionBehavior: .coalesce  // progress notifications can be coalesced
         )
 
-        // 监听同步状态变更通知
+        // Listen for sync status change notification
         dnc.addObserver(
             self,
             selector: #selector(handleSyncStatusChangedNotification(_:)),
@@ -95,7 +95,7 @@ final class NotificationHandler {
             suspensionBehavior: .deliverImmediately
         )
 
-        // 监听配置更新通知
+        // Listen for config update notification
         dnc.addObserver(
             self,
             selector: #selector(handleConfigUpdatedNotification(_:)),
@@ -104,7 +104,7 @@ final class NotificationHandler {
             suspensionBehavior: .deliverImmediately
         )
 
-        // 监听冲突检测通知
+        // Listen for conflict detection notification
         dnc.addObserver(
             self,
             selector: #selector(handleConflictDetectedNotification(_:)),
@@ -113,7 +113,7 @@ final class NotificationHandler {
             suspensionBehavior: .deliverImmediately
         )
 
-        // 监听组件错误通知
+        // Listen for component error notification
         dnc.addObserver(
             self,
             selector: #selector(handleComponentErrorNotification(_:)),
@@ -122,25 +122,25 @@ final class NotificationHandler {
             suspensionBehavior: .deliverImmediately
         )
 
-        // 监听索引进度通知
+        // Listen for index progress notification
         dnc.addObserver(
             self,
             selector: #selector(handleIndexProgressNotification(_:)),
             name: NSNotification.Name(Constants.Notifications.indexProgress),
             object: nil,
-            suspensionBehavior: .coalesce  // 进度通知可以合并
+            suspensionBehavior: .coalesce  // progress notifications can be coalesced
         )
 
-        // 监听淘汰进度通知
+        // Listen for eviction progress notification
         dnc.addObserver(
             self,
             selector: #selector(handleEvictionProgressNotification(_:)),
             name: NSNotification.Name(Constants.Notifications.evictionProgress),
             object: nil,
-            suspensionBehavior: .coalesce  // 进度通知可以合并
+            suspensionBehavior: .coalesce  // progress notifications can be coalesced
         )
 
-        // 监听服务状态变更通知 (最重要的通知)
+        // Listen for service state change notification (most important)
         dnc.addObserver(
             self,
             selector: #selector(handleStateChangedNotification(_:)),
@@ -149,7 +149,7 @@ final class NotificationHandler {
             suspensionBehavior: .deliverImmediately
         )
 
-        // 监听索引就绪通知
+        // Listen for index ready notification
         dnc.addObserver(
             self,
             selector: #selector(handleIndexReadyNotification(_:)),
@@ -158,12 +158,12 @@ final class NotificationHandler {
             suspensionBehavior: .deliverImmediately
         )
 
-        logger.info("NotificationHandler: 分布式通知监听已设置 (共 10 个通知)")
+        logger.info("NotificationHandler: Distributed notification listeners configured (10 total)")
     }
 
-    // MARK: - 通知处理入口
+    // MARK: - Notification Processing Entry
 
-    /// 处理通知 (统一入口)
+    /// Process notification (unified entry)
     func handleNotification(_ type: NotificationType, data: Data) {
         switch type {
         case .stateChanged:
@@ -191,11 +191,11 @@ final class NotificationHandler {
         }
     }
 
-    // MARK: - 分布式通知处理 (Objective-C 回调)
+    // MARK: - Distributed Notification Handlers (Objective-C callbacks)
 
     @objc private func handleServiceReadyNotification(_ notification: Notification) {
-        logger.info("[通知] <<< 收到 serviceReady 通知")
-        logger.debug("[通知] serviceReady object: \(String(describing: notification.object))")
+        logger.info("[Notification] <<< Received serviceReady")
+        logger.debug("[Notification] serviceReady object: \(String(describing: notification.object))")
         Task { @MainActor in
             handleServiceReady(Data())
         }
@@ -207,7 +207,7 @@ final class NotificationHandler {
             return
         }
 
-        // 节流: 100ms 内只处理一次
+        // Throttle: process once per 100ms
         let now = Date()
         guard now.timeIntervalSince(lastProgressNotification) >= progressThrottleInterval else {
             return
@@ -231,7 +231,7 @@ final class NotificationHandler {
     }
 
     @objc private func handleConfigUpdatedNotification(_ notification: Notification) {
-        logger.info("收到配置更新通知")
+        logger.info("Received config update notification")
         Task { @MainActor in
             handleConfigUpdated(Data())
         }
@@ -282,14 +282,14 @@ final class NotificationHandler {
     }
 
     @objc private func handleIndexReadyNotification(_ notification: Notification) {
-        logger.info("[通知] <<< 收到 indexReady 通知")
+        logger.info("[Notification] <<< Received indexReady")
 
-        // indexReady 通知可能有数据也可能没有
+        // indexReady notification may or may not have data
         var data = Data()
         if let jsonString = notification.object as? String,
            let jsonData = jsonString.data(using: .utf8) {
             data = jsonData
-            logger.debug("[通知] indexReady 数据: \(jsonString.prefix(200))")
+            logger.debug("[Notification] indexReady data: \(jsonString.prefix(200))")
         }
 
         Task { @MainActor in
@@ -298,49 +298,49 @@ final class NotificationHandler {
     }
 
     @objc private func handleStateChangedNotification(_ notification: Notification) {
-        logger.info("[通知] <<< 收到 stateChanged 通知")
+        logger.info("[Notification] <<< Received stateChanged")
 
         guard let jsonString = notification.object as? String else {
-            logger.warning("[通知] stateChanged 通知的 object 不是 String: \(String(describing: notification.object))")
+            logger.warning("[Notification] stateChanged object is not String: \(String(describing: notification.object))")
             return
         }
 
-        logger.debug("[通知] stateChanged 数据: \(jsonString.prefix(200))")
+        logger.debug("[Notification] stateChanged data: \(jsonString.prefix(200))")
 
         guard let data = jsonString.data(using: .utf8) else {
-            logger.warning("[通知] stateChanged JSON 转 Data 失败")
+            logger.warning("[Notification] stateChanged JSON to Data conversion failed")
             return
         }
 
-        logger.info("[通知] 开始处理 stateChanged 通知")
+        logger.info("[Notification] Processing stateChanged")
         Task { @MainActor in
             handleStateChanged(data)
         }
     }
 
-    // MARK: - 具体通知处理逻辑
+    // MARK: - Specific Notification Processing
 
     private func handleStateChanged(_ data: Data) {
-        logger.debug("处理状态变更通知")
+        logger.debug("Processing state change notification")
 
         guard let info = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            logger.warning("状态变更通知数据解析失败")
+            logger.warning("State change notification data parse failed")
             return
         }
 
-        // 从 Int 值解析 ServiceState (Service 发送的字段名是 "newState")
+        // Parse ServiceState from Int (Service sends field named "newState")
         if let serviceStateRaw = info["newState"] as? Int,
            let state = ServiceState(rawValue: serviceStateRaw) {
             let oldStateName = info["oldStateName"] as? String ?? "unknown"
             let newStateName = info["newStateName"] as? String ?? state.name
-            logger.info("服务状态变更: \(oldStateName) -> \(newStateName)")
+            logger.info("Service state changed: \(oldStateName) -> \(newStateName)")
             stateManager.serviceState = state
 
-            // 根据 ServiceState 更新 UI 状态
+            // Update UI state based on ServiceState
             stateManager.updateSyncStatusFromServiceState(state)
-            logger.info("UI syncStatus 已更新为: \(stateManager.syncStatus.text)")
+            logger.info("UI syncStatus updated to: \(stateManager.syncStatus.text)")
         } else {
-            logger.warning("状态变更通知缺少 newState 字段或值无效: \(info)")
+            logger.warning("State change notification missing newState field or invalid value: \(info)")
         }
 
         if let componentsData = info["components"] as? [[String: Any]] {
@@ -357,15 +357,15 @@ final class NotificationHandler {
     }
 
     private func handleIndexProgress(_ data: Data) {
-        logger.debug("处理索引进度通知")
+        logger.debug("Processing index progress notification")
 
-        // 尝试直接解码为 IndexProgress
+        // Try direct decode to IndexProgress
         if let progress = try? JSONDecoder().decode(IndexProgress.self, from: data) {
             stateManager.updateIndexProgress(progress)
             return
         }
 
-        // 兼容旧格式的 JSON
+        // Compatible with old JSON format
         guard let info = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return
         }
@@ -384,14 +384,14 @@ final class NotificationHandler {
     }
 
     private func handleIndexReady(_ data: Data) {
-        logger.info("处理索引就绪通知")
+        logger.info("Processing index ready notification")
 
         stateManager.indexProgress = nil
         stateManager.updateUIState(.ready)
     }
 
     private func handleSyncProgress(_ data: Data) {
-        // 尝试直接解码为 SyncProgress (共享模型)
+        // Try direct decode to SyncProgress (shared model)
         if let progress = try? JSONDecoder().decode(SyncProgress.self, from: data) {
             let progressInfo = SyncProgressInfo(
                 syncPairId: progress.syncPairId,
@@ -408,9 +408,9 @@ final class NotificationHandler {
             return
         }
 
-        // 回退：尝试解码为 SyncProgressData
+        // Fallback: try decode to SyncProgressData
         guard let progressData = try? JSONDecoder().decode(SyncProgressData.self, from: data) else {
-            logger.warning("无法解码同步进度数据")
+            logger.warning("Failed to decode sync progress data")
             return
         }
 
@@ -430,25 +430,25 @@ final class NotificationHandler {
     }
 
     private func handleSyncStatusChanged(_ data: Data) {
-        logger.debug("处理同步状态变更通知")
+        logger.debug("Processing sync status change notification")
 
         guard let info = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            logger.warning("无法解析同步状态变更通知 JSON")
+            logger.warning("Failed to parse sync status change notification JSON")
             return
         }
 
         guard let syncPairId = info["syncPairId"] as? String else {
-            logger.warning("同步状态变更通知缺少 syncPairId")
+            logger.warning("Sync status change notification missing syncPairId")
             return
         }
 
         guard let statusRaw = info["status"] as? Int,
               let status = SyncStatus(rawValue: statusRaw) else {
-            logger.warning("同步状态变更通知状态无效: \(String(describing: info["status"]))")
+            logger.warning("Sync status change notification invalid status: \(String(describing: info["status"]))")
             return
         }
 
-        logger.info("同步状态变更: syncPairId=\(syncPairId), status=\(status.displayName)")
+        logger.info("Sync status changed: syncPairId=\(syncPairId), status=\(status.displayName)")
 
         let message = info["message"] as? String
 
@@ -457,7 +457,7 @@ final class NotificationHandler {
             stateManager.updateUIState(.ready)
             stateManager.syncProgress = nil
 
-            // 同步完成时发送系统通知
+            // Send system notification on sync completion
             if status == .completed {
                 sendUserNotification(
                     title: "sync.completed".localized,
@@ -467,11 +467,11 @@ final class NotificationHandler {
             }
 
         case .inProgress:
-            // 更新为同步中状态
+            // Update to syncing state
             stateManager.syncStatus = .syncing
-            // 发送通知更新菜单栏
+            // Post notification to update menu bar
             NotificationCenter.default.post(name: .syncStatusDidChange, object: nil)
-            logger.info("同步状态变更为: 同步中")
+            logger.info("Sync status changed to: syncing")
 
         case .paused:
             stateManager.syncStatus = .paused
@@ -485,7 +485,7 @@ final class NotificationHandler {
             )
             stateManager.updateError(error)
 
-            // 同步错误时发送系统通知
+            // Send system notification on sync error
             sendUserNotification(
                 title: "sync.error".localized,
                 body: message ?? "sync.error.message".localized,
@@ -495,7 +495,7 @@ final class NotificationHandler {
     }
 
     private func handleSyncCompleted(_ data: Data) {
-        logger.info("处理同步完成通知")
+        logger.info("Processing sync completion notification")
 
         guard let info = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return
@@ -509,7 +509,7 @@ final class NotificationHandler {
         stateManager.statistics.lastSyncTime = Date()
         stateManager.statistics.totalFilesSynced += filesCount
 
-        // 发送系统通知
+        // Send system notification
         sendUserNotification(
             title: "sync.completed".localized,
             body: String(format: "sync.completed.files".localized, filesCount),
@@ -518,7 +518,7 @@ final class NotificationHandler {
     }
 
     private func handleConflictDetected(_ data: Data) {
-        logger.warning("处理冲突检测通知")
+        logger.warning("Processing conflict detection notification")
 
         guard let info = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return
@@ -527,7 +527,7 @@ final class NotificationHandler {
         let count = info["count"] as? Int ?? 1
         stateManager.pendingConflicts += count
 
-        // 发送系统通知
+        // Send system notification
         sendUserNotification(
             title: "conflict.detected".localized,
             body: String(format: "conflict.detected.message".localized, count),
@@ -536,7 +536,7 @@ final class NotificationHandler {
     }
 
     private func handleEvictionProgress(_ data: Data) {
-        logger.debug("处理淘汰进度通知")
+        logger.debug("Processing eviction progress notification")
 
         guard let info = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return
@@ -554,14 +554,14 @@ final class NotificationHandler {
     }
 
     private func handleComponentError(_ data: Data) {
-        logger.error("处理组件错误通知")
+        logger.error("Processing component error notification")
 
         guard let info = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return
         }
 
         let component = info["component"] as? String ?? "unknown"
-        let errorMessage = info["message"] as? String ?? "未知错误"
+        let errorMessage = info["message"] as? String ?? "Unknown error"
         let errorCode = info["code"] as? Int ?? ErrorCodes.componentError
         let isCritical = info["critical"] as? Bool ?? false
 
@@ -574,7 +574,7 @@ final class NotificationHandler {
 
         stateManager.updateError(error)
 
-        // 严重错误发送系统通知
+        // Send system notification for critical errors
         if isCritical {
             sendUserNotification(
                 title: "error.critical".localized,
@@ -585,7 +585,7 @@ final class NotificationHandler {
     }
 
     private func handleDiskChanged(_ data: Data) {
-        logger.info("处理磁盘变更通知")
+        logger.info("Processing disk change notification")
 
         guard let info = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return
@@ -594,12 +594,12 @@ final class NotificationHandler {
         let diskName = info["diskName"] as? String ?? ""
         let isConnected = info["connected"] as? Bool ?? false
 
-        // 刷新磁盘状态
+        // Refresh disk state
         Task {
             await stateManager.syncFullState()
         }
 
-        // 发送系统通知
+        // Send system notification
         let title = isConnected ? "disk.connected".localized : "disk.disconnected".localized
         sendUserNotification(
             title: title,
@@ -609,27 +609,27 @@ final class NotificationHandler {
     }
 
     private func handleServiceReady(_ data: Data) {
-        logger.info("处理服务就绪通知")
+        logger.info("Processing service ready notification")
 
         stateManager.updateConnectionState(.connected)
         stateManager.updateUIState(.ready)
 
-        // 刷新完整状态
+        // Refresh full state
         Task {
             await stateManager.syncFullState()
         }
     }
 
     private func handleConfigUpdated(_ data: Data) {
-        logger.info("处理配置更新通知")
+        logger.info("Processing config update notification")
 
-        // 重新加载配置
+        // Reload config
         Task {
             await stateManager.syncFullState()
         }
     }
 
-    // MARK: - 系统通知
+    // MARK: - System Notifications
 
     private func sendUserNotification(title: String, body: String, identifier: String) {
         let content = UNMutableNotificationContent()
@@ -645,13 +645,13 @@ final class NotificationHandler {
 
         userNotificationCenter.add(request) { error in
             if let error = error {
-                Logger.shared.error("发送系统通知失败: \(error)")
+                Logger.shared.error("Failed to send system notification: \(error)")
             }
         }
     }
 }
 
-// MARK: - Constants 通知名扩展
+// MARK: - Constants Notification Name Extensions
 
 extension Constants.Notifications {
     static let conflictDetected = "com.ttttt.dmsa.conflictDetected"

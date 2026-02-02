@@ -1,6 +1,6 @@
 import Foundation
 
-/// 同步错误
+/// Sync error
 enum SyncError: Error, LocalizedError {
     case diskNotConnected(String)
     case sourceNotFound(String)
@@ -66,7 +66,7 @@ enum SyncError: Error, LocalizedError {
     }
 }
 
-/// 配置错误
+/// Config error
 enum ConfigError: Error, LocalizedError {
     case fileNotFound
     case parseError(String)
@@ -76,25 +76,25 @@ enum ConfigError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .fileNotFound:
-            return "配置文件不存在"
+            return "Config file not found"
         case .parseError(let msg):
-            return "配置解析错误: \(msg)"
+            return "Config parse error: \(msg)"
         case .validationError(let msg):
-            return "配置校验错误: \(msg)"
+            return "Config validation error: \(msg)"
         case .writeError(let msg):
-            return "配置写入错误: \(msg)"
+            return "Config write error: \(msg)"
         }
     }
 }
 
-/// 字节格式化
+/// Byte formatter
 func formatBytes(_ bytes: Int64) -> String {
     let formatter = ByteCountFormatter()
     formatter.countStyle = .file
     return formatter.string(fromByteCount: bytes)
 }
 
-/// 通用 DMSA 错误
+/// General DMSA error
 enum DMSAError: Error, LocalizedError {
     case xpcConnectionFailed(String)
     case xpcCallFailed(String)
@@ -110,25 +110,25 @@ enum DMSAError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .xpcConnectionFailed(let service):
-            return "XPC 连接失败: \(service)"
+            return "XPC connection failed: \(service)"
         case .xpcCallFailed(let message):
-            return "XPC 调用失败: \(message)"
+            return "XPC call failed: \(message)"
         case .operationFailed(let message):
-            return "操作失败: \(message)"
+            return "Operation failed: \(message)"
         case .invalidResponse:
-            return "无效响应"
+            return "Invalid response"
         case .timeout:
-            return "操作超时"
+            return "Operation timed out"
         case .notFound(let item):
-            return "未找到: \(item)"
+            return "Not found: \(item)"
         case .permissionDenied:
-            return "权限被拒绝"
+            return "Permission denied"
         case .serviceNotAvailable(let service):
-            return "服务不可用: \(service)"
+            return "Service unavailable: \(service)"
         case .vfsError(let message):
-            return "VFS 错误: \(message)"
+            return "VFS error: \(message)"
         case .syncError(let message):
-            return "同步错误: \(message)"
+            return "Sync error: \(message)"
         }
     }
 }

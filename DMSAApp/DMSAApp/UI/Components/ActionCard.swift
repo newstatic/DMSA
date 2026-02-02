@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Action Card Component
 
-/// 快速操作卡片 - 用于仪表盘快速操作区域
+/// Quick action card - used in the dashboard quick actions area
 struct ActionCard: View {
     let icon: String
     let title: String
@@ -64,7 +64,7 @@ struct ActionCard: View {
 
 // MARK: - Action Card Grid
 
-/// 快速操作卡片网格
+/// Quick action card grid
 struct ActionCardGrid: View {
     let cards: [ActionCardItem]
 
@@ -83,7 +83,7 @@ struct ActionCardGrid: View {
     }
 }
 
-/// 快速操作卡片数据模型
+/// Quick action card data model
 struct ActionCardItem: Identifiable {
     let id = UUID()
     let icon: String
@@ -95,7 +95,7 @@ struct ActionCardItem: Identifiable {
 
 // MARK: - Compact Action Button
 
-/// 紧凑型操作按钮 - 用于页面内操作
+/// Compact action button - used for in-page actions
 struct CompactActionButton: View {
     let icon: String
     let title: String
@@ -151,7 +151,7 @@ struct CompactActionButton: View {
 
 // MARK: - Icon Circle Button
 
-/// 圆形图标按钮
+/// Circular icon button
 struct IconCircleButton: View {
     let icon: String
     var size: CGFloat = 32

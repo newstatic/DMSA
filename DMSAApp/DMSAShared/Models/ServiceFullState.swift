@@ -1,60 +1,60 @@
 import Foundation
 
-// MARK: - 服务完整状态
+// MARK: - Service Full State
 
-/// 服务完整状态结构
-/// 参考文档: SERVICE_FLOW/05_状态管理器.md
+/// Service full state structure
+/// Reference: SERVICE_FLOW/05_StateManager.md
 public struct ServiceFullState: Codable, Sendable {
 
-    // MARK: - 全局状态
+    // MARK: - Global State
 
-    /// 全局服务状态
+    /// Global service state
     public var globalState: ServiceState
 
-    /// 全局状态名称
+    /// Global state name
     public var globalStateName: String {
         return globalState.name
     }
 
-    // MARK: - 组件状态
+    // MARK: - Component State
 
-    /// 各组件状态
+    /// Component states
     public var components: [String: ComponentStateInfo]
 
-    // MARK: - 配置状态
+    // MARK: - Config Status
 
-    /// 配置状态
+    /// Config status
     public var config: ConfigStatus
 
-    // MARK: - 通知
+    // MARK: - Notifications
 
-    /// 待发送通知数量
+    /// Pending notification count
     public var pendingNotifications: Int
 
-    // MARK: - 时间信息
+    // MARK: - Time Info
 
-    /// 服务启动时间
+    /// Service start time
     public var startTime: Date
 
-    /// 运行时长 (秒)
+    /// Uptime (seconds)
     public var uptime: TimeInterval {
         return Date().timeIntervalSince(startTime)
     }
 
-    // MARK: - 错误信息
+    // MARK: - Error Info
 
-    /// 最后一个错误
+    /// Last error
     public var lastError: ServiceErrorInfo?
 
-    // MARK: - 版本信息
+    // MARK: - Version Info
 
-    /// 服务版本
+    /// Service version
     public var version: String
 
-    /// 协议版本
+    /// Protocol version
     public var protocolVersion: Int
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     public init(
         globalState: ServiceState = .starting,
@@ -76,14 +76,14 @@ public struct ServiceFullState: Codable, Sendable {
         self.protocolVersion = protocolVersion
     }
 
-    // MARK: - 便捷方法
+    // MARK: - Convenience Methods
 
-    /// 获取指定组件状态
+    /// Get state for specified component
     public func componentState(for component: ServiceComponent) -> ComponentStateInfo? {
         return components[component.rawValue]
     }
 
-    /// 是否所有核心组件都就绪
+    /// Whether all core components are ready
     public var allCoreComponentsReady: Bool {
         let coreComponents: [ServiceComponent] = [.xpc, .config, .vfs, .index]
         return coreComponents.allSatisfy { component in
@@ -91,37 +91,37 @@ public struct ServiceFullState: Codable, Sendable {
         }
     }
 
-    /// 是否有任何组件处于错误状态
+    /// Whether any component is in error state
     public var hasComponentError: Bool {
         return components.values.contains { $0.state == .error }
     }
 
-    /// 获取所有错误的组件
+    /// Get all errored components
     public var errorComponents: [ComponentStateInfo] {
         return components.values.filter { $0.state == .error }
     }
 }
 
-// MARK: - 配置状态
+// MARK: - Config Status
 
-/// 配置状态
+/// Config status
 public struct ConfigStatus: Codable, Sendable {
-    /// 配置是否有效
+    /// Whether config is valid
     public var isValid: Bool
 
-    /// 配置是否被修补 (缺失字段使用默认值)
+    /// Whether config was patched (missing fields filled with defaults)
     public var isPatched: Bool
 
-    /// 被修补的字段列表
+    /// List of patched fields
     public var patchedFields: [String]?
 
-    /// 配置冲突列表
+    /// Config conflict list
     public var conflicts: [ConfigConflict]?
 
-    /// 配置加载时间
+    /// Config load time
     public var loadedAt: Date?
 
-    /// 配置文件路径
+    /// Config file path
     public var configPath: String?
 
     public init(
@@ -140,29 +140,29 @@ public struct ConfigStatus: Codable, Sendable {
         self.configPath = configPath
     }
 
-    /// 是否需要用户处理冲突
+    /// Whether user action is required for conflicts
     public var requiresUserAction: Bool {
         return conflicts?.contains { $0.requiresUserAction } ?? false
     }
 }
 
-// MARK: - 配置冲突
+// MARK: - Config Conflict
 
-/// 配置冲突信息
+/// Config conflict information
 public struct ConfigConflict: Codable, Sendable {
-    /// 冲突类型
+    /// Conflict type
     public let type: ConfigConflictType
 
-    /// 受影响的项目
+    /// Affected items
     public let affectedItems: [String]
 
-    /// 自动解决方案描述
+    /// Auto-resolution description
     public let resolution: String?
 
-    /// 是否需要用户手动处理
+    /// Whether manual user action is required
     public let requiresUserAction: Bool
 
-    /// 冲突详情
+    /// Conflict details
     public let details: String?
 
     public init(
@@ -180,36 +180,36 @@ public struct ConfigConflict: Codable, Sendable {
     }
 }
 
-/// 配置冲突类型
+/// Config conflict type
 public enum ConfigConflictType: String, Codable, Sendable {
-    case multipleExternalDirs = "MULTIPLE_EXTERNAL_DIRS"  // 多个 syncPair 使用同一 EXTERNAL_DIR
-    case overlappingLocal = "OVERLAPPING_LOCAL"           // LOCAL_DIR 有重叠
-    case diskNotFound = "DISK_NOT_FOUND"                  // 引用的 disk 不存在
-    case circularSync = "CIRCULAR_SYNC"                   // 循环同步检测
-    case invalidPath = "INVALID_PATH"                     // 无效路径
-    case permissionDenied = "PERMISSION_DENIED"           // 权限不足
+    case multipleExternalDirs = "MULTIPLE_EXTERNAL_DIRS"  // Multiple syncPairs use same EXTERNAL_DIR
+    case overlappingLocal = "OVERLAPPING_LOCAL"           // LOCAL_DIR overlap
+    case diskNotFound = "DISK_NOT_FOUND"                  // Referenced disk doesn't exist
+    case circularSync = "CIRCULAR_SYNC"                   // Circular sync detected
+    case invalidPath = "INVALID_PATH"                     // Invalid path
+    case permissionDenied = "PERMISSION_DENIED"           // Insufficient permissions
 
     public var localizedDescription: String {
         switch self {
         case .multipleExternalDirs:
-            return "多个同步对使用相同的外部目录"
+            return "Multiple sync pairs use the same external directory"
         case .overlappingLocal:
-            return "本地目录存在重叠"
+            return "Local directories overlap"
         case .diskNotFound:
-            return "引用的磁盘配置不存在"
+            return "Referenced disk config does not exist"
         case .circularSync:
-            return "检测到循环同步"
+            return "Circular sync detected"
         case .invalidPath:
-            return "路径无效"
+            return "Invalid path"
         case .permissionDenied:
-            return "权限不足"
+            return "Insufficient permissions"
         }
     }
 }
 
-// MARK: - 服务错误信息
+// MARK: - Service Error Info
 
-/// 服务错误信息 (用于 ServiceFullState)
+/// Service error info (for ServiceFullState)
 public struct ServiceErrorInfo: Codable, Sendable {
     public let code: Int
     public let message: String
@@ -234,9 +234,9 @@ public struct ServiceErrorInfo: Codable, Sendable {
     }
 }
 
-// MARK: - 索引进度
+// MARK: - Index Progress
 
-/// 索引构建进度
+/// Index build progress
 public struct IndexProgress: Codable, Sendable {
     public var syncPairId: String
     public var phase: IndexPhase
@@ -257,7 +257,7 @@ public struct IndexProgress: Codable, Sendable {
     }
 }
 
-/// 索引构建阶段
+/// Index build phase
 public enum IndexPhase: String, Codable, Sendable {
     case idle = "idle"
     case scanningLocal = "scanning_local"
@@ -269,20 +269,20 @@ public enum IndexPhase: String, Codable, Sendable {
 
     public var localizedDescription: String {
         switch self {
-        case .idle:              return "空闲"
-        case .scanningLocal:     return "扫描本地目录"
-        case .scanningExternal:  return "扫描外部目录"
-        case .merging:           return "合并索引"
-        case .saving:            return "保存索引"
-        case .completed:         return "完成"
-        case .failed:            return "失败"
+        case .idle:              return "Idle"
+        case .scanningLocal:     return "Scanning Local Directory"
+        case .scanningExternal:  return "Scanning External Directory"
+        case .merging:           return "Merging Index"
+        case .saving:            return "Saving Index"
+        case .completed:         return "Completed"
+        case .failed:            return "Failed"
         }
     }
 }
 
-// MARK: - XPC 连接状态
+// MARK: - XPC Connection State
 
-/// XPC 连接状态
+/// XPC connection state
 public enum XPCConnectionState: String, Codable, Sendable {
     case disconnected = "disconnected"
     case connecting = "connecting"

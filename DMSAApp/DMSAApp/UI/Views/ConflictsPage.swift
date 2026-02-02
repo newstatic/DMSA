@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Conflicts Page
 
-/// 冲突解决页面 - 显示和解决文件冲突
+/// Conflicts page - display and resolve file conflicts
 struct ConflictsPage: View {
     @Binding var config: AppConfig
     @ObservedObject private var stateManager = StateManager.shared

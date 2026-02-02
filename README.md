@@ -1,57 +1,59 @@
 # DMSA - Downloads Management & Sync App
 
-> 版本: 4.8 | macOS 菜单栏应用 | 双进程架构
+> Version: 4.9 | macOS Menu Bar App | Dual-Process Architecture
 
-智能同步本地目录与外置硬盘，通过 VFS 虚拟文件系统提供统一访问入口。
+Intelligently syncs local directories with external drives, providing a unified access point through a VFS (Virtual File System).
 
-## 核心特性
+## Features
 
-- **VFS 智能合并** - ~/Downloads 显示本地+外置文件的并集
-- **零拷贝读取** - 外置文件直接读取，不复制到本地
-- **Write-Back 写入** - 写入本地，异步同步到外置
-- **LRU 智能淘汰** - 自动管理本地缓存空间
-- **实时通知** - DistributedNotificationCenter 推送同步进度
+- **VFS Smart Merge** — `~/Downloads` displays the union of local + external files
+- **Zero-Copy Read** — External files are read directly without copying to local
+- **Write-Back** — Writes go to local first, then async-synced to external
+- **LRU Eviction** — Automatic local cache management based on access time and index stats
+- **Real-time Notifications** — DistributedNotificationCenter pushes sync progress
+- **Incremental Index** — Batched index writes (10K per batch), incremental updates on restart
+- **FUSE Recovery** — Auto-remount on sleep/wake and crash recovery
 
-## 架构
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      用户态 (User Space)                          │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │              DMSA.app (菜单栏应用 - 普通用户权限)              │  │
-│  │    GUI + 状态显示 + ServiceClient (XPC 客户端)              │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                                │ XPC                            │
-└────────────────────────────────┼────────────────────────────────┘
-┌────────────────────────────────┼────────────────────────────────┐
-│                      系统态 (root)                               │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │         com.ttttt.dmsa.service (LaunchDaemon)              │  │
-│  │    VFSManager + SyncManager + PrivilegedOperations        │  │
-│  │    ObjectBox 数据库 + C libfuse wrapper                    │  │
-│  └───────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        User Space                                 │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │           DMSA.app (Menu Bar App - User Privileges)         │  │
+│  │     GUI + Status Display + ServiceClient (XPC Client)       │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                              │ XPC                                │
+└──────────────────────────────┼────────────────────────────────────┘
+┌──────────────────────────────┼────────────────────────────────────┐
+│                        System Space (root)                        │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │          com.ttttt.dmsa.service (LaunchDaemon)              │  │
+│  │     VFSManager + SyncManager + PrivilegedOperations         │  │
+│  │     ObjectBox Database + C libfuse Wrapper                  │  │
+│  └────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-## 术语
+## Terminology
 
-| 术语 | 路径 | 说明 |
-|------|------|------|
-| TARGET_DIR | ~/Downloads | VFS 挂载点，用户访问入口 |
-| LOCAL_DIR | ~/Downloads_Local | 本地热数据缓存 |
-| EXTERNAL_DIR | /Volumes/BACKUP/Downloads | 外置硬盘完整数据 |
+| Term | Path | Description |
+|------|------|-------------|
+| TARGET_DIR | `~/Downloads` | VFS mount point, user access entry |
+| LOCAL_DIR | `~/Downloads_Local` | Local hot data cache |
+| EXTERNAL_DIR | `/Volumes/BACKUP/Downloads` | External drive full data |
 
-## 技术栈
+## Tech Stack
 
-| 组件 | 技术 |
-|------|------|
+| Component | Technology |
+|-----------|-----------|
 | VFS | macFUSE + C libfuse wrapper |
-| 数据库 | ObjectBox Swift |
-| 同步 | 原生 Swift 增量同步 |
+| Database | ObjectBox Swift |
+| Sync | Native Swift incremental sync |
 | IPC | XPC + DistributedNotificationCenter |
 | UI | SwiftUI |
 
-## 编译
+## Building
 
 ```bash
 cd DMSAApp
@@ -59,19 +61,23 @@ xcodebuild -scheme DMSAApp -configuration Release
 xcodebuild -scheme com.ttttt.dmsa.service -configuration Release
 ```
 
-## 权限要求
+## Requirements
 
-1. **macFUSE 5.1.3+** - https://macfuse.github.io/
-2. **完全磁盘访问权限** - 系统设置 > 隐私与安全性
+1. **macFUSE 5.1.3+** — https://macfuse.github.io/
+2. **Full Disk Access** — System Settings > Privacy & Security
 
-## 配置文件
+## Configuration
 
 `~/Library/Application Support/DMSA/config.json`
 
-## 日志
+## Logs
 
 `~/Library/Logs/DMSA/app.log`
 
+## Documentation
+
+All project documentation is in the `doc/` directory. See `doc/00_README.md` for an overview of the service flow documents.
+
 ---
 
-*DMSA v4.8 | 2026-01-27*
+*DMSA v4.9 | 2026-02-02*

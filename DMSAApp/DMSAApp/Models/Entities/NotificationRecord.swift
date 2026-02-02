@@ -1,13 +1,13 @@
 import Foundation
 
-/// 通知操作类型
+/// Notification action type
 enum NotificationActionType: String, Codable, CaseIterable {
-    case openSettings          // 打开设置页面
-    case openDiskSettings      // 打开硬盘设置
-    case openSyncPairSettings  // 打开同步对设置
-    case openLogs              // 打开日志
-    case openHistory           // 打开历史
-    case none                  // 无操作
+    case openSettings          // Open settings page
+    case openDiskSettings      // Open disk settings
+    case openSyncPairSettings  // Open sync pair settings
+    case openLogs              // Open logs
+    case openHistory           // Open history
+    case none                  // No action
 
     var displayName: String {
         switch self {
@@ -32,16 +32,16 @@ enum NotificationActionType: String, Codable, CaseIterable {
     }
 }
 
-/// 通知记录数据模型
+/// Notification record data model
 class NotificationRecord: Identifiable, Codable {
     var id: UInt64
-    var type: String               // 通知类型 (NotificationType.rawValue)
-    var title: String              // 通知标题
-    var body: String               // 通知内容
-    var createdAt: Date            // 创建时间
-    var isRead: Bool               // 是否已读
-    var userInfo: [String: String] // 附加信息 (diskId, syncPairId, error 等)
-    var actionType: NotificationActionType // 跳转类型
+    var type: String               // Notification type (NotificationType.rawValue)
+    var title: String              // Notification title
+    var body: String               // Notification body
+    var createdAt: Date            // Creation time
+    var isRead: Bool               // Whether read
+    var userInfo: [String: String] // Additional info (diskId, syncPairId, error, etc.)
+    var actionType: NotificationActionType // Navigation action type
 
     init(
         id: UInt64 = 0,
@@ -63,15 +63,15 @@ class NotificationRecord: Identifiable, Codable {
         self.actionType = actionType
     }
 
-    /// 根据通知类型和 userInfo 自动确定跳转类型
+    /// Automatically determine navigation action type based on notification type and userInfo
     static func determineActionType(type: String, userInfo: [String: String]) -> NotificationActionType {
-        // 检查是否有配置相关错误
+        // Check for config-related errors
         let hasConfigError = userInfo["configError"] != nil
 
         switch type {
         case "sync_failed", "error":
             if hasConfigError {
-                // 配置错误跳转设置
+                // Config error -> navigate to settings
                 if userInfo["diskId"] != nil {
                     return .openDiskSettings
                 } else if userInfo["syncPairId"] != nil {
@@ -79,11 +79,11 @@ class NotificationRecord: Identifiable, Codable {
                 }
                 return .openSettings
             }
-            // 其他错误跳转日志
+            // Other errors -> navigate to logs
             return .openLogs
 
         case "cache_warning":
-            return .openSettings // 跳转缓存设置
+            return .openSettings // Navigate to cache settings
 
         case "disk_connected", "disk_disconnected":
             return .openDiskSettings
@@ -96,7 +96,7 @@ class NotificationRecord: Identifiable, Codable {
         }
     }
 
-    /// 获取类型图标
+    /// Get type icon
     var typeIcon: String {
         switch type {
         case "sync_completed": return "checkmark.circle.fill"
@@ -110,7 +110,7 @@ class NotificationRecord: Identifiable, Codable {
         }
     }
 
-    /// 获取类型颜色名称
+    /// Get type color name
     var typeColorName: String {
         switch type {
         case "sync_completed": return "green"

@@ -2,14 +2,14 @@
  * fuse_wrapper.c
  * DMSA - Direct libfuse C wrapper implementation
  *
- * 直接实现 FUSE 文件系统回调，不使用 GMUserFileSystem
- * 解决多线程进程中 fork() 导致的崩溃问题
+ * Direct FUSE filesystem callback implementation without GMUserFileSystem
+ * Solves fork() crash issues in multi-threaded processes
  */
 
-// macOS 特定定义
+// macOS specific definitions
 #define _DARWIN_USE_64_BIT_INODE 1
 
-// FUSE API 版本 (macFUSE 使用 FUSE 2.x API)
+// FUSE API version (macFUSE uses FUSE 2.x API)
 #define FUSE_USE_VERSION 26
 
 #include <fuse/fuse.h>
@@ -30,7 +30,7 @@
 #include "fuse_wrapper.h"
 
 // ============================================================
-// 日志宏
+// Logging macros
 // ============================================================
 #define LOG_PREFIX "[FUSE-C] "
 
@@ -44,21 +44,21 @@
 #define LOG_ERROR(fmt, ...) fprintf(stderr, LOG_PREFIX "ERROR: " fmt "\n", ##__VA_ARGS__)
 
 // ============================================================
-// 全局状态
+// Global state
 // ============================================================
 static struct {
-    char *mount_path;           // 挂载点路径
-    char *local_dir;            // 本地目录路径
-    char *external_dir;         // 外部目录路径 (可为 NULL)
-    int is_mounted;             // 是否已挂载
-    int external_offline;       // 外部是否离线
-    int readonly;               // 是否只读模式
-    int index_ready;            // 索引是否就绪 (预挂载阻塞机制)
-    uid_t owner_uid;            // 挂载点所有者 UID
-    gid_t owner_gid;            // 挂载点所有者 GID
-    struct fuse *fuse;          // FUSE 实例
-    struct fuse_chan *chan;     // FUSE 通道
-    pthread_mutex_t lock;       // 状态锁
+    char *mount_path;           // Mount point path
+    char *local_dir;            // Local directory path
+    char *external_dir;         // External directory path (can be NULL)
+    int is_mounted;             // Whether mounted
+    int external_offline;       // Whether external is offline
+    int readonly;               // Whether read-only mode
+    int index_ready;            // Whether index is ready (pre-mount blocking)
+    uid_t owner_uid;            // Mount point owner UID
+    gid_t owner_gid;            // Mount point owner GID
+    struct fuse *fuse;          // FUSE instance
+    struct fuse_chan *chan;     // FUSE channel
+    pthread_mutex_t lock;       // State lock
 } g_state = {
     .mount_path = NULL,
     .local_dir = NULL,
@@ -66,7 +66,7 @@ static struct {
     .is_mounted = 0,
     .external_offline = 0,
     .readonly = 0,
-    .index_ready = 0,           // 初始为未就绪，阻塞所有访问
+    .index_ready = 0,           // Initially not ready, blocks all access
     .owner_uid = 0,
     .owner_gid = 0,
     .fuse = NULL,
@@ -75,39 +75,39 @@ static struct {
 };
 
 // ============================================================
-// 辅助函数
+// Helper functions
 // ============================================================
 
-// 索引未就绪检查宏 - 阻塞非根目录的访问
-// 当索引未就绪时，返回 EBUSY (设备忙)，通知应用稍后重试
+// Index not ready check macro - blocks non-root directory access
+// When index is not ready, returns EBUSY (device busy), telling apps to retry later
 #define CHECK_INDEX_READY_FOR_PATH(path) \
     do { \
         if (!g_state.index_ready && strcmp(path, "/") != 0) { \
-            LOG_DEBUG("索引未就绪，阻塞访问: %s", path); \
+            LOG_DEBUG("Index not ready, blocking access: %s", path); \
             return -EBUSY; \
         } \
     } while (0)
 
-// 索引未就绪检查 - 用于根目录以外的所有操作
+// Index not ready check - for all operations except root directory
 #define CHECK_INDEX_READY() \
     do { \
         if (!g_state.index_ready) { \
-            LOG_DEBUG("索引未就绪，阻塞操作"); \
+            LOG_DEBUG("Index not ready, blocking operation"); \
             return -EBUSY; \
         } \
     } while (0)
 
-// 拼接路径
+// Join paths
 static char* join_path(const char *base, const char *path) {
     if (!base || !path) return NULL;
 
-    // 跳过 path 开头的 /
+    // Skip leading / from path
     while (*path == '/') path++;
 
     size_t base_len = strlen(base);
     size_t path_len = strlen(path);
 
-    // 移除 base 末尾的 /
+    // Remove trailing / from base
     while (base_len > 0 && base[base_len - 1] == '/') {
         base_len--;
     }
@@ -122,12 +122,12 @@ static char* join_path(const char *base, const char *path) {
     return result;
 }
 
-// 获取本地路径
+// Get local path
 static char* get_local_path(const char *virtual_path) {
     return join_path(g_state.local_dir, virtual_path);
 }
 
-// 获取外部路径
+// Get external path
 static char* get_external_path(const char *virtual_path) {
     if (!g_state.external_dir || g_state.external_offline) {
         return NULL;
@@ -135,7 +135,7 @@ static char* get_external_path(const char *virtual_path) {
     return join_path(g_state.external_dir, virtual_path);
 }
 
-// 解析实际路径 (优先本地，其次外部)
+// Resolve actual path (prefer local, then external)
 static char* resolve_actual_path(const char *virtual_path) {
     char *local = get_local_path(virtual_path);
     if (local) {
@@ -158,7 +158,7 @@ static char* resolve_actual_path(const char *virtual_path) {
     return NULL;
 }
 
-// 确保父目录存在
+// Ensure parent directory exists
 static int ensure_parent_directory(const char *path) {
     char *path_copy = strdup(path);
     if (!path_copy) return -ENOMEM;
@@ -168,14 +168,14 @@ static int ensure_parent_directory(const char *path) {
     struct stat st;
     if (stat(parent, &st) == 0) {
         free(path_copy);
-        return 0;  // 父目录已存在
+        return 0;  // Parent directory already exists
     }
 
-    // 递归创建
+    // Recursively create
     int result = 0;
     char *p = path_copy;
 
-    // 跳过开头的 /
+    // Skip leading /
     if (*p == '/') p++;
 
     while (*p) {
@@ -196,7 +196,7 @@ static int ensure_parent_directory(const char *path) {
     return result;
 }
 
-// 检查是否应该排除的文件
+// Check if file should be excluded
 static int should_exclude(const char *name) {
     if (!name) return 1;
 
@@ -216,7 +216,7 @@ static int should_exclude(const char *name) {
         }
     }
 
-    // 检查 ._ 开头的文件
+    // Check for ._ prefixed files
     if (strncmp(name, "._", 2) == 0) {
         return 1;
     }
@@ -225,19 +225,19 @@ static int should_exclude(const char *name) {
 }
 
 // ============================================================
-// FUSE 回调函数
+// FUSE callback functions
 // ============================================================
 
-// getattr: 获取文件属性
-static int root_getattr_logged = 0;  // 避免日志刷屏
-static int index_not_ready_logged = 0;  // 避免索引未就绪日志刷屏
+// getattr: get file attributes
+static int root_getattr_logged = 0;  // Avoid log flooding
+static int index_not_ready_logged = 0;  // Avoid index-not-ready log flooding
 
 static int dmsa_getattr(const char *path, struct stat *stbuf) {
     LOG_DEBUG("getattr: %s", path);
 
     memset(stbuf, 0, sizeof(struct stat));
 
-    // 根目录特殊处理 - 即使索引未就绪也允许访问
+    // Root directory special handling - allow access even when index is not ready
     if (strcmp(path, "/") == 0) {
         stbuf->st_mode = S_IFDIR | 0755;
         stbuf->st_nlink = 2;
@@ -245,19 +245,19 @@ static int dmsa_getattr(const char *path, struct stat *stbuf) {
         stbuf->st_gid = g_state.owner_gid;
         stbuf->st_atime = stbuf->st_mtime = stbuf->st_ctime = time(NULL);
 
-        // 首次访问根目录时打印日志
+        // Log on first root directory access
         if (!root_getattr_logged) {
-            LOG_INFO("getattr(/): 返回 uid=%d, gid=%d, mode=0755",
+            LOG_INFO("getattr(/): returning uid=%d, gid=%d, mode=0755",
                      g_state.owner_uid, g_state.owner_gid);
             root_getattr_logged = 1;
         }
         return 0;
     }
 
-    // 索引未就绪时阻塞非根目录访问
+    // Block non-root directory access when index is not ready
     if (!g_state.index_ready) {
         if (!index_not_ready_logged) {
-            LOG_INFO("索引未就绪，阻塞文件访问 (返回 EBUSY)");
+            LOG_INFO("Index not ready, blocking file access (returning EBUSY)");
             index_not_ready_logged = 1;
         }
         return -EBUSY;
@@ -278,7 +278,7 @@ static int dmsa_getattr(const char *path, struct stat *stbuf) {
     return 0;
 }
 
-// readdir: 读取目录内容 (智能合并)
+// readdir: read directory contents (smart merge)
 static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                         off_t offset, struct fuse_file_info *fi) {
     (void) offset;
@@ -286,31 +286,31 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
     LOG_DEBUG("readdir: %s", path);
 
-    // 索引未就绪时阻塞目录读取 (根目录除外)
-    // 注意: 根目录也需要阻塞，因为 Finder 会尝试列出内容
+    // Block directory reads when index is not ready (including root)
+    // Note: Root must also be blocked since Finder will try to list contents
     if (!g_state.index_ready) {
-        // 只允许访问根目录本身，但返回空列表
+        // Allow root directory access but return empty listing
         if (strcmp(path, "/") == 0) {
             filler(buf, ".", NULL, 0);
             filler(buf, "..", NULL, 0);
-            // 不返回任何文件，让 Finder 看到空目录
+            // Return no files, so Finder sees an empty directory
             return 0;
         }
         return -EBUSY;
     }
 
-    // 添加 . 和 ..
+    // Add . and ..
     filler(buf, ".", NULL, 0);
     filler(buf, "..", NULL, 0);
 
-    // 用于去重的简单哈希表 (最多 4096 个条目)
+    // Simple hash table for deduplication (max 4096 entries)
     #define MAX_ENTRIES 4096
     char *seen_names[MAX_ENTRIES];
     int seen_count = 0;
 
     memset(seen_names, 0, sizeof(seen_names));
 
-    // 从本地目录读取
+    // Read from local directory
     char *local = get_local_path(path);
     if (local) {
         DIR *dp = opendir(local);
@@ -324,7 +324,7 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                     continue;
                 }
 
-                // 检查是否已添加
+                // Check if already added
                 int found = 0;
                 for (int i = 0; i < seen_count; i++) {
                     if (seen_names[i] && strcmp(seen_names[i], de->d_name) == 0) {
@@ -343,7 +343,7 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         free(local);
     }
 
-    // 从外部目录读取 (如果在线)
+    // Read from external directory (if online)
     char *external = get_external_path(path);
     if (external) {
         DIR *dp = opendir(external);
@@ -357,7 +357,7 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                     continue;
                 }
 
-                // 检查是否已添加
+                // Check if already added
                 int found = 0;
                 for (int i = 0; i < seen_count; i++) {
                     if (seen_names[i] && strcmp(seen_names[i], de->d_name) == 0) {
@@ -376,7 +376,7 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         free(external);
     }
 
-    // 清理
+    // Cleanup
     for (int i = 0; i < seen_count; i++) {
         free(seen_names[i]);
     }
@@ -384,31 +384,31 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     return 0;
 }
 
-// open: 打开文件
+// open: open file
 static int dmsa_open(const char *path, struct fuse_file_info *fi) {
     LOG_DEBUG("open: %s, flags=%d", path, fi->flags);
 
-    // 索引未就绪时阻塞文件打开
+    // Block file open when index is not ready
     CHECK_INDEX_READY();
 
     char *actual_path = resolve_actual_path(path);
 
     if (!actual_path) {
-        // 文件不存在，检查是否是创建模式
+        // File doesn't exist, check if in create mode
         if ((fi->flags & O_CREAT) || (fi->flags & O_WRONLY) || (fi->flags & O_RDWR)) {
             actual_path = get_local_path(path);
             if (!actual_path) {
                 return -ENOENT;
             }
 
-            // 确保父目录存在
+            // Ensure parent directory exists
             int res = ensure_parent_directory(actual_path);
             if (res != 0) {
                 free(actual_path);
                 return res;
             }
 
-            // 创建空文件
+            // Create empty file
             int fd = open(actual_path, O_CREAT | O_WRONLY, 0644);
             if (fd == -1) {
                 int err = errno;
@@ -421,14 +421,14 @@ static int dmsa_open(const char *path, struct fuse_file_info *fi) {
         }
     }
 
-    // 如果是写模式且实际路径是外部路径，需要先复制到本地
+    // If write mode and actual path is external, copy to local first
     char *local = get_local_path(path);
     if (local && ((fi->flags & O_WRONLY) || (fi->flags & O_RDWR))) {
         if (strcmp(actual_path, local) != 0) {
-            // 实际路径是外部路径，复制到本地
+            // Actual path is external, copy to local
             ensure_parent_directory(local);
 
-            // 简单的文件复制
+            // Simple file copy
             int src_fd = open(actual_path, O_RDONLY);
             if (src_fd != -1) {
                 int dst_fd = open(local, O_CREAT | O_WRONLY | O_TRUNC, 0644);
@@ -443,14 +443,14 @@ static int dmsa_open(const char *path, struct fuse_file_info *fi) {
                 close(src_fd);
             }
 
-            // 使用本地路径
+            // Use local path
             free(actual_path);
             actual_path = local;
             local = NULL;
         }
     }
 
-    // 尝试打开文件
+    // Try to open file
     int fd = open(actual_path, fi->flags);
     if (fd == -1) {
         int err = errno;
@@ -467,7 +467,7 @@ static int dmsa_open(const char *path, struct fuse_file_info *fi) {
     return 0;
 }
 
-// read: 读取文件内容
+// read: read file contents
 static int dmsa_read(const char *path, char *buf, size_t size, off_t offset,
                      struct fuse_file_info *fi) {
     LOG_DEBUG("read: %s, size=%zu, offset=%lld", path, size, offset);
@@ -485,7 +485,7 @@ static int dmsa_read(const char *path, char *buf, size_t size, off_t offset,
     return res;
 }
 
-// write: 写入文件内容
+// write: write file contents
 static int dmsa_write(const char *path, const char *buf, size_t size, off_t offset,
                       struct fuse_file_info *fi) {
     LOG_DEBUG("write: %s, size=%zu, offset=%lld", path, size, offset);
@@ -496,7 +496,7 @@ static int dmsa_write(const char *path, const char *buf, size_t size, off_t offs
 
     int fd = fi->fh;
     if (fd <= 0) {
-        // 如果没有 fh，尝试直接写入本地文件
+        // If no fh, try writing directly to local file
         char *local = get_local_path(path);
         if (!local) {
             return -ENOENT;
@@ -529,7 +529,7 @@ static int dmsa_write(const char *path, const char *buf, size_t size, off_t offs
     return res;
 }
 
-// release: 关闭文件
+// release: close file
 static int dmsa_release(const char *path, struct fuse_file_info *fi) {
     LOG_DEBUG("release: %s", path);
     (void)path;
@@ -541,11 +541,11 @@ static int dmsa_release(const char *path, struct fuse_file_info *fi) {
     return 0;
 }
 
-// create: 创建文件
+// create: create file
 static int dmsa_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
     LOG_DEBUG("create: %s, mode=%o", path, mode);
 
-    // 索引未就绪时阻塞文件创建
+    // Block file creation when index is not ready
     CHECK_INDEX_READY();
 
     if (g_state.readonly) {
@@ -574,7 +574,7 @@ static int dmsa_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     return 0;
 }
 
-// unlink: 删除文件
+// unlink: delete file
 static int dmsa_unlink(const char *path) {
     LOG_DEBUG("unlink: %s", path);
 
@@ -584,7 +584,7 @@ static int dmsa_unlink(const char *path) {
 
     int result = 0;
 
-    // 删除本地副本
+    // Delete local copy
     char *local = get_local_path(path);
     if (local) {
         if (unlink(local) == -1 && errno != ENOENT) {
@@ -593,17 +593,17 @@ static int dmsa_unlink(const char *path) {
         free(local);
     }
 
-    // 删除外部副本 (如果在线)
+    // Delete external copy (if online)
     char *external = get_external_path(path);
     if (external) {
-        unlink(external);  // 忽略错误
+        unlink(external);  // Ignore errors
         free(external);
     }
 
     return result;
 }
 
-// mkdir: 创建目录
+// mkdir: create directory
 static int dmsa_mkdir(const char *path, mode_t mode) {
     LOG_DEBUG("mkdir: %s, mode=%o", path, mode);
 
@@ -632,7 +632,7 @@ static int dmsa_mkdir(const char *path, mode_t mode) {
     return 0;
 }
 
-// rmdir: 删除目录
+// rmdir: remove directory
 static int dmsa_rmdir(const char *path) {
     LOG_DEBUG("rmdir: %s", path);
 
@@ -642,7 +642,7 @@ static int dmsa_rmdir(const char *path) {
 
     int result = 0;
 
-    // 删除本地副本
+    // Delete local copy
     char *local = get_local_path(path);
     if (local) {
         if (rmdir(local) == -1 && errno != ENOENT) {
@@ -651,17 +651,17 @@ static int dmsa_rmdir(const char *path) {
         free(local);
     }
 
-    // 删除外部副本 (如果在线)
+    // Delete external copy (if online)
     char *external = get_external_path(path);
     if (external) {
-        rmdir(external);  // 忽略错误
+        rmdir(external);  // Ignore errors
         free(external);
     }
 
     return result;
 }
 
-// rename: 重命名
+// rename: rename file/directory
 static int dmsa_rename(const char *from, const char *to) {
     LOG_DEBUG("rename: %s -> %s", from, to);
 
@@ -685,12 +685,12 @@ static int dmsa_rename(const char *from, const char *to) {
         return res;
     }
 
-    // 如果源文件在外部目录，先复制到本地
+    // If source file is in external directory, copy to local first
     struct stat st;
     if (stat(local_from, &st) != 0) {
         char *external_from = get_external_path(from);
         if (external_from && stat(external_from, &st) == 0) {
-            // 复制外部文件到本地
+            // Copy external file to local
             int src_fd = open(external_from, O_RDONLY);
             if (src_fd != -1) {
                 ensure_parent_directory(local_from);
@@ -724,18 +724,18 @@ static int dmsa_rename(const char *from, const char *to) {
         return -err;
     }
 
-    // 也在外部目录重命名 (如果在线)
+    // Also rename in external directory (if online)
     char *external_from = get_external_path(from);
     char *external_to = get_external_path(to);
     if (external_from && external_to) {
-        // 确保外部目标目录存在
+        // Ensure external target directory exists
         char *ext_to_copy = strdup(external_to);
         if (ext_to_copy) {
             char *parent = dirname(ext_to_copy);
-            mkdir(parent, 0755);  // 忽略错误
+            mkdir(parent, 0755);  // Ignore errors
             free(ext_to_copy);
         }
-        rename(external_from, external_to);  // 忽略错误
+        rename(external_from, external_to);  // Ignore errors
     }
     if (external_from) free(external_from);
     if (external_to) free(external_to);
@@ -743,7 +743,7 @@ static int dmsa_rename(const char *from, const char *to) {
     return 0;
 }
 
-// truncate: 截断文件
+// truncate: truncate file
 static int dmsa_truncate(const char *path, off_t size) {
     LOG_DEBUG("truncate: %s, size=%lld", path, size);
 
@@ -756,7 +756,7 @@ static int dmsa_truncate(const char *path, off_t size) {
         return -ENOMEM;
     }
 
-    // 如果本地不存在，从外部复制
+    // If not in local, copy from external
     struct stat st;
     if (stat(local, &st) != 0) {
         char *external = get_external_path(path);
@@ -790,7 +790,7 @@ static int dmsa_truncate(const char *path, off_t size) {
     return 0;
 }
 
-// chmod: 修改权限
+// chmod: change permissions
 static int dmsa_chmod(const char *path, mode_t mode) {
     LOG_DEBUG("chmod: %s, mode=%o", path, mode);
 
@@ -813,7 +813,7 @@ static int dmsa_chmod(const char *path, mode_t mode) {
     return 0;
 }
 
-// chown: 修改所有者
+// chown: change owner
 static int dmsa_chown(const char *path, uid_t uid, gid_t gid) {
     LOG_DEBUG("chown: %s, uid=%d, gid=%d", path, uid, gid);
 
@@ -836,7 +836,7 @@ static int dmsa_chown(const char *path, uid_t uid, gid_t gid) {
     return 0;
 }
 
-// utimens: 修改时间戳
+// utimens: modify timestamps
 static int dmsa_utimens(const char *path, const struct timespec ts[2]) {
     LOG_DEBUG("utimens: %s", path);
 
@@ -845,7 +845,7 @@ static int dmsa_utimens(const char *path, const struct timespec ts[2]) {
         return -ENOENT;
     }
 
-    // 使用 utimensat (macOS 10.13+)
+    // Use utimensat (macOS 10.13+)
     int res = utimensat(AT_FDCWD, actual, ts, AT_SYMLINK_NOFOLLOW);
     free(actual);
 
@@ -856,12 +856,12 @@ static int dmsa_utimens(const char *path, const struct timespec ts[2]) {
     return 0;
 }
 
-// statfs: 文件系统统计
+// statfs: filesystem statistics
 static int dmsa_statfs(const char *path, struct statvfs *stbuf) {
     LOG_DEBUG("statfs: %s", path);
     (void)path;
 
-    // 使用本地目录的统计信息
+    // Use local directory statistics
     int res = statvfs(g_state.local_dir, stbuf);
     if (res == -1) {
         return -errno;
@@ -870,7 +870,7 @@ static int dmsa_statfs(const char *path, struct statvfs *stbuf) {
     return 0;
 }
 
-// readlink: 读取符号链接
+// readlink: read symbolic link
 static int dmsa_readlink(const char *path, char *buf, size_t size) {
     LOG_DEBUG("readlink: %s", path);
 
@@ -890,7 +890,7 @@ static int dmsa_readlink(const char *path, char *buf, size_t size) {
     return 0;
 }
 
-// symlink: 创建符号链接
+// symlink: create symbolic link
 static int dmsa_symlink(const char *target, const char *linkpath) {
     LOG_DEBUG("symlink: %s -> %s", linkpath, target);
 
@@ -915,13 +915,13 @@ static int dmsa_symlink(const char *target, const char *linkpath) {
     return 0;
 }
 
-// access: 检查访问权限
+// access: check access permissions
 static int dmsa_access(const char *path, int mask) {
     LOG_DEBUG("access: %s, mask=%d", path, mask);
 
     char *actual = resolve_actual_path(path);
     if (!actual) {
-        // 根目录特殊处理
+        // Root directory special handling
         if (strcmp(path, "/") == 0) {
             return 0;
         }
@@ -938,7 +938,7 @@ static int dmsa_access(const char *path, int mask) {
     return 0;
 }
 
-// getxattr: 获取扩展属性 (macOS 版本)
+// getxattr: get extended attributes (macOS version)
 static int dmsa_getxattr(const char *path, const char *name, char *value, size_t size, uint32_t position) {
     LOG_DEBUG("getxattr: %s, name=%s", path, name);
 
@@ -957,7 +957,7 @@ static int dmsa_getxattr(const char *path, const char *name, char *value, size_t
     return (int)res;
 }
 
-// setxattr: 设置扩展属性 (macOS 版本)
+// setxattr: set extended attributes (macOS version)
 static int dmsa_setxattr(const char *path, const char *name, const char *value,
                          size_t size, int flags, uint32_t position) {
     LOG_DEBUG("setxattr: %s, name=%s", path, name);
@@ -981,7 +981,7 @@ static int dmsa_setxattr(const char *path, const char *name, const char *value,
     return 0;
 }
 
-// listxattr: 列出扩展属性
+// listxattr: list extended attributes
 static int dmsa_listxattr(const char *path, char *list, size_t size) {
     LOG_DEBUG("listxattr: %s", path);
 
@@ -1000,7 +1000,7 @@ static int dmsa_listxattr(const char *path, char *list, size_t size) {
     return (int)res;
 }
 
-// removexattr: 删除扩展属性
+// removexattr: remove extended attributes
 static int dmsa_removexattr(const char *path, const char *name) {
     LOG_DEBUG("removexattr: %s, name=%s", path, name);
 
@@ -1024,7 +1024,7 @@ static int dmsa_removexattr(const char *path, const char *name) {
 }
 
 // ============================================================
-// FUSE 操作表
+// FUSE operations table
 // ============================================================
 static struct fuse_operations dmsa_oper = {
     .getattr     = dmsa_getattr,
@@ -1053,7 +1053,7 @@ static struct fuse_operations dmsa_oper = {
 };
 
 // ============================================================
-// 公共 API 实现
+// Public API implementation
 // ============================================================
 
 int fuse_wrapper_mount(const char *mount_path, const char *local_dir, const char *external_dir) {
@@ -1068,32 +1068,32 @@ int fuse_wrapper_mount(const char *mount_path, const char *local_dir, const char
         return FUSE_WRAPPER_ERR_ALREADY_MOUNTED;
     }
 
-    // 保存路径
+    // Save paths
     g_state.mount_path = strdup(mount_path);
     g_state.local_dir = strdup(local_dir);
     g_state.external_dir = external_dir ? strdup(external_dir) : NULL;
     g_state.external_offline = (external_dir == NULL);
 
-    // 从挂载点路径提取用户 uid/gid
-    // 挂载点通常是 /Users/{username}/... 格式
-    // 我们需要获取用户目录的所有者
+    // Extract user uid/gid from mount point path
+    // Mount point is typically /Users/{username}/... format
+    // We need to get the owner of the user directory
     struct stat parent_stat;
     char *parent_path = strdup(mount_path);
-    // 尝试获取挂载点父目录的 owner
+    // Try to get mount point parent directory owner
     char *last_slash = strrchr(parent_path, '/');
     if (last_slash && last_slash != parent_path) {
         *last_slash = '\0';
         if (stat(parent_path, &parent_stat) == 0) {
             g_state.owner_uid = parent_stat.st_uid;
             g_state.owner_gid = parent_stat.st_gid;
-            LOG_INFO("从父目录获取 owner: uid=%d, gid=%d", g_state.owner_uid, g_state.owner_gid);
+            LOG_INFO("Got owner from parent dir: uid=%d, gid=%d", g_state.owner_uid, g_state.owner_gid);
         } else {
-            // 回退到 local_dir 的所有者
+            // Fall back to local_dir owner
             struct stat local_stat;
             if (stat(local_dir, &local_stat) == 0) {
                 g_state.owner_uid = local_stat.st_uid;
                 g_state.owner_gid = local_stat.st_gid;
-                LOG_INFO("从本地目录获取 owner: uid=%d, gid=%d", g_state.owner_uid, g_state.owner_gid);
+                LOG_INFO("Got owner from local dir: uid=%d, gid=%d", g_state.owner_uid, g_state.owner_gid);
             }
         }
     }
@@ -1101,47 +1101,47 @@ int fuse_wrapper_mount(const char *mount_path, const char *local_dir, const char
 
     pthread_mutex_unlock(&g_state.lock);
 
-    LOG_INFO("挂载 FUSE 文件系统:");
-    LOG_INFO("  挂载点: %s", mount_path);
-    LOG_INFO("  本地目录: %s", local_dir);
-    LOG_INFO("  外部目录: %s", external_dir ? external_dir : "(离线)");
+    LOG_INFO("Mounting FUSE filesystem:");
+    LOG_INFO("  Mount point: %s", mount_path);
+    LOG_INFO("  Local dir: %s", local_dir);
+    LOG_INFO("  External dir: %s", external_dir ? external_dir : "(offline)");
 
-    // 构建 FUSE 参数 - 使用更简单的参数集
+    // Build FUSE arguments - using simpler parameter set
     char *mount_path_copy = strdup(mount_path);
     char *volname = basename(mount_path_copy);
 
     char volname_opt[256];
     snprintf(volname_opt, sizeof(volname_opt), "volname=%s", volname);
 
-    // 构建挂载选项
+    // Build mount options
     char mount_opts[1024];
     snprintf(mount_opts, sizeof(mount_opts),
              "%s,allow_other,default_permissions,noappledouble,noapplexattr,local",
              volname_opt);
 
-    LOG_INFO("挂载选项: %s", mount_opts);
+    LOG_INFO("Mount options: %s", mount_opts);
 
-    // 使用 fuse_mount + fuse_new + fuse_loop 替代 fuse_main
-    // 这样可以避免 fuse_main 内部的一些问题
+    // Use fuse_mount + fuse_new + fuse_loop instead of fuse_main
+    // This avoids some internal issues with fuse_main
 
     struct fuse_args args = FUSE_ARGS_INIT(0, NULL);
 
-    // 添加挂载选项
+    // Add mount options
     if (fuse_opt_add_arg(&args, "dmsa") == -1 ||
         fuse_opt_add_arg(&args, "-o") == -1 ||
         fuse_opt_add_arg(&args, mount_opts) == -1) {
-        LOG_ERROR("fuse_opt_add_arg 失败");
+        LOG_ERROR("fuse_opt_add_arg failed");
         free(mount_path_copy);
         fuse_opt_free_args(&args);
         return FUSE_WRAPPER_ERR_MOUNT_FAILED;
     }
 
-    LOG_INFO("调用 fuse_mount...");
+    LOG_INFO("Calling fuse_mount...");
 
-    // 挂载
+    // Mount
     g_state.chan = fuse_mount(mount_path, &args);
     if (!g_state.chan) {
-        LOG_ERROR("fuse_mount 失败! errno=%d (%s)", errno, strerror(errno));
+        LOG_ERROR("fuse_mount failed! errno=%d (%s)", errno, strerror(errno));
         free(mount_path_copy);
         fuse_opt_free_args(&args);
 
@@ -1157,14 +1157,14 @@ int fuse_wrapper_mount(const char *mount_path, const char *local_dir, const char
         return FUSE_WRAPPER_ERR_FUSE_MOUNT_FAILED;
     }
 
-    LOG_INFO("fuse_mount 成功, 调用 fuse_new...");
+    LOG_INFO("fuse_mount succeeded, calling fuse_new...");
 
-    // 创建 FUSE 实例
+    // Create FUSE instance
     g_state.fuse = fuse_new(g_state.chan, &args, &dmsa_oper, sizeof(dmsa_oper), NULL);
     fuse_opt_free_args(&args);
 
     if (!g_state.fuse) {
-        LOG_ERROR("fuse_new 失败! errno=%d (%s)", errno, strerror(errno));
+        LOG_ERROR("fuse_new failed! errno=%d (%s)", errno, strerror(errno));
         fuse_unmount(mount_path, g_state.chan);
         free(mount_path_copy);
 
@@ -1185,17 +1185,17 @@ int fuse_wrapper_mount(const char *mount_path, const char *local_dir, const char
     g_state.is_mounted = 1;
     pthread_mutex_unlock(&g_state.lock);
 
-    LOG_INFO("FUSE 挂载成功! 启动事件循环...");
-    LOG_INFO("  文件所有者 UID: %d, GID: %d", g_state.owner_uid, g_state.owner_gid);
+    LOG_INFO("FUSE mount successful! Starting event loop...");
+    LOG_INFO("  File owner UID: %d, GID: %d", g_state.owner_uid, g_state.owner_gid);
 
     free(mount_path_copy);
 
-    // 运行 FUSE 事件循环 (阻塞)
+    // Run FUSE event loop (blocking)
     int result = fuse_loop(g_state.fuse);
 
-    LOG_INFO("FUSE 事件循环退出, 返回值: %d", result);
+    LOG_INFO("FUSE event loop exited, return value: %d", result);
 
-    // 清理
+    // Cleanup
     fuse_destroy(g_state.fuse);
     fuse_unmount(mount_path, g_state.chan);
 
@@ -1214,7 +1214,7 @@ int fuse_wrapper_mount(const char *mount_path, const char *local_dir, const char
 
     pthread_mutex_unlock(&g_state.lock);
 
-    LOG_INFO("FUSE 清理完成");
+    LOG_INFO("FUSE cleanup complete");
 
     return result == 0 ? FUSE_WRAPPER_OK : FUSE_WRAPPER_ERR_MOUNT_FAILED;
 }
@@ -1230,9 +1230,9 @@ int fuse_wrapper_unmount(void) {
     char *mount_path = strdup(g_state.mount_path);
     pthread_mutex_unlock(&g_state.lock);
 
-    LOG_INFO("卸载 FUSE: %s", mount_path);
+    LOG_INFO("Unmounting FUSE: %s", mount_path);
 
-    // 使用 umount 命令卸载
+    // Use umount command to unmount
     char cmd[1024];
     snprintf(cmd, sizeof(cmd), "/sbin/umount '%s'", mount_path);
     int result = system(cmd);
@@ -1261,7 +1261,7 @@ void fuse_wrapper_update_external_dir(const char *external_dir) {
 
     pthread_mutex_unlock(&g_state.lock);
 
-    LOG_INFO("外部目录已更新: %s", external_dir ? external_dir : "(离线)");
+    LOG_INFO("External dir updated: %s", external_dir ? external_dir : "(offline)");
 }
 
 void fuse_wrapper_set_external_offline(bool offline) {
@@ -1269,7 +1269,7 @@ void fuse_wrapper_set_external_offline(bool offline) {
     g_state.external_offline = offline;
     pthread_mutex_unlock(&g_state.lock);
 
-    LOG_INFO("外部存储状态: %s", offline ? "离线" : "在线");
+    LOG_INFO("External storage state: %s", offline ? "offline" : "online");
 }
 
 void fuse_wrapper_set_readonly(bool readonly) {
@@ -1277,7 +1277,7 @@ void fuse_wrapper_set_readonly(bool readonly) {
     g_state.readonly = readonly;
     pthread_mutex_unlock(&g_state.lock);
 
-    LOG_INFO("只读模式: %s", readonly ? "是" : "否");
+    LOG_INFO("Read-only mode: %s", readonly ? "yes" : "no");
 }
 
 void fuse_wrapper_set_index_ready(bool ready) {
@@ -1286,12 +1286,12 @@ void fuse_wrapper_set_index_ready(bool ready) {
     g_state.index_ready = ready;
     pthread_mutex_unlock(&g_state.lock);
 
-    // 重置日志标记，允许下次状态变化时打印
+    // Reset log flag to allow printing on next state change
     if (ready && !was_ready) {
         index_not_ready_logged = 0;
-        LOG_INFO("★★★ 索引已就绪，VFS 开放访问 ★★★");
+        LOG_INFO("*** Index ready, VFS access open ***");
     } else if (!ready && was_ready) {
-        LOG_INFO("索引标记为未就绪，VFS 阻塞访问");
+        LOG_INFO("Index marked not ready, VFS blocking access");
     }
 }
 

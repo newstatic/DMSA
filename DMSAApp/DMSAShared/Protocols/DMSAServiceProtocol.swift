@@ -1,412 +1,412 @@
 import Foundation
 
-/// DMSA 统一服务 XPC 协议
-/// 合并 VFS + Sync + Helper 功能
+/// DMSA unified service XPC protocol
+/// Combines VFS + Sync + Helper functionality
 @objc public protocol DMSAServiceProtocol {
 
-    // MARK: - ========== VFS 操作 ==========
+    // MARK: - ========== VFS Operations ==========
 
-    // MARK: 挂载管理
+    // MARK: Mount Management
 
-    /// 挂载 VFS
+    /// Mount VFS
     /// - Parameters:
-    ///   - syncPairId: 同步对 ID
-    ///   - localDir: 本地目录路径 (LOCAL_DIR)
-    ///   - externalDir: 外部目录路径 (EXTERNAL_DIR)，可为空字符串表示离线
-    ///   - targetDir: 挂载点路径 (TARGET_DIR)
+    ///   - syncPairId: Sync pair ID
+    ///   - localDir: Local directory path (LOCAL_DIR)
+    ///   - externalDir: External directory path (EXTERNAL_DIR), empty string means offline
+    ///   - targetDir: Mount point path (TARGET_DIR)
     func vfsMount(syncPairId: String,
                   localDir: String,
                   externalDir: String?,
                   targetDir: String,
                   withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 卸载 VFS
+    /// Unmount VFS
     func vfsUnmount(syncPairId: String,
                     withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 卸载所有 VFS
+    /// Unmount all VFS
     func vfsUnmountAll(withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 获取挂载状态
+    /// Get mount status
     func vfsGetMountStatus(syncPairId: String,
                            withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 获取所有挂载点状态
+    /// Get all mount point status
     func vfsGetAllMounts(withReply reply: @escaping (Data) -> Void)
 
-    // MARK: 文件状态
+    // MARK: File Status
 
-    /// 获取文件状态
+    /// Get file status
     func vfsGetFileStatus(virtualPath: String,
                           syncPairId: String,
                           withReply reply: @escaping (Data?) -> Void)
 
-    /// 获取文件位置
+    /// Get file location
     func vfsGetFileLocation(virtualPath: String,
                             syncPairId: String,
                             withReply reply: @escaping (String) -> Void)
 
-    // MARK: VFS 配置
+    // MARK: VFS Config
 
-    /// 更新 EXTERNAL 路径 (硬盘重新连接时)
+    /// Update EXTERNAL path (when disk reconnects)
     func vfsUpdateExternalPath(syncPairId: String,
                                newPath: String,
                                withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 设置 EXTERNAL 离线状态
+    /// Set EXTERNAL offline status
     func vfsSetExternalOffline(syncPairId: String,
                                offline: Bool,
                                withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 设置只读模式
+    /// Set read-only mode
     func vfsSetReadOnly(syncPairId: String,
                         readOnly: Bool,
                         withReply reply: @escaping (Bool, String?) -> Void)
 
-    // MARK: 索引管理
+    // MARK: Index Management
 
-    /// 重建文件索引
+    /// Rebuild file index
     func vfsRebuildIndex(syncPairId: String,
                          withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 获取索引统计
+    /// Get index statistics
     func vfsGetIndexStats(syncPairId: String,
                           withReply reply: @escaping (Data?) -> Void)
 
-    // MARK: - ========== 同步操作 ==========
+    // MARK: - ========== Sync Operations ==========
 
-    // MARK: 同步控制
+    // MARK: Sync Control
 
-    /// 立即同步指定同步对
+    /// Sync specified sync pair immediately
     func syncNow(syncPairId: String,
                  withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 同步所有同步对
+    /// Sync all sync pairs
     func syncAll(withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 同步单个文件
+    /// Sync single file
     func syncFile(virtualPath: String,
                   syncPairId: String,
                   withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 暂停同步
+    /// Pause sync
     func syncPause(syncPairId: String,
                    withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 恢复同步
+    /// Resume sync
     func syncResume(syncPairId: String,
                     withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 取消正在进行的同步
+    /// Cancel in-progress sync
     func syncCancel(syncPairId: String,
                     withReply reply: @escaping (Bool, String?) -> Void)
 
-    // MARK: 状态查询
+    // MARK: Status Query
 
-    /// 获取同步状态
+    /// Get sync status
     func syncGetStatus(syncPairId: String,
                        withReply reply: @escaping (Data) -> Void)
 
-    /// 获取所有同步对状态
+    /// Get all sync pair status
     func syncGetAllStatus(withReply reply: @escaping (Data) -> Void)
 
-    /// 获取待同步队列
+    /// Get pending sync queue
     func syncGetPendingQueue(syncPairId: String,
                              withReply reply: @escaping (Data) -> Void)
 
-    /// 获取同步进度
+    /// Get sync progress
     func syncGetProgress(syncPairId: String,
                          withReply reply: @escaping (Data?) -> Void)
 
-    /// 获取同步历史
+    /// Get sync history
     func syncGetHistory(syncPairId: String,
                         limit: Int,
                         withReply reply: @escaping (Data) -> Void)
 
-    /// 获取同步统计
+    /// Get sync statistics
     func syncGetStatistics(syncPairId: String,
                            withReply reply: @escaping (Data?) -> Void)
 
-    // MARK: 脏文件管理
+    // MARK: Dirty File Management
 
-    /// 获取脏文件列表
+    /// Get dirty file list
     func syncGetDirtyFiles(syncPairId: String,
                            withReply reply: @escaping (Data) -> Void)
 
-    /// 标记文件为脏
+    /// Mark file as dirty
     func syncMarkFileDirty(virtualPath: String,
                            syncPairId: String,
                            withReply reply: @escaping (Bool) -> Void)
 
-    /// 清除文件脏标记
+    /// Clear file dirty flag
     func syncClearFileDirty(virtualPath: String,
                             syncPairId: String,
                             withReply reply: @escaping (Bool) -> Void)
 
-    // MARK: 同步配置
+    // MARK: Sync Config
 
-    /// 更新同步配置
+    /// Update sync config
     func syncUpdateConfig(syncPairId: String,
                           configData: Data,
                           withReply reply: @escaping (Bool, String?) -> Void)
 
-    // MARK: 硬盘事件
+    // MARK: Disk Events
 
-    /// 通知硬盘已连接
+    /// Notify disk connected
     func diskConnected(diskName: String,
                        mountPoint: String,
                        withReply reply: @escaping (Bool) -> Void)
 
-    /// 通知硬盘已断开
+    /// Notify disk disconnected
     func diskDisconnected(diskName: String,
                           withReply reply: @escaping (Bool) -> Void)
 
-    // MARK: - ========== 特权操作 ==========
+    // MARK: - ========== Privileged Operations ==========
 
-    // MARK: 目录锁定
+    // MARK: Directory Lock
 
-    /// 锁定目录 (设置 uchg 标志)
+    /// Lock directory (set uchg flag)
     func privilegedLockDirectory(_ path: String,
                                  withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 解锁目录
+    /// Unlock directory
     func privilegedUnlockDirectory(_ path: String,
                                    withReply reply: @escaping (Bool, String?) -> Void)
 
-    // MARK: ACL 管理
+    // MARK: ACL Management
 
-    /// 设置 ACL
+    /// Set ACL
     func privilegedSetACL(_ path: String,
                           deny: Bool,
                           permissions: [String],
                           user: String,
                           withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 移除 ACL
+    /// Remove ACL
     func privilegedRemoveACL(_ path: String,
                              withReply reply: @escaping (Bool, String?) -> Void)
 
-    // MARK: 目录可见性
+    // MARK: Directory Visibility
 
-    /// 隐藏目录
+    /// Hide directory
     func privilegedHideDirectory(_ path: String,
                                  withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 取消隐藏目录
+    /// Unhide directory
     func privilegedUnhideDirectory(_ path: String,
                                    withReply reply: @escaping (Bool, String?) -> Void)
 
-    // MARK: 复合操作
+    // MARK: Compound Operations
 
-    /// 保护目录 (uchg + ACL + hidden)
+    /// Protect directory (uchg + ACL + hidden)
     func privilegedProtectDirectory(_ path: String,
                                     withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 取消保护目录
+    /// Unprotect directory
     func privilegedUnprotectDirectory(_ path: String,
                                       withReply reply: @escaping (Bool, String?) -> Void)
 
-    // MARK: 文件系统操作
+    // MARK: File System Operations
 
-    /// 创建目录 (需要特权)
+    /// Create directory (requires privilege)
     func privilegedCreateDirectory(_ path: String,
                                    withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 移动文件/目录 (需要特权)
+    /// Move file/directory (requires privilege)
     func privilegedMoveItem(from source: String,
                             to destination: String,
                             withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 删除文件/目录 (需要特权)
+    /// Delete file/directory (requires privilege)
     func privilegedRemoveItem(_ path: String,
                               withReply reply: @escaping (Bool, String?) -> Void)
 
-    // MARK: - ========== 淘汰操作 ==========
+    // MARK: - ========== Eviction Operations ==========
 
-    /// 触发 LRU 淘汰
+    /// Trigger LRU eviction
     /// - Parameters:
-    ///   - syncPairId: 同步对 ID
-    ///   - targetFreeSpace: 目标可用空间 (字节)
-    ///   - reply: 回调 (成功, 释放空间, 错误信息)
+    ///   - syncPairId: Sync pair ID
+    ///   - targetFreeSpace: Target free space (bytes)
+    ///   - reply: Callback (success, freed space, error message)
     func evictionTrigger(syncPairId: String,
                          targetFreeSpace: Int64,
                          withReply reply: @escaping (Bool, Int64, String?) -> Void)
 
-    /// 淘汰单个文件
+    /// Evict single file
     func evictionEvictFile(virtualPath: String,
                            syncPairId: String,
                            withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 预取文件 (从 EXTERNAL 复制到 LOCAL)
+    /// Prefetch file (copy from EXTERNAL to LOCAL)
     func evictionPrefetchFile(virtualPath: String,
                               syncPairId: String,
                               withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 获取淘汰统计
+    /// Get eviction statistics
     func evictionGetStats(withReply reply: @escaping (Data) -> Void)
 
-    /// 更新淘汰配置
+    /// Update eviction config
     func evictionUpdateConfig(triggerThreshold: Int64,
                               targetFreeSpace: Int64,
                               autoEnabled: Bool,
                               withReply reply: @escaping (Bool) -> Void)
 
-    // MARK: - ========== 数据查询操作 ==========
+    // MARK: - ========== Data Query Operations ==========
 
-    /// 获取文件条目
+    /// Get file entry
     func dataGetFileEntry(virtualPath: String,
                           syncPairId: String,
                           withReply reply: @escaping (Data?) -> Void)
 
-    /// 获取所有文件条目
+    /// Get all file entries
     func dataGetAllFileEntries(syncPairId: String,
                                withReply reply: @escaping (Data) -> Void)
 
-    /// 获取全部同步历史
+    /// Get all sync history
     func dataGetSyncHistory(limit: Int,
                             withReply reply: @escaping (Data) -> Void)
 
-    /// 获取文件同步记录 (每个被同步/淘汰的文件)
+    /// Get file sync records (each synced/evicted file)
     func dataGetSyncFileRecords(syncPairId: String,
                                 limit: Int,
                                 withReply reply: @escaping (Data) -> Void)
 
-    /// 获取所有文件同步记录 (支持分页)
+    /// Get all file sync records (with pagination)
     func dataGetAllSyncFileRecords(limit: Int,
                                    offset: Int,
                                    withReply reply: @escaping (Data) -> Void)
 
-    /// 获取树版本信息
+    /// Get tree version info
     func dataGetTreeVersion(syncPairId: String,
                             source: String,
                             withReply reply: @escaping (String?) -> Void)
 
-    /// 检查树版本 (启动时)
+    /// Check tree versions (at startup)
     func dataCheckTreeVersions(localDir: String,
                                externalDir: String?,
                                syncPairId: String,
                                withReply reply: @escaping (Data) -> Void)
 
-    /// 重建文件树
+    /// Rebuild file tree
     func dataRebuildTree(rootPath: String,
                          syncPairId: String,
                          source: String,
                          withReply reply: @escaping (Bool, String?, String?) -> Void)
 
-    /// 使树版本失效
+    /// Invalidate tree version
     func dataInvalidateTreeVersion(syncPairId: String,
                                    source: String,
                                    withReply reply: @escaping (Bool) -> Void)
 
-    // MARK: - ========== 配置操作 ==========
+    // MARK: - ========== Config Operations ==========
 
-    /// 获取完整配置
+    /// Get full config
     func configGetAll(withReply reply: @escaping (Data) -> Void)
 
-    /// 更新完整配置
+    /// Update full config
     func configUpdate(configData: Data,
                       withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 获取磁盘配置列表
+    /// Get disk config list
     func configGetDisks(withReply reply: @escaping (Data) -> Void)
 
-    /// 添加磁盘配置
+    /// Add disk config
     func configAddDisk(diskData: Data,
                        withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 移除磁盘配置
+    /// Remove disk config
     func configRemoveDisk(diskId: String,
                           withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 获取同步对配置列表
+    /// Get sync pair config list
     func configGetSyncPairs(withReply reply: @escaping (Data) -> Void)
 
-    /// 添加同步对配置
+    /// Add sync pair config
     func configAddSyncPair(pairData: Data,
                            withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 移除同步对配置
+    /// Remove sync pair config
     func configRemoveSyncPair(pairId: String,
                               withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 获取通知配置
+    /// Get notification config
     func configGetNotifications(withReply reply: @escaping (Data) -> Void)
 
-    /// 更新通知配置
+    /// Update notification config
     func configUpdateNotifications(configData: Data,
                                    withReply reply: @escaping (Bool, String?) -> Void)
 
-    // MARK: - ========== 通知操作 ==========
+    // MARK: - ========== Notification Operations ==========
 
-    /// 保存通知记录
+    /// Save notification record
     func notificationSave(recordData: Data,
                           withReply reply: @escaping (Bool) -> Void)
 
-    /// 获取通知记录
+    /// Get notification records
     func notificationGetAll(limit: Int,
                             withReply reply: @escaping (Data) -> Void)
 
-    /// 获取未读通知数量
+    /// Get unread notification count
     func notificationGetUnreadCount(withReply reply: @escaping (Int) -> Void)
 
-    /// 标记通知为已读
+    /// Mark notification as read
     func notificationMarkAsRead(recordId: UInt64,
                                 withReply reply: @escaping (Bool) -> Void)
 
-    /// 标记所有通知为已读
+    /// Mark all notifications as read
     func notificationMarkAllAsRead(withReply reply: @escaping (Bool) -> Void)
 
-    /// 清除所有通知
+    /// Clear all notifications
     func notificationClearAll(withReply reply: @escaping (Bool) -> Void)
 
-    // MARK: - ========== 通用操作 ==========
+    // MARK: - ========== General Operations ==========
 
-    /// 设置用户 Home 目录 (App 启动时调用，用于 root 服务正确解析 ~ 路径)
+    /// Set user home directory (called at App startup, for root service to resolve ~ paths correctly)
     func setUserHome(_ path: String,
                      withReply reply: @escaping (Bool) -> Void)
 
-    /// 重新加载配置
+    /// Reload config
     func reloadConfig(withReply reply: @escaping (Bool, String?) -> Void)
 
-    /// 准备关闭 (等待所有操作完成)
+    /// Prepare for shutdown (wait for all operations to complete)
     func prepareForShutdown(withReply reply: @escaping (Bool) -> Void)
 
-    /// 获取版本
+    /// Get version
     func getVersion(withReply reply: @escaping (String) -> Void)
 
-    /// 获取详细版本信息
+    /// Get detailed version info
     /// - Returns: Data (ServiceVersionInfo JSON)
     func getVersionInfo(withReply reply: @escaping (Data) -> Void)
 
-    /// 检查版本兼容性
-    /// - Parameter appVersion: 客户端 App 版本
-    /// - Returns: (兼容, 错误信息, 是否需要更新服务)
+    /// Check version compatibility
+    /// - Parameter appVersion: Client App version
+    /// - Returns: (compatible, error message, whether service update needed)
     func checkCompatibility(appVersion: String,
                             withReply reply: @escaping (Bool, String?, Bool) -> Void)
 
-    /// 健康检查
+    /// Health check
     func healthCheck(withReply reply: @escaping (Bool, String?) -> Void)
 
-    // MARK: - ========== 状态管理操作 ==========
+    // MARK: - ========== State Management Operations ==========
 
-    /// 获取服务完整状态
+    /// Get service full state
     /// - Returns: Data (ServiceFullState JSON)
     func getFullState(withReply reply: @escaping (Data) -> Void)
 
-    /// 获取当前全局状态
+    /// Get current global state
     func getGlobalState(withReply reply: @escaping (Int, String) -> Void)
 
-    /// 检查是否可以执行指定操作
+    /// Check if specified operation can be performed
     func canPerformOperation(_ operation: String,
                              withReply reply: @escaping (Bool) -> Void)
 
-    // MARK: - ========== 活动记录 ==========
+    // MARK: - ========== Activity Records ==========
 
-    /// 获取最近活动记录
+    /// Get recent activity records
     func getRecentActivities(withReply reply: @escaping (Data) -> Void)
 }
 
-// MARK: - XPC Interface 配置
+// MARK: - XPC Interface Config
 
 public extension DMSAServiceProtocol {
     static var interfaceName: String { "com.ttttt.dmsa.service" }

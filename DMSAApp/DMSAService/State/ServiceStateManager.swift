@@ -1,15 +1,15 @@
 import Foundation
 
-// MARK: - XPC 通知发送器
+// MARK: - XPC Notification Sender
 
-/// XPC 通知发送器
-/// 通过 ServiceDelegate 向所有连接的客户端发送通知
+/// XPC notification sender
+/// Sends notifications to all connected clients via ServiceDelegate
 enum XPCNotifier {
     private static let logger = Logger.forService("XPCNotifier")
 
-    /// 发送状态变更通知
+    /// Send state change notification
     static func notifyStateChanged(oldState: ServiceState, newState: ServiceState, data: Data?) {
-        logger.info("[XPC通知] 状态变更: \(oldState.name) -> \(newState.name)")
+        logger.info("[XPC] State changed: \(oldState.name) -> \(newState.name)")
         ServiceDelegate.shared?.notifyStateChanged(
             oldState: oldState.rawValue,
             newState: newState.rawValue,
@@ -17,25 +17,25 @@ enum XPCNotifier {
         )
     }
 
-    /// 发送索引进度
+    /// Send index progress
     static func notifyIndexProgress(data: Data) {
         ServiceDelegate.shared?.notifyIndexProgress(data: data)
     }
 
-    /// 发送索引就绪
+    /// Send index ready
     static func notifyIndexReady(syncPairId: String) {
-        logger.info("[XPC通知] 索引就绪: \(syncPairId)")
+        logger.info("[XPC] Index ready: \(syncPairId)")
         ServiceDelegate.shared?.notifyIndexReady(syncPairId: syncPairId)
     }
 
-    /// 发送同步进度
+    /// Send sync progress
     static func notifySyncProgress(data: Data) {
         ServiceDelegate.shared?.notifySyncProgress(data: data)
     }
 
-    /// 发送同步状态变更
+    /// Send sync status change
     static func notifySyncStatusChanged(syncPairId: String, status: SyncStatus, message: String?) {
-        logger.info("[XPC通知] 同步状态变更: \(syncPairId) -> \(status.displayName)")
+        logger.info("[XPC] Sync status changed: \(syncPairId) -> \(status.displayName)")
         ServiceDelegate.shared?.notifySyncStatusChanged(
             syncPairId: syncPairId,
             status: status.rawValue,
@@ -43,9 +43,9 @@ enum XPCNotifier {
         )
     }
 
-    /// 发送同步完成
+    /// Send sync completed
     static func notifySyncCompleted(syncPairId: String, filesCount: Int, bytesCount: Int64) {
-        logger.info("[XPC通知] 同步完成: \(syncPairId), \(filesCount) 文件")
+        logger.info("[XPC] Sync completed: \(syncPairId), \(filesCount) files")
         ServiceDelegate.shared?.notifySyncCompleted(
             syncPairId: syncPairId,
             filesCount: filesCount,
@@ -53,14 +53,14 @@ enum XPCNotifier {
         )
     }
 
-    /// 发送淘汰进度
+    /// Send eviction progress
     static func notifyEvictionProgress(data: Data) {
         ServiceDelegate.shared?.notifyEvictionProgress(data: data)
     }
 
-    /// 发送组件错误
+    /// Send component error
     static func notifyComponentError(component: String, code: Int, message: String, isCritical: Bool) {
-        logger.info("[XPC通知] 组件错误: \(component) - \(message)")
+        logger.info("[XPC] Component error: \(component) - \(message)")
         ServiceDelegate.shared?.notifyComponentError(
             component: component,
             code: code,
@@ -69,39 +69,39 @@ enum XPCNotifier {
         )
     }
 
-    /// 发送配置更新
+    /// Send config updated
     static func notifyConfigUpdated() {
-        logger.info("[XPC通知] 配置已更新")
+        logger.info("[XPC] Config updated")
         ServiceDelegate.shared?.notifyConfigUpdated()
     }
 
-    /// 发送服务就绪
+    /// Send service ready
     static func notifyServiceReady() {
-        logger.info("[XPC通知] 服务就绪")
+        logger.info("[XPC] Service ready")
         ServiceDelegate.shared?.notifyServiceReady()
     }
 
-    /// 发送冲突检测
+    /// Send conflict detected
     static func notifyConflictDetected(data: Data) {
-        logger.info("[XPC通知] 冲突检测")
+        logger.info("[XPC] Conflict detected")
         ServiceDelegate.shared?.notifyConflictDetected(data: data)
     }
 
-    /// 发送磁盘状态变更
+    /// Send disk change notification
     static func notifyDiskChanged(diskName: String, isConnected: Bool) {
-        logger.info("[XPC通知] 磁盘变更: \(diskName) -> \(isConnected ? "连接" : "断开")")
+        logger.info("[XPC] Disk changed: \(diskName) -> \(isConnected ? "connected" : "disconnected")")
         ServiceDelegate.shared?.notifyDiskChanged(diskName: diskName, isConnected: isConnected)
     }
 
-    /// 发送活动更新
+    /// Send activities updated
     static func notifyActivitiesUpdated(data: Data) {
         ServiceDelegate.shared?.notifyActivitiesUpdated(data: data)
     }
 }
 
-// MARK: - 活动记录管理器
+// MARK: - Activity Record Manager
 
-/// 管理最近 5 条活动记录，实时推送前端
+/// Manages the most recent 5 activity records, pushes updates to clients in real time
 actor ActivityManager {
     static let shared = ActivityManager()
 
@@ -112,146 +112,146 @@ actor ActivityManager {
 
     private init() {}
 
-    /// 从数据库加载活动记录 (首次访问时懒加载)
+    /// Load activity records from database (lazy load on first access)
     private func loadFromDatabaseIfNeeded() async {
         guard !isLoaded else { return }
         isLoaded = true
         let dbActivities = await ServiceDatabaseManager.shared.getRecentActivities(limit: maxCount)
         if !dbActivities.isEmpty {
             activities = dbActivities
-            logger.info("从数据库加载 \(dbActivities.count) 条活动记录")
+            logger.info("Loaded \(dbActivities.count) activity records from database")
         }
     }
 
-    /// 添加活动记录
+    /// Add an activity record
     func addActivity(_ activity: ActivityRecord) async {
         await loadFromDatabaseIfNeeded()
         activities.insert(activity, at: 0)
         if activities.count > maxCount {
             activities = Array(activities.prefix(maxCount))
         }
-        // 持久化到数据库
+        // Persist to database
         await ServiceDatabaseManager.shared.saveActivityRecord(activity)
         pushToClients()
     }
 
-    /// 便捷方法：添加同步相关活动
+    /// Convenience: add sync-related activity
     func addSyncActivity(type: ActivityType, syncPairId: String, diskId: String? = nil, filesCount: Int? = nil, bytesCount: Int64? = nil, detail: String? = nil) async {
         let title: String
         switch type {
-        case .syncStarted: title = "开始同步 \(syncPairId)"
-        case .syncCompleted: title = "同步完成 \(syncPairId)"
-        case .syncFailed: title = "同步失败 \(syncPairId)"
+        case .syncStarted: title = "Sync started \(syncPairId)"
+        case .syncCompleted: title = "Sync completed \(syncPairId)"
+        case .syncFailed: title = "Sync failed \(syncPairId)"
         default: title = "\(syncPairId)"
         }
         let activity = ActivityRecord(type: type, title: title, detail: detail, syncPairId: syncPairId, diskId: diskId, filesCount: filesCount, bytesCount: bytesCount)
         await addActivity(activity)
     }
 
-    /// 便捷方法：添加淘汰活动
+    /// Convenience: add eviction activity
     func addEvictionActivity(filesCount: Int, bytesCount: Int64, syncPairId: String? = nil, failed: Bool = false) async {
         let type: ActivityType = failed ? .evictionFailed : .evictionCompleted
         let sizeStr = ByteCountFormatter.string(fromByteCount: bytesCount, countStyle: .file)
-        let title = failed ? "淘汰失败" : "淘汰完成"
-        let detail = "\(filesCount) 个文件, \(sizeStr)"
+        let title = failed ? "Eviction failed" : "Eviction completed"
+        let detail = "\(filesCount) files, \(sizeStr)"
         let activity = ActivityRecord(type: type, title: title, detail: detail, syncPairId: syncPairId, filesCount: filesCount, bytesCount: bytesCount)
         await addActivity(activity)
     }
 
-    /// 便捷方法：添加磁盘活动
+    /// Convenience: add disk activity
     func addDiskActivity(diskName: String, isConnected: Bool) async {
         let type: ActivityType = isConnected ? .diskConnected : .diskDisconnected
-        let title = isConnected ? "磁盘已连接" : "磁盘已断开"
+        let title = isConnected ? "Disk connected" : "Disk disconnected"
         let activity = ActivityRecord(type: type, title: title, detail: diskName, diskId: diskName)
         await addActivity(activity)
     }
 
-    /// 获取当前活动列表
+    /// Get current activity list
     func getActivities() async -> [ActivityRecord] {
         await loadFromDatabaseIfNeeded()
         return activities
     }
 
-    /// 推送活动到所有客户端
+    /// Push activities to all clients
     private func pushToClients() {
         guard let data = try? JSONEncoder().encode(activities) else { return }
         XPCNotifier.notifyActivitiesUpdated(data: data)
     }
 }
 
-// MARK: - 服务状态管理器
+// MARK: - Service State Manager
 
-/// 服务状态管理器
-/// 参考文档: SERVICE_FLOW/05_状态管理器.md
+/// Service state manager
+/// Reference: SERVICE_FLOW/05_state_manager.md
 actor ServiceStateManager {
 
-    // MARK: - 单例
+    // MARK: - Singleton
 
     static let shared = ServiceStateManager()
 
-    // MARK: - 属性
+    // MARK: - Properties
 
     private let logger = Logger.forService("StateManager")
 
-    /// 全局服务状态
+    /// Global service state
     private var globalState: ServiceState = .starting
 
-    /// 组件状态
+    /// Component states
     private var componentStates: [String: ComponentStateInfo] = [:]
 
-    /// 配置状态
+    /// Config status
     private var configStatus = ConfigStatus()
 
-    /// 服务启动时间
+    /// Service start time
     private let startTime = Date()
 
-    /// 最后一个错误
+    /// Last error
     private var lastError: ServiceErrorInfo?
 
-    /// 服务版本
+    /// Service version
     private let version = "4.9"
 
-    /// 协议版本
+    /// Protocol version
     private let protocolVersion = 1
 
-    // MARK: - 初始化
+    // MARK: - Initialization
 
     private init() {
-        // 初始化核心组件状态
+        // Initialize core component states
         for component in ServiceComponent.allCases {
             componentStates[component.rawValue] = ComponentStateInfo(name: component.rawValue)
         }
     }
 
-    // MARK: - 全局状态管理
+    // MARK: - Global State Management
 
-    /// 设置全局状态
+    /// Set global state
     func setState(_ newState: ServiceState) async {
         let oldState = globalState
         guard oldState != newState else { return }
 
         globalState = newState
 
-        // 更新日志状态缓存 (用于标准格式日志)
+        // Update logger state cache (for standard format logging)
         LoggerStateCache.update(newState.name)
 
-        logger.info("状态变更: \(oldState.name) → \(newState.name)")
+        logger.info("State changed: \(oldState.name) -> \(newState.name)")
 
-        // 发送状态变更通知
+        // Send state change notification
         await sendStateChangedNotification(oldState: oldState, newState: newState)
 
-        // 特殊状态处理
+        // Special state handling
         switch newState {
         case .xpcReady:
-            // XPC 就绪，可以接受客户端连接
+            // XPC ready, can accept client connections
             await sendXPCReadyNotification()
 
         case .ready:
-            // 服务就绪，发送 serviceReady 通知
+            // Service ready, send serviceReady notification
             await sendServiceReadyNotification()
 
         case .error:
-            // 错误状态，发送 serviceError 通知
+            // Error state, send serviceError notification
             if let error = lastError {
                 await sendServiceErrorNotification(error: error)
             }
@@ -261,12 +261,12 @@ actor ServiceStateManager {
         }
     }
 
-    /// 获取当前全局状态
+    /// Get current global state
     func getState() -> ServiceState {
         return globalState
     }
 
-    /// 等待特定状态
+    /// Wait for a specific state
     func waitForState(_ target: ServiceState, timeout: TimeInterval = 30) async -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
 
@@ -277,9 +277,9 @@ actor ServiceStateManager {
         return globalState == target
     }
 
-    // MARK: - 组件状态管理
+    // MARK: - Component State Management
 
-    /// 设置组件状态
+    /// Set component state
     func setComponentState(_ component: ServiceComponent, state: ComponentState, error: ComponentError? = nil) async {
         var info = componentStates[component.rawValue] ?? ComponentStateInfo(name: component.rawValue)
         let oldState = info.state
@@ -290,74 +290,74 @@ actor ServiceStateManager {
 
         componentStates[component.rawValue] = info
 
-        // 日志
+        // Log
         if oldState != state {
             if let error = error {
-                logger.error("[\(globalState.name.padding(toLength: 11, withPad: " ", startingAt: 0))] [\(component.logName)] [\(state.logName)] 错误: \(error.message)")
+                logger.error("[\(globalState.name.padding(toLength: 11, withPad: " ", startingAt: 0))] [\(component.logName)] [\(state.logName)] Error: \(error.message)")
             } else {
                 logger.info("[\(globalState.name.padding(toLength: 11, withPad: " ", startingAt: 0))] [\(component.logName)] [\(state.logName)]")
             }
         }
 
-        // 组件错误时发送通知
+        // Send notification on component error
         if state == .error, let error = error {
             await sendComponentErrorNotification(component: component, error: error)
         }
     }
 
-    /// 获取组件状态
+    /// Get component state
     func getComponentState(_ component: ServiceComponent) -> ComponentStateInfo? {
         return componentStates[component.rawValue]
     }
 
-    /// 更新组件性能指标
+    /// Update component metrics
     func updateComponentMetrics(_ component: ServiceComponent, metrics: ComponentMetrics) async {
         guard var info = componentStates[component.rawValue] else { return }
         info.metrics = metrics
         componentStates[component.rawValue] = info
     }
 
-    // MARK: - 配置状态管理
+    // MARK: - Config Status Management
 
-    /// 设置配置状态
+    /// Set config status
     func setConfigStatus(_ status: ConfigStatus) async {
         configStatus = status
 
-        // 发送配置状态通知
+        // Send config status notification
         await sendConfigStatusNotification(status: status)
 
-        // 如果有冲突，发送冲突通知
+        // If there are conflicts, send conflict notification
         if let conflicts = status.conflicts, !conflicts.isEmpty {
             await sendConfigConflictNotification(conflicts: conflicts)
         }
     }
 
-    /// 获取配置状态
+    /// Get config status
     func getConfigStatus() -> ConfigStatus {
         return configStatus
     }
 
-    // MARK: - 错误管理
+    // MARK: - Error Management
 
-    /// 设置最后错误
+    /// Set last error
     func setLastError(_ error: ServiceErrorInfo) async {
         lastError = error
     }
 
-    /// 清除最后错误
+    /// Clear last error
     func clearLastError() async {
         lastError = nil
     }
 
-    // MARK: - 完整状态
+    // MARK: - Full State
 
-    /// 获取完整服务状态
+    /// Get full service state
     func getFullState() -> ServiceFullState {
         return ServiceFullState(
             globalState: globalState,
             components: componentStates,
             config: configStatus,
-            pendingNotifications: 0,  // 现在使用 XPC 回调，不再有队列
+            pendingNotifications: 0,  // Now using XPC callbacks, no more queue
             startTime: startTime,
             lastError: lastError,
             version: version,
@@ -365,9 +365,9 @@ actor ServiceStateManager {
         )
     }
 
-    // MARK: - 操作权限检查
+    // MARK: - Operation Permission Check
 
-    /// 检查是否允许执行指定操作
+    /// Check if a given operation is allowed
     func canPerform(_ operation: ServiceOperation) -> Bool {
         switch operation {
         case .statusQuery:
@@ -384,9 +384,9 @@ actor ServiceStateManager {
         }
     }
 
-    // MARK: - 通知发送 (通过 XPC 回调)
+    // MARK: - Notification Sending (via XPC callbacks)
 
-    /// 发送状态变更通知
+    /// Send state change notification
     private func sendStateChangedNotification(oldState: ServiceState, newState: ServiceState) async {
         let data: [String: Any] = [
             "oldState": oldState.rawValue,
@@ -400,18 +400,18 @@ actor ServiceStateManager {
         XPCNotifier.notifyStateChanged(oldState: oldState, newState: newState, data: jsonData)
     }
 
-    /// 发送 XPC 就绪通知 (内部使用，不通知客户端)
+    /// Send XPC ready notification (internal use, does not notify clients)
     private func sendXPCReadyNotification() async {
-        // XPC 就绪是内部状态，不需要通知客户端
-        logger.info("XPC 就绪，可以接受客户端连接")
+        // XPC ready is an internal state, no need to notify clients
+        logger.info("XPC ready, can accept client connections")
     }
 
-    /// 发送服务就绪通知
+    /// Send service ready notification
     private func sendServiceReadyNotification() async {
         XPCNotifier.notifyServiceReady()
     }
 
-    /// 发送服务错误通知
+    /// Send service error notification
     private func sendServiceErrorNotification(error: ServiceErrorInfo) async {
         XPCNotifier.notifyComponentError(
             component: "Service",
@@ -421,7 +421,7 @@ actor ServiceStateManager {
         )
     }
 
-    /// 发送组件错误通知
+    /// Send component error notification
     private func sendComponentErrorNotification(component: ServiceComponent, error: ComponentError) async {
         XPCNotifier.notifyComponentError(
             component: component.rawValue,
@@ -431,12 +431,12 @@ actor ServiceStateManager {
         )
     }
 
-    /// 发送配置状态通知
+    /// Send config status notification
     private func sendConfigStatusNotification(status: ConfigStatus) async {
         XPCNotifier.notifyConfigUpdated()
     }
 
-    /// 发送配置冲突通知
+    /// Send config conflict notification
     private func sendConfigConflictNotification(conflicts: [ConfigConflict]) async {
         let data: [String: Any] = [
             "conflicts": conflicts.map { conflict -> [String: Any] in
@@ -454,26 +454,26 @@ actor ServiceStateManager {
         }
     }
 
-    /// 发送 VFS 挂载完成通知 (通过服务就绪通知)
+    /// Send VFS mount completed notification (via service ready notification)
     func sendVFSMountedNotification(syncPairIds: [String], mountPoints: [String]) async {
-        // VFS 挂载完成后会设置 READY 状态，不需要单独通知
-        logger.info("VFS 挂载完成: \(syncPairIds.joined(separator: ", "))")
+        // After VFS mount completes, READY state is set; no separate notification needed
+        logger.info("VFS mount completed: \(syncPairIds.joined(separator: ", "))")
     }
 
-    /// 发送索引进度通知
+    /// Send index progress notification
     func sendIndexProgressNotification(progress: IndexProgress) async {
         if let jsonData = try? JSONEncoder().encode(progress) {
             XPCNotifier.notifyIndexProgress(data: jsonData)
         }
     }
 
-    /// 发送索引完成通知
+    /// Send index ready notification
     func sendIndexReadyNotification(syncPairId: String, totalFiles: Int, totalSize: Int64, duration: TimeInterval) async {
-        logger.info("索引完成: \(syncPairId), \(totalFiles) 文件, \(totalSize) 字节, 耗时 \(duration)s")
+        logger.info("Index completed: \(syncPairId), \(totalFiles) files, \(totalSize) bytes, took \(duration)s")
         XPCNotifier.notifyIndexReady(syncPairId: syncPairId)
     }
 
-    /// 发送索引完成通知 (简化版本)
+    /// Send index ready notification (simplified)
     func sendIndexReadyNotification(syncPairId: String) async {
         XPCNotifier.notifyIndexReady(syncPairId: syncPairId)
     }

@@ -64,7 +64,7 @@ final class MenuBarManager {
     }
 
     @objc private func handleSyncStatusChanged() {
-        Logger.shared.debug("收到状态变更通知，更新菜单栏")
+        Logger.shared.debug("Received status change notification, updating menu bar")
         syncWithAppState()
     }
 
@@ -263,7 +263,7 @@ final class MenuBarManager {
     // MARK: - State Updates
 
     private var isSyncEnabled: Bool {
-        // Check if service is ready (使用 MainActor.assumeIsolated 访问 MainActor 隔离的属性)
+        // Check if service is ready (using MainActor.assumeIsolated to access MainActor-isolated properties)
         let isReady = MainActor.assumeIsolated { stateManager.isReady }
         if !isReady { return false }
 

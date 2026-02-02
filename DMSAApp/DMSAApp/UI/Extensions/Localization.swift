@@ -328,7 +328,7 @@ enum L10n {
             static var retryCountUnit: String { "settings.advanced.retryCountUnit".localized }
             static var timeout: String { "settings.advanced.timeout".localized }
 
-            // 同步选项 (替代 rsync)
+            // Sync options (replacing rsync)
             static var syncOptions: String { "settings.advanced.syncOptions".localized }
             static var enableChecksum: String { "settings.advanced.enableChecksum".localized }
             static var enableChecksumHint: String { "settings.advanced.enableChecksumHint".localized }
@@ -340,7 +340,7 @@ enum L10n {
             static var enablePauseResume: String { "settings.advanced.enablePauseResume".localized }
             static var enablePauseResumeHint: String { "settings.advanced.enablePauseResumeHint".localized }
 
-            // 冲突解决
+            // Conflict resolution
             static var conflictResolution: String { "settings.advanced.conflictResolution".localized }
             static var conflictStrategy: String { "settings.advanced.conflictStrategy".localized }
             static var autoResolveConflicts: String { "settings.advanced.autoResolveConflicts".localized }
