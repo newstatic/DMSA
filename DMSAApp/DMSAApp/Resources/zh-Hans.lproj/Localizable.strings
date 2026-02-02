@@ -719,3 +719,28 @@
 // MARK: - Recovery Extended (v4.9)
 "recovery.reconnect" = "重新连接";
 "recovery.retry" = "重试";
+
+// MARK: - Navigation Extended (v5.0)
+"nav.syncHistory" = "同步历史";
+"nav.evictionHistory" = "淘汰历史";
+
+// MARK: - Sync History Page (v5.0)
+"syncHistory.filter.syncPair" = "同步对";
+"syncHistory.filter.all" = "全部";
+"syncHistory.empty" = "暂无同步记录";
+"common.files" = "个文件";
+"common.search" = "搜索...";
+"sync.status.cancelled" = "已取消";
+"sync.pairs" = "同步配对";
+"sync.pairs.empty" = "未配置同步对，前往磁盘页面添加";
+"sync.pairs.disabled" = "已禁用";
+"sync.pairs.diskOffline" = "磁盘离线";
+
+// MARK: - Eviction History Page (v5.0)
+"eviction.filter" = "筛选";
+"eviction.status.success" = "成功";
+"eviction.status.failed" = "失败";
+"eviction.empty" = "暂无淘汰记录";
+"eviction.summary.total" = "总计";
+"eviction.summary.freed" = "已释放";
+"eviction.summary.failed" = "失败";

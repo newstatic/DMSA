@@ -174,8 +174,9 @@ final class DiskManager {
     }
 
     /// 检查初始状态
-    func checkInitialState() {
-        Logger.shared.info("检查硬盘初始状态...")
+    /// - Parameter silent: 是否静默模式（不触发 onDiskConnected 回调）
+    func checkInitialState(silent: Bool = false) {
+        Logger.shared.info("检查硬盘初始状态... (silent=\(silent))")
 
         Task {
             let disks = await getDisks()
@@ -186,7 +187,10 @@ final class DiskManager {
 
                     await MainActor.run {
                         self.connectedDisks[disk.id] = disk
-                        self.onDiskConnected?(disk)
+                        // 静默模式不触发回调（避免启动时弹窗）
+                        if !silent {
+                            self.onDiskConnected?(disk)
+                        }
                     }
 
                     // 通知 DMSAService

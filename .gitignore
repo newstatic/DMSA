@@ -29,3 +29,8 @@ build/
 *.log
 .pbxproj_backups/
 .venv/
+.ruby_env/.bundle/config
+.bundle/config
+vendor/
+DMSAApp/DMSAApp.xcodeproj/project.xcworkspace/xcuserdata/ttttt.xcuserdatad/UserInterfaceState.xcuserstate
+DMSAApp/DMSAApp.xcodeproj/xcuserdata/ttttt.xcuserdatad/xcschemes/xcschememanagement.plist

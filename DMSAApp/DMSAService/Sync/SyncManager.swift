@@ -379,6 +379,9 @@ actor SyncManager {
         notifySyncStatusChanged(syncPairId: syncPairId, status: .inProgress, message: "开始同步")
         notifyProgressUpdate(progress)
 
+        // 记录活动
+        await ActivityManager.shared.addSyncActivity(type: .syncStarted, syncPairId: syncPairId, diskId: disk.id)
+
         // 创建历史记录 (使用服务端实体)
         var history = ServiceSyncHistory(syncPairId: syncPairId, diskId: disk.id)
 
@@ -563,6 +566,9 @@ actor SyncManager {
             notifyProgressUpdate(progress)
             XPCNotifier.notifySyncCompleted(syncPairId: syncPairId, filesCount: history.filesUpdated, bytesCount: history.bytesTransferred)
 
+            // 记录活动
+            await ActivityManager.shared.addSyncActivity(type: .syncCompleted, syncPairId: syncPairId, diskId: disk.id, filesCount: history.filesUpdated, bytesCount: history.bytesTransferred)
+
         } catch {
             // 同步失败
             progress.status = .failed
@@ -584,6 +590,9 @@ actor SyncManager {
             // 发送通知：同步失败
             notifySyncStatusChanged(syncPairId: syncPairId, status: .failed, message: error.localizedDescription)
             notifyProgressUpdate(progress)
+
+            // 记录活动
+            await ActivityManager.shared.addSyncActivity(type: .syncFailed, syncPairId: syncPairId, diskId: disk.id, detail: error.localizedDescription)
 
             // 失败时也保存历史记录
             await database.saveSyncHistory(history)

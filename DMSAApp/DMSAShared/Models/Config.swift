@@ -75,6 +75,14 @@ public struct SyncPairConfig: Codable, Identifiable, Equatable, Hashable, Sendab
     public var enabled: Bool
     public var excludePatterns: [String]
 
+    // MARK: - 淘汰配置 (per SyncPair)
+    /// 本地缓存最大大小 (字节)，超过此大小触发淘汰
+    public var maxLocalCacheSize: Int64
+    /// 淘汰后目标保留空间 (字节)
+    public var targetFreeSpace: Int64
+    /// 是否启用自动淘汰
+    public var autoEvictionEnabled: Bool
+
     public var name: String {
         return (localPath as NSString).lastPathComponent
     }
@@ -88,11 +96,17 @@ public struct SyncPairConfig: Codable, Identifiable, Equatable, Hashable, Sendab
         self.createSymlink = true
         self.enabled = true
         self.excludePatterns = []
+        self.maxLocalCacheSize = 10 * 1024 * 1024 * 1024  // 默认 10GB
+        self.targetFreeSpace = 5 * 1024 * 1024 * 1024     // 默认 5GB
+        self.autoEvictionEnabled = true
     }
 
     public init(id: String, diskId: String, localPath: String, externalRelativePath: String,
          direction: SyncDirection = .localToExternal, createSymlink: Bool = true,
-         enabled: Bool = true, excludePatterns: [String] = []) {
+         enabled: Bool = true, excludePatterns: [String] = [],
+         maxLocalCacheSize: Int64 = 10 * 1024 * 1024 * 1024,
+         targetFreeSpace: Int64 = 5 * 1024 * 1024 * 1024,
+         autoEvictionEnabled: Bool = true) {
         self.id = id
         self.diskId = diskId
         self.localPath = localPath
@@ -101,6 +115,9 @@ public struct SyncPairConfig: Codable, Identifiable, Equatable, Hashable, Sendab
         self.createSymlink = createSymlink
         self.enabled = enabled
         self.excludePatterns = excludePatterns
+        self.maxLocalCacheSize = maxLocalCacheSize
+        self.targetFreeSpace = targetFreeSpace
+        self.autoEvictionEnabled = autoEvictionEnabled
     }
 
     public func externalFullPath(diskMountPath: String) -> String {

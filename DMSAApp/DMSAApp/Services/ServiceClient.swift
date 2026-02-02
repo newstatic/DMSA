@@ -114,6 +114,7 @@ final class XPCCallbackHandler: NSObject, DMSAClientProtocol {
     var serviceReadyHandler: (() -> Void)?
     var conflictDetectedHandler: ((Data) -> Void)?
     var diskChangedHandler: ((String, Bool) -> Void)?
+    var activitiesUpdatedHandler: ((Data) -> Void)?
 
     // MARK: - DMSAClientProtocol 实现
 
@@ -195,6 +196,13 @@ final class XPCCallbackHandler: NSObject, DMSAClientProtocol {
         logger.info("[XPC回调] 磁盘变更: \(diskName) -> \(isConnected ? "连接" : "断开")")
         DispatchQueue.main.async {
             self.diskChangedHandler?(diskName, isConnected)
+        }
+    }
+
+    func onActivitiesUpdated(data: Data) {
+        logger.debug("[XPC回调] 活动更新")
+        DispatchQueue.main.async {
+            self.activitiesUpdatedHandler?(data)
         }
     }
 }
@@ -341,6 +349,11 @@ final class ServiceClient {
             self?.handleXPCDiskChanged(diskName: diskName, isConnected: isConnected)
         }
 
+        // 活动更新
+        callbackHandler.activitiesUpdatedHandler = { [weak self] data in
+            self?.handleXPCActivitiesUpdated(data: data)
+        }
+
         logger.info("已设置 XPC 回调处理器")
     }
 
@@ -462,6 +475,33 @@ final class ServiceClient {
                 "isConnected": isConnected
             ]
         )
+    }
+
+    private func handleXPCActivitiesUpdated(data: Data) {
+        guard let activities = try? JSONDecoder().decode([ActivityRecord].self, from: data) else {
+            logger.warning("[XPC] 活动数据解码失败")
+            return
+        }
+
+        // 发送本地通知
+        NotificationCenter.default.post(
+            name: NSNotification.Name("DMSAActivitiesUpdated"),
+            object: nil,
+            userInfo: ["activities": activities]
+        )
+    }
+
+    // MARK: - 活动查询
+
+    /// 获取最近活动记录
+    func getRecentActivities() async throws -> [ActivityRecord] {
+        let proxy = try await getProxy()
+        return try await withCheckedThrowingContinuation { continuation in
+            proxy.getRecentActivities { data in
+                let activities = (try? JSONDecoder().decode([ActivityRecord].self, from: data)) ?? []
+                continuation.resume(returning: activities)
+            }
+        }
     }
 
     // MARK: - Connection Management

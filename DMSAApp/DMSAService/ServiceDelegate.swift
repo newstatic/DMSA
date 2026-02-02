@@ -4,7 +4,7 @@ import Security
 /// DMSAService XPC 委托
 final class ServiceDelegate: NSObject, NSXPCListenerDelegate {
 
-    /// 单例引用 (用于信号处理)
+    /// 单例引用 (用于信号处理和全局访问)
     static weak var shared: ServiceDelegate?
 
     private let logger = Logger.forService("DMSAService")
@@ -30,9 +30,13 @@ final class ServiceDelegate: NSObject, NSXPCListenerDelegate {
 
         logger.info("接受新连接: PID \(newConnection.processIdentifier)")
 
-        // 配置连接
+        // 配置 Service -> App 接口 (exportedInterface)
         newConnection.exportedInterface = NSXPCInterface(with: DMSAServiceProtocol.self)
         newConnection.exportedObject = implementation
+
+        // 配置 App -> Service 回调接口 (remoteObjectInterface)
+        // 允许 Service 通过此接口主动通知 App
+        newConnection.remoteObjectInterface = NSXPCInterface(with: DMSAClientProtocol.self)
 
         // 连接断开处理
         newConnection.invalidationHandler = { [weak self, weak newConnection] in
@@ -118,6 +122,119 @@ final class ServiceDelegate: NSObject, NSXPCListenerDelegate {
         connectionLock.lock()
         defer { connectionLock.unlock() }
         activeConnections.removeAll { $0 === connection }
+    }
+
+    /// 获取所有活跃连接的客户端代理
+    private func getClientProxies() -> [DMSAClientProtocol] {
+        connectionLock.lock()
+        defer { connectionLock.unlock() }
+
+        return activeConnections.compactMap { connection in
+            connection.remoteObjectProxy as? DMSAClientProtocol
+        }
+    }
+
+    // MARK: - 客户端通知
+
+    /// 通知所有连接的客户端状态变更
+    func notifyStateChanged(oldState: Int, newState: Int, data: Data?) {
+        logger.debug("[XPC通知] 状态变更: \(oldState) -> \(newState)")
+        for client in getClientProxies() {
+            client.onStateChanged(oldState: oldState, newState: newState, data: data)
+        }
+    }
+
+    /// 通知索引进度
+    func notifyIndexProgress(data: Data) {
+        for client in getClientProxies() {
+            client.onIndexProgress(data: data)
+        }
+    }
+
+    /// 通知索引就绪
+    func notifyIndexReady(syncPairId: String) {
+        logger.debug("[XPC通知] 索引就绪: \(syncPairId)")
+        for client in getClientProxies() {
+            client.onIndexReady(syncPairId: syncPairId)
+        }
+    }
+
+    /// 通知同步进度
+    func notifySyncProgress(data: Data) {
+        for client in getClientProxies() {
+            client.onSyncProgress(data: data)
+        }
+    }
+
+    /// 通知同步状态变更
+    func notifySyncStatusChanged(syncPairId: String, status: Int, message: String?) {
+        logger.debug("[XPC通知] 同步状态变更: \(syncPairId) -> \(status)")
+        for client in getClientProxies() {
+            client.onSyncStatusChanged(syncPairId: syncPairId, status: status, message: message)
+        }
+    }
+
+    /// 通知同步完成
+    func notifySyncCompleted(syncPairId: String, filesCount: Int, bytesCount: Int64) {
+        logger.debug("[XPC通知] 同步完成: \(syncPairId), \(filesCount) 文件")
+        for client in getClientProxies() {
+            client.onSyncCompleted(syncPairId: syncPairId, filesCount: filesCount, bytesCount: bytesCount)
+        }
+    }
+
+    /// 通知淘汰进度
+    func notifyEvictionProgress(data: Data) {
+        for client in getClientProxies() {
+            client.onEvictionProgress(data: data)
+        }
+    }
+
+    /// 通知组件错误
+    func notifyComponentError(component: String, code: Int, message: String, isCritical: Bool) {
+        logger.debug("[XPC通知] 组件错误: \(component) - \(message)")
+        for client in getClientProxies() {
+            client.onComponentError(component: component, code: code, message: message, isCritical: isCritical)
+        }
+    }
+
+    /// 通知配置更新
+    func notifyConfigUpdated() {
+        logger.debug("[XPC通知] 配置已更新")
+        for client in getClientProxies() {
+            client.onConfigUpdated()
+        }
+    }
+
+    /// 通知服务就绪
+    func notifyServiceReady() {
+        logger.debug("[XPC通知] 服务就绪")
+        for client in getClientProxies() {
+            client.onServiceReady()
+        }
+    }
+
+    /// 通知冲突检测
+    func notifyConflictDetected(data: Data) {
+        logger.debug("[XPC通知] 冲突检测")
+        for client in getClientProxies() {
+            client.onConflictDetected(data: data)
+        }
+    }
+
+    /// 通知磁盘状态变更
+    func notifyDiskChanged(diskName: String, isConnected: Bool) {
+        logger.debug("[XPC通知] 磁盘变更: \(diskName) -> \(isConnected ? "连接" : "断开")")
+        for client in getClientProxies() {
+            client.onDiskChanged(diskName: diskName, isConnected: isConnected)
+        }
+    }
+
+    /// 通知活动更新
+    func notifyActivitiesUpdated(data: Data) {
+        logger.debug("[XPC通知] 活动更新")
+        for client in getClientProxies() {
+            client.onActivitiesUpdated(data: data)
+        }
     }
 
     // MARK: - 生命周期

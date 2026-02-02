@@ -213,25 +213,7 @@ struct EvictionProgress: Equatable {
 }
 
 // MARK: - Index Progress
-
-/// 索引进度
-struct IndexProgress: Equatable {
-    var syncPairId: String
-    var phase: String
-    var progress: Double
-    var totalFiles: Int
-    var processedFiles: Int
-    var currentPath: String?
-
-    init(syncPairId: String = "", phase: String = "indexing", progress: Double = 0, totalFiles: Int = 0, processedFiles: Int = 0, currentPath: String? = nil) {
-        self.syncPairId = syncPairId
-        self.phase = phase
-        self.progress = progress
-        self.totalFiles = totalFiles
-        self.processedFiles = processedFiles
-        self.currentPath = currentPath
-    }
-}
+// 注意: IndexProgress 已移至 DMSAShared/Models/ServiceFullState.swift
 
 // MARK: - Termination Response
 

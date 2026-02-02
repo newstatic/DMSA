@@ -1,63 +1,165 @@
 import Foundation
 
-// MARK: - 通知队列
+// MARK: - XPC 通知发送器
 
-/// 通知队列 (用于启动时缓存通知)
-actor NotificationQueue {
-    private var queue: [PendingNotification] = []
-    private var isFlushingEnabled = false
-    private let maxQueueSize = 100
+/// XPC 通知发送器
+/// 通过 ServiceDelegate 向所有连接的客户端发送通知
+enum XPCNotifier {
+    private static let logger = Logger.forService("XPCNotifier")
 
-    struct PendingNotification {
-        let name: String
-        let data: String?
-        let timestamp: Date
-    }
-
-    /// 添加通知到队列
-    func enqueue(name: String, data: String?) {
-        let notification = PendingNotification(name: name, data: data, timestamp: Date())
-
-        if isFlushingEnabled {
-            // 直接发送
-            sendNotification(notification)
-        } else {
-            // 加入队列
-            queue.append(notification)
-            // 限制队列大小
-            if queue.count > maxQueueSize {
-                queue.removeFirst()
-            }
-        }
-    }
-
-    /// 启用通知刷新 (XPC 就绪后调用)
-    func enableFlushing() {
-        isFlushingEnabled = true
-        flushQueue()
-    }
-
-    /// 刷新队列中的所有通知
-    private func flushQueue() {
-        for notification in queue {
-            sendNotification(notification)
-        }
-        queue.removeAll()
-    }
-
-    /// 发送单个通知
-    private nonisolated func sendNotification(_ notification: PendingNotification) {
-        DistributedNotificationCenter.default().postNotificationName(
-            NSNotification.Name(notification.name),
-            object: notification.data,
-            userInfo: nil,
-            deliverImmediately: true
+    /// 发送状态变更通知
+    static func notifyStateChanged(oldState: ServiceState, newState: ServiceState, data: Data?) {
+        logger.info("[XPC通知] 状态变更: \(oldState.name) -> \(newState.name)")
+        ServiceDelegate.shared?.notifyStateChanged(
+            oldState: oldState.rawValue,
+            newState: newState.rawValue,
+            data: data
         )
     }
 
-    /// 获取队列大小
-    var count: Int {
-        return queue.count
+    /// 发送索引进度
+    static func notifyIndexProgress(data: Data) {
+        ServiceDelegate.shared?.notifyIndexProgress(data: data)
+    }
+
+    /// 发送索引就绪
+    static func notifyIndexReady(syncPairId: String) {
+        logger.info("[XPC通知] 索引就绪: \(syncPairId)")
+        ServiceDelegate.shared?.notifyIndexReady(syncPairId: syncPairId)
+    }
+
+    /// 发送同步进度
+    static func notifySyncProgress(data: Data) {
+        ServiceDelegate.shared?.notifySyncProgress(data: data)
+    }
+
+    /// 发送同步状态变更
+    static func notifySyncStatusChanged(syncPairId: String, status: SyncStatus, message: String?) {
+        logger.info("[XPC通知] 同步状态变更: \(syncPairId) -> \(status.displayName)")
+        ServiceDelegate.shared?.notifySyncStatusChanged(
+            syncPairId: syncPairId,
+            status: status.rawValue,
+            message: message
+        )
+    }
+
+    /// 发送同步完成
+    static func notifySyncCompleted(syncPairId: String, filesCount: Int, bytesCount: Int64) {
+        logger.info("[XPC通知] 同步完成: \(syncPairId), \(filesCount) 文件")
+        ServiceDelegate.shared?.notifySyncCompleted(
+            syncPairId: syncPairId,
+            filesCount: filesCount,
+            bytesCount: bytesCount
+        )
+    }
+
+    /// 发送淘汰进度
+    static func notifyEvictionProgress(data: Data) {
+        ServiceDelegate.shared?.notifyEvictionProgress(data: data)
+    }
+
+    /// 发送组件错误
+    static func notifyComponentError(component: String, code: Int, message: String, isCritical: Bool) {
+        logger.info("[XPC通知] 组件错误: \(component) - \(message)")
+        ServiceDelegate.shared?.notifyComponentError(
+            component: component,
+            code: code,
+            message: message,
+            isCritical: isCritical
+        )
+    }
+
+    /// 发送配置更新
+    static func notifyConfigUpdated() {
+        logger.info("[XPC通知] 配置已更新")
+        ServiceDelegate.shared?.notifyConfigUpdated()
+    }
+
+    /// 发送服务就绪
+    static func notifyServiceReady() {
+        logger.info("[XPC通知] 服务就绪")
+        ServiceDelegate.shared?.notifyServiceReady()
+    }
+
+    /// 发送冲突检测
+    static func notifyConflictDetected(data: Data) {
+        logger.info("[XPC通知] 冲突检测")
+        ServiceDelegate.shared?.notifyConflictDetected(data: data)
+    }
+
+    /// 发送磁盘状态变更
+    static func notifyDiskChanged(diskName: String, isConnected: Bool) {
+        logger.info("[XPC通知] 磁盘变更: \(diskName) -> \(isConnected ? "连接" : "断开")")
+        ServiceDelegate.shared?.notifyDiskChanged(diskName: diskName, isConnected: isConnected)
+    }
+
+    /// 发送活动更新
+    static func notifyActivitiesUpdated(data: Data) {
+        ServiceDelegate.shared?.notifyActivitiesUpdated(data: data)
+    }
+}
+
+// MARK: - 活动记录管理器
+
+/// 管理最近 5 条活动记录，实时推送前端
+actor ActivityManager {
+    static let shared = ActivityManager()
+
+    private let logger = Logger.forService("ActivityManager")
+    private var activities: [ActivityRecord] = []
+    private let maxCount = 5
+
+    private init() {}
+
+    /// 添加活动记录
+    func addActivity(_ activity: ActivityRecord) {
+        activities.insert(activity, at: 0)
+        if activities.count > maxCount {
+            activities = Array(activities.prefix(maxCount))
+        }
+        pushToClients()
+    }
+
+    /// 便捷方法：添加同步相关活动
+    func addSyncActivity(type: ActivityType, syncPairId: String, diskId: String? = nil, filesCount: Int? = nil, bytesCount: Int64? = nil, detail: String? = nil) {
+        let title: String
+        switch type {
+        case .syncStarted: title = "开始同步 \(syncPairId)"
+        case .syncCompleted: title = "同步完成 \(syncPairId)"
+        case .syncFailed: title = "同步失败 \(syncPairId)"
+        default: title = "\(syncPairId)"
+        }
+        let activity = ActivityRecord(type: type, title: title, detail: detail, syncPairId: syncPairId, diskId: diskId, filesCount: filesCount, bytesCount: bytesCount)
+        addActivity(activity)
+    }
+
+    /// 便捷方法：添加淘汰活动
+    func addEvictionActivity(filesCount: Int, bytesCount: Int64, syncPairId: String? = nil, failed: Bool = false) {
+        let type: ActivityType = failed ? .evictionFailed : .evictionCompleted
+        let sizeStr = ByteCountFormatter.string(fromByteCount: bytesCount, countStyle: .file)
+        let title = failed ? "淘汰失败" : "淘汰完成"
+        let detail = "\(filesCount) 个文件, \(sizeStr)"
+        let activity = ActivityRecord(type: type, title: title, detail: detail, syncPairId: syncPairId, filesCount: filesCount, bytesCount: bytesCount)
+        addActivity(activity)
+    }
+
+    /// 便捷方法：添加磁盘活动
+    func addDiskActivity(diskName: String, isConnected: Bool) {
+        let type: ActivityType = isConnected ? .diskConnected : .diskDisconnected
+        let title = isConnected ? "磁盘已连接" : "磁盘已断开"
+        let activity = ActivityRecord(type: type, title: title, detail: diskName, diskId: diskName)
+        addActivity(activity)
+    }
+
+    /// 获取当前活动列表
+    func getActivities() -> [ActivityRecord] {
+        return activities
+    }
+
+    /// 推送活动到所有客户端
+    private func pushToClients() {
+        guard let data = try? JSONEncoder().encode(activities) else { return }
+        XPCNotifier.notifyActivitiesUpdated(data: data)
     }
 }
 
@@ -80,9 +182,6 @@ actor ServiceStateManager {
 
     /// 组件状态
     private var componentStates: [String: ComponentStateInfo] = [:]
-
-    /// 通知队列
-    private let notificationQueue = NotificationQueue()
 
     /// 配置状态
     private var configStatus = ConfigStatus()
@@ -128,8 +227,7 @@ actor ServiceStateManager {
         // 特殊状态处理
         switch newState {
         case .xpcReady:
-            // XPC 就绪，启用通知刷新
-            await notificationQueue.enableFlushing()
+            // XPC 就绪，可以接受客户端连接
             await sendXPCReadyNotification()
 
         case .ready:
@@ -243,7 +341,7 @@ actor ServiceStateManager {
             globalState: globalState,
             components: componentStates,
             config: configStatus,
-            pendingNotifications: 0,  // 通知队列是 actor，需要异步获取
+            pendingNotifications: 0,  // 现在使用 XPC 回调，不再有队列
             startTime: startTime,
             lastError: lastError,
             version: version,
@@ -270,7 +368,7 @@ actor ServiceStateManager {
         }
     }
 
-    // MARK: - 通知发送
+    // MARK: - 通知发送 (通过 XPC 回调)
 
     /// 发送状态变更通知
     private func sendStateChangedNotification(oldState: ServiceState, newState: ServiceState) async {
@@ -282,65 +380,44 @@ actor ServiceStateManager {
             "timestamp": Date().timeIntervalSince1970
         ]
 
-        if let jsonData = try? JSONSerialization.data(withJSONObject: data),
-           let json = String(data: jsonData, encoding: .utf8) {
-            await notificationQueue.enqueue(name: Constants.Notifications.stateChanged, data: json)
-        }
+        let jsonData = try? JSONSerialization.data(withJSONObject: data)
+        XPCNotifier.notifyStateChanged(oldState: oldState, newState: newState, data: jsonData)
     }
 
-    /// 发送 XPC 就绪通知
+    /// 发送 XPC 就绪通知 (内部使用，不通知客户端)
     private func sendXPCReadyNotification() async {
-        let data: [String: Any] = [
-            "version": version,
-            "protocolVersion": protocolVersion,
-            "timestamp": Date().timeIntervalSince1970
-        ]
-
-        if let jsonData = try? JSONSerialization.data(withJSONObject: data),
-           let json = String(data: jsonData, encoding: .utf8) {
-            await notificationQueue.enqueue(name: Constants.Notifications.xpcReady, data: json)
-        }
+        // XPC 就绪是内部状态，不需要通知客户端
+        logger.info("XPC 就绪，可以接受客户端连接")
     }
 
     /// 发送服务就绪通知
     private func sendServiceReadyNotification() async {
-        let fullState = getFullState()
-        if let jsonData = try? JSONEncoder().encode(fullState),
-           let json = String(data: jsonData, encoding: .utf8) {
-            await notificationQueue.enqueue(name: Constants.Notifications.serviceReady, data: json)
-        }
+        XPCNotifier.notifyServiceReady()
     }
 
     /// 发送服务错误通知
     private func sendServiceErrorNotification(error: ServiceErrorInfo) async {
-        if let jsonData = try? JSONEncoder().encode(error),
-           let json = String(data: jsonData, encoding: .utf8) {
-            await notificationQueue.enqueue(name: Constants.Notifications.serviceError, data: json)
-        }
+        XPCNotifier.notifyComponentError(
+            component: "Service",
+            code: error.code,
+            message: error.message,
+            isCritical: true
+        )
     }
 
     /// 发送组件错误通知
     private func sendComponentErrorNotification(component: ServiceComponent, error: ComponentError) async {
-        let data: [String: Any] = [
-            "component": component.rawValue,
-            "errorCode": error.code,
-            "errorMessage": error.message,
-            "recoverable": error.recoverable,
-            "timestamp": error.timestamp.timeIntervalSince1970
-        ]
-
-        if let jsonData = try? JSONSerialization.data(withJSONObject: data),
-           let json = String(data: jsonData, encoding: .utf8) {
-            await notificationQueue.enqueue(name: Constants.Notifications.componentError, data: json)
-        }
+        XPCNotifier.notifyComponentError(
+            component: component.rawValue,
+            code: error.code,
+            message: error.message,
+            isCritical: !error.recoverable
+        )
     }
 
     /// 发送配置状态通知
     private func sendConfigStatusNotification(status: ConfigStatus) async {
-        if let jsonData = try? JSONEncoder().encode(status),
-           let json = String(data: jsonData, encoding: .utf8) {
-            await notificationQueue.enqueue(name: Constants.Notifications.configStatus, data: json)
-        }
+        XPCNotifier.notifyConfigUpdated()
     }
 
     /// 发送配置冲突通知
@@ -356,60 +433,32 @@ actor ServiceStateManager {
             "requiresUserAction": conflicts.contains { $0.requiresUserAction }
         ]
 
-        if let jsonData = try? JSONSerialization.data(withJSONObject: data),
-           let json = String(data: jsonData, encoding: .utf8) {
-            await notificationQueue.enqueue(name: Constants.Notifications.configConflict, data: json)
+        if let jsonData = try? JSONSerialization.data(withJSONObject: data) {
+            XPCNotifier.notifyConflictDetected(data: jsonData)
         }
     }
 
-    /// 发送 VFS 挂载完成通知
+    /// 发送 VFS 挂载完成通知 (通过服务就绪通知)
     func sendVFSMountedNotification(syncPairIds: [String], mountPoints: [String]) async {
-        let data: [String: Any] = [
-            "syncPairIds": syncPairIds,
-            "mountPoints": mountPoints,
-            "timestamp": Date().timeIntervalSince1970
-        ]
-
-        if let jsonData = try? JSONSerialization.data(withJSONObject: data),
-           let json = String(data: jsonData, encoding: .utf8) {
-            await notificationQueue.enqueue(name: Constants.Notifications.vfsMounted, data: json)
-        }
+        // VFS 挂载完成后会设置 READY 状态，不需要单独通知
+        logger.info("VFS 挂载完成: \(syncPairIds.joined(separator: ", "))")
     }
 
     /// 发送索引进度通知
     func sendIndexProgressNotification(progress: IndexProgress) async {
-        if let jsonData = try? JSONEncoder().encode(progress),
-           let json = String(data: jsonData, encoding: .utf8) {
-            await notificationQueue.enqueue(name: Constants.Notifications.indexProgress, data: json)
+        if let jsonData = try? JSONEncoder().encode(progress) {
+            XPCNotifier.notifyIndexProgress(data: jsonData)
         }
     }
 
     /// 发送索引完成通知
     func sendIndexReadyNotification(syncPairId: String, totalFiles: Int, totalSize: Int64, duration: TimeInterval) async {
-        let data: [String: Any] = [
-            "syncPairId": syncPairId,
-            "totalFiles": totalFiles,
-            "totalSize": totalSize,
-            "duration": duration,
-            "timestamp": Date().timeIntervalSince1970
-        ]
-
-        if let jsonData = try? JSONSerialization.data(withJSONObject: data),
-           let json = String(data: jsonData, encoding: .utf8) {
-            await notificationQueue.enqueue(name: Constants.Notifications.indexReady, data: json)
-        }
+        logger.info("索引完成: \(syncPairId), \(totalFiles) 文件, \(totalSize) 字节, 耗时 \(duration)s")
+        XPCNotifier.notifyIndexReady(syncPairId: syncPairId)
     }
 
     /// 发送索引完成通知 (简化版本)
     func sendIndexReadyNotification(syncPairId: String) async {
-        let data: [String: Any] = [
-            "syncPairId": syncPairId,
-            "timestamp": Date().timeIntervalSince1970
-        ]
-
-        if let jsonData = try? JSONSerialization.data(withJSONObject: data),
-           let json = String(data: jsonData, encoding: .utf8) {
-            await notificationQueue.enqueue(name: Constants.Notifications.indexReady, data: json)
-        }
+        XPCNotifier.notifyIndexReady(syncPairId: syncPairId)
     }
 }

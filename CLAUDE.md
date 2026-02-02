@@ -331,18 +331,6 @@ tail -f ~/Library/Logs/DMSA/app.log
 
 | Session ID | 日期 | 标题 | 摘要 |
 |------------|------|------|------|
-| (初始化) | 2026-01-20 | 记忆文档初始化 | 创建 CLAUDE.md v1.0 |
-| (重构) | 2026-01-20 | v2.0 架构设计 | 需求收集、技术设计 |
-| (实施) | 2026-01-20 | 核心代码实施 | 创建21个Swift源文件 |
-| (性能修复) | 2026-01-21 | UI卡死修复 | 进度回调节流 |
-| (架构纠正) | 2026-01-21 | v2.1 架构纠正 | 移除 LocalCache，使用 Downloads_Local |
-| (macFUSE) | 2026-01-24 | macFUSE 集成 | VFS 核心组件实现 |
-| (v4.1) | 2026-01-24 | 服务统一 | VFS+Sync+Helper 合并为 DMSAService |
-| (v4.2) | 2026-01-24 | FUSE服务迁移 | FUSE挂载从App移至Service |
-| (v4.3) | 2026-01-24 | EvictionManager | LRU淘汰机制 |
-| (v4.4) | 2026-01-24 | 业务逻辑迁移 | 全部业务逻辑迁移到Service |
-| (v4.5) | 2026-01-24 | App端清理 | 移除冗余代码和兼容逻辑 |
-| (v4.6) | 2026-01-24 | 纯UI架构 | 删除VFSCore/FileFilter等，Services仅剩10文件 |
 | 505f841a | 2026-01-24 | v4.5编译修复 | 修复类型错误、恢复ConfigManager、添加共享模型 |
 | eae6e63e | 2026-01-26 | 代码签名修复 | 修复 Service Team ID、macFUSE Library Validation |
 | 2a099f6b | 2026-01-26 | C FUSE Wrapper | libfuse C 实现，修复权限和保护问题 |
@@ -359,6 +347,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | 7ec270c8 | 2026-01-28 | i18n 修复 + 清理 | 添加 150+ 缺失本地化键，删除 78 个未使用键 |
 | 7ec270c8 | 2026-01-28 | 磁盘状态同步修复 | DashboardView 与 DisksPage 状态不同步问题 |
 | 7ec270c8 | 2026-01-28 | 文件级同步/淘汰记录 | ServiceSyncFileRecord 实体 + XPC + UI 展示 |
+| c2bc39ee | 2026-02-02 | 编译/i18n/解码修复 | pbxproj 路径修复、PBXVariantGroup 修复、SyncHistory CodingKeys 映射修复 |
 
 ---
 

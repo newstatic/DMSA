@@ -398,6 +398,11 @@ import Foundation
     /// 检查是否可以执行指定操作
     func canPerformOperation(_ operation: String,
                              withReply reply: @escaping (Bool) -> Void)
+
+    // MARK: - ========== 活动记录 ==========
+
+    /// 获取最近活动记录
+    func getRecentActivities(withReply reply: @escaping (Data) -> Void)
 }
 
 // MARK: - XPC Interface 配置

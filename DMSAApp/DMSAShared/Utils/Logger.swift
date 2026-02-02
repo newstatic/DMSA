@@ -89,16 +89,48 @@ public final class Logger: @unchecked Sendable {
     /// Service 端设置为 ServiceStateManager.shared.getState
     public static var globalStateProvider: (() -> String)? = nil
 
+    // MARK: - 静态共享资源 (所有 Logger 实例共用，确保写入串行化)
+
+    /// 全局写入队列 - 所有 Logger 实例共用
+    private static let sharedQueue = DispatchQueue(label: "com.ttttt.dmsa.logger.shared", qos: .utility)
+
+    /// 共享的文件句柄 (按进程类型区分)
+    private static var sharedFileHandle: FileHandle?
+    private static var sharedLogFileURL: URL?
+    private static var sharedUseStandardFormat: Bool = false
+    private static var isInitialized = false
+
+    /// 初始化共享资源 (只执行一次)
+    private static func initializeSharedResources() {
+        guard !isInitialized else { return }
+        isInitialized = true
+
+        let logsDir = Constants.Paths.logs
+        try? FileManager.default.createDirectory(at: logsDir, withIntermediateDirectories: true)
+
+        // 根据运行身份选择日志文件
+        let isRunningAsRoot = getuid() == 0
+        if isRunningAsRoot {
+            sharedLogFileURL = Constants.Paths.serviceLog
+            sharedUseStandardFormat = true
+        } else {
+            sharedLogFileURL = Constants.Paths.appLog
+            sharedUseStandardFormat = false
+        }
+
+        if let url = sharedLogFileURL {
+            if !FileManager.default.fileExists(atPath: url.path) {
+                FileManager.default.createFile(atPath: url.path, contents: nil)
+            }
+            sharedFileHandle = FileHandle(forWritingAtPath: url.path)
+            sharedFileHandle?.seekToEndOfFile()
+        }
+    }
+
     private let source: String
-    private let logFileURL: URL
-    private let fileHandle: FileHandle?
     private let dateFormatter: DateFormatter
     private let timeFormatter: DateFormatter
-    private let queue = DispatchQueue(label: "com.ttttt.dmsa.logger", qos: .utility)
     private let osLog: OSLog
-
-    /// 是否使用标准格式 (Service 端启用)
-    private let useStandardFormat: Bool
 
     /// 组件状态 (可动态更新)
     public var componentState: String = "--"
@@ -106,27 +138,8 @@ public final class Logger: @unchecked Sendable {
     private init(source: String) {
         self.source = source
 
-        let logsDir = Constants.Paths.logs
-
-        try? FileManager.default.createDirectory(at: logsDir, withIntermediateDirectories: true)
-
-        // 根据运行身份选择日志文件
-        // root 身份 (Service) -> serviceLog，使用标准格式
-        // 普通用户 (App) -> appLog，使用旧格式
-        let isRunningAsRoot = getuid() == 0
-        if isRunningAsRoot {
-            logFileURL = Constants.Paths.serviceLog
-            useStandardFormat = true
-        } else {
-            logFileURL = Constants.Paths.appLog
-            useStandardFormat = false
-        }
-
-        if !FileManager.default.fileExists(atPath: logFileURL.path) {
-            FileManager.default.createFile(atPath: logFileURL.path, contents: nil)
-        }
-        fileHandle = FileHandle(forWritingAtPath: logFileURL.path)
-        fileHandle?.seekToEndOfFile()
+        // 确保共享资源已初始化
+        Logger.initializeSharedResources()
 
         dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
@@ -135,6 +148,16 @@ public final class Logger: @unchecked Sendable {
         timeFormatter.dateFormat = "HH:mm:ss.SSS"
 
         osLog = OSLog(subsystem: Constants.bundleId, category: source)
+    }
+
+    /// 是否使用标准格式
+    private var useStandardFormat: Bool {
+        Logger.sharedUseStandardFormat
+    }
+
+    /// 日志文件 URL
+    private var logFileURL: URL {
+        Logger.sharedLogFileURL ?? Constants.Paths.appLog
     }
 
     /// 格式化日志消息
@@ -159,17 +182,19 @@ public final class Logger: @unchecked Sendable {
         let fileName = (file as NSString).lastPathComponent
         let timestamp = Date()
         let logMessage = formatMessage(message, level: level, timestamp: timestamp, fileName: fileName, line: line)
+        let osLogRef = self.osLog
 
-        queue.async { [weak self] in
-            guard let self = self else { return }
-
+        // 使用共享队列同步写入，确保所有 Logger 实例的日志顺序正确
+        Logger.sharedQueue.sync {
             // 写入文件
             if let data = logMessage.data(using: .utf8) {
-                self.fileHandle?.write(data)
+                Logger.sharedFileHandle?.write(data)
+                // 立即刷新确保写入完成
+                Logger.sharedFileHandle?.synchronizeFile()
             }
 
             // 写入 OS Log
-            os_log("%{public}@", log: self.osLog, type: level.osLogType, message)
+            os_log("%{public}@", log: osLogRef, type: level.osLogType, message)
 
             // 控制台输出
             #if DEBUG
@@ -210,9 +235,9 @@ public final class Logger: @unchecked Sendable {
     }
 
     public func clearLogFile() {
-        queue.async { [weak self] in
-            self?.fileHandle?.truncateFile(atOffset: 0)
-            self?.fileHandle?.synchronizeFile()
+        Logger.sharedQueue.async {
+            Logger.sharedFileHandle?.truncateFile(atOffset: 0)
+            Logger.sharedFileHandle?.synchronizeFile()
         }
     }
 
@@ -230,8 +255,8 @@ public final class Logger: @unchecked Sendable {
 
     /// 同步刷新日志到磁盘
     public func flush() {
-        queue.sync {
-            fileHandle?.synchronizeFile()
+        Logger.sharedQueue.sync {
+            Logger.sharedFileHandle?.synchronizeFile()
         }
     }
 }

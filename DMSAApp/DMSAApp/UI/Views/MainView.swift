@@ -13,12 +13,14 @@ struct MainView: View {
     // MARK: - Navigation Tabs (6 items as per design spec)
 
     enum MainTab: String, CaseIterable, Identifiable {
-        case dashboard    // 仪表盘
-        case sync         // 同步
-        case conflicts    // 冲突
-        case disks        // 磁盘
-        case settings     // 设置
-        case logs         // 日志
+        case dashboard      // 仪表盘
+        case sync           // 同步
+        case syncHistory    // 同步历史
+        case evictionHistory // 淘汰历史
+        case conflicts      // 冲突
+        case disks          // 磁盘
+        case settings       // 设置
+        case logs           // 日志
 
         var id: String { rawValue }
 
@@ -26,6 +28,8 @@ struct MainView: View {
             switch self {
             case .dashboard: return "nav.dashboard".localized
             case .sync: return "nav.sync".localized
+            case .syncHistory: return "nav.syncHistory".localized
+            case .evictionHistory: return "nav.evictionHistory".localized
             case .conflicts: return "nav.conflicts".localized
             case .disks: return "nav.disks".localized
             case .settings: return "nav.settings".localized
@@ -37,6 +41,8 @@ struct MainView: View {
             switch self {
             case .dashboard: return "gauge.with.dots.needle.33percent"
             case .sync: return "arrow.triangle.2.circlepath"
+            case .syncHistory: return "clock.arrow.circlepath"
+            case .evictionHistory: return "trash.circle"
             case .conflicts: return "exclamationmark.2"
             case .disks: return "externaldrive"
             case .settings: return "gear"
@@ -48,6 +54,8 @@ struct MainView: View {
             switch self {
             case .dashboard: return "1"
             case .sync: return "2"
+            case .syncHistory: return nil
+            case .evictionHistory: return nil
             case .conflicts: return "3"
             case .disks: return "4"
             case .settings: return ","
@@ -55,9 +63,9 @@ struct MainView: View {
             }
         }
 
-        /// 主导航组 (仪表盘、同步、冲突、磁盘)
+        /// 主导航组
         static var mainGroup: [MainTab] {
-            [.dashboard, .sync, .conflicts, .disks]
+            [.dashboard, .sync, .syncHistory, .evictionHistory, .conflicts, .disks]
         }
 
         /// 次要导航组 (设置、日志)
@@ -153,6 +161,10 @@ struct MainView: View {
             DashboardView(config: $configManager.config)
         case .sync:
             SyncPage(config: $configManager.config)
+        case .syncHistory:
+            SyncHistoryPage()
+        case .evictionHistory:
+            EvictionHistoryPage()
         case .conflicts:
             ConflictsPage(config: $configManager.config)
         case .disks:
@@ -242,6 +254,8 @@ struct SidebarHeaderView: View {
     @ObservedObject var stateManager: StateManager
 
     var body: some View {
+        let _ = Logger.shared.debug("[SidebarHeader] 渲染: syncStatus=\(stateManager.syncStatus.text)")
+
         HStack(spacing: 12) {
             // Status indicator
             StatusIndicatorView(
@@ -265,6 +279,9 @@ struct SidebarHeaderView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        .onChange(of: stateManager.syncStatus) { newStatus in
+            Logger.shared.debug("[SidebarHeader] syncStatus 变更: \(newStatus.text)")
+        }
     }
 }
 
@@ -358,6 +375,7 @@ class MainWindowController {
 
 extension Notification.Name {
     static let selectMainTab = Notification.Name("selectMainTab")
+    static let syncStatusDidChange = Notification.Name("syncStatusDidChange")
 }
 
 // MARK: - Previews

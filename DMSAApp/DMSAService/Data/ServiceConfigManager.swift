@@ -560,10 +560,14 @@ actor ServiceConfigManager {
     func validateConfig(appConfig: AppConfig) async -> ConfigStatus {
         let conflicts = detectConflicts(appConfig: appConfig)
 
-        var status = ConfigStatus()
-        status.loaded = true
-        status.source = "app_config"
-        status.conflicts = conflicts.isEmpty ? nil : conflicts
+        var status = ConfigStatus(
+            isValid: conflicts.isEmpty,
+            isPatched: false,
+            patchedFields: nil,
+            conflicts: conflicts.isEmpty ? nil : conflicts,
+            loadedAt: Date(),
+            configPath: nil
+        )
 
         // 设置配置状态
         await ServiceStateManager.shared.setConfigStatus(status)

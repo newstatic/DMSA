@@ -96,6 +96,8 @@ enum Constants {
         static let diskConnected = "com.ttttt.dmsa.diskConnected"
         static let diskDisconnected = "com.ttttt.dmsa.diskDisconnected"
 
+        /// 全局状态变更
+        static let stateChanged = "com.ttttt.dmsa.notification.stateChanged"
         /// 服务启动完成，下发配置
         static let serviceReady = "com.ttttt.dmsa.notification.serviceReady"
         /// 配置已更新（Service → App）
@@ -104,5 +106,7 @@ enum Constants {
         static let syncProgress = "com.ttttt.dmsa.notification.syncProgress"
         /// 同步状态变更（开始/完成/失败）
         static let syncStatusChanged = "com.ttttt.dmsa.notification.syncStatusChanged"
+        /// 索引构建完成
+        static let indexReady = "com.ttttt.dmsa.notification.indexReady"
     }
 }

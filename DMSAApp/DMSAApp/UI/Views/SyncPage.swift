@@ -5,7 +5,7 @@ import SwiftUI
 /// 同步页面 - 显示同步状态、进度和历史
 struct SyncPage: View {
     @Binding var config: AppConfig
-    @StateObject private var progressListener = SyncProgressListener()
+    @ObservedObject private var stateManager = StateManager.shared
 
     // Services
     private let serviceClient = ServiceClient.shared
@@ -49,6 +49,9 @@ struct SyncPage: View {
                     failedFilesSection
                 }
 
+                // Sync Pairs List
+                syncPairsSection
+
                 // Sync History
                 syncHistorySection
             }
@@ -59,17 +62,13 @@ struct SyncPage: View {
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             loadData()
-            setupProgressListener()
+            updateFromStateManager()
         }
-        .onChange(of: progressListener.currentProgress) { progress in
-            if let progress = progress {
-                updateFromProgress(progress)
-            }
+        .onChange(of: stateManager.syncStatus) { _ in
+            updateFromStateManager()
         }
-        .onChange(of: progressListener.lastStatusChange) { change in
-            if let change = change {
-                handleStatusChange(change)
-            }
+        .onChange(of: stateManager.processedFiles) { _ in
+            updateFromStateManager()
         }
     }
 
@@ -221,6 +220,52 @@ struct SyncPage: View {
         }
     }
 
+    // MARK: - Sync Pairs Section
+
+    private var syncPairsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "sync.pairs".localized)
+
+            if config.syncPairs.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "link.badge.plus")
+                        .font(.system(size: 32))
+                        .foregroundColor(.secondary)
+                    Text("sync.pairs.empty".localized)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(24)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(config.syncPairs, id: \.id) { pair in
+                        SyncPairCard(
+                            pair: pair,
+                            disk: config.disks.first(where: { $0.id == pair.diskId }),
+                            isDiskConnected: diskManager.isDiskConnected(pair.diskId),
+                            isSyncing: isSyncing,
+                            onSync: { syncPair(pair) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func syncPair(_ pair: SyncPairConfig) {
+        guard stateManager.isReady else { return }
+        Task {
+            do {
+                try await serviceClient.syncNow(syncPairId: pair.id)
+            } catch {
+                Logger.shared.error("同步失败: \(pair.name) - \(error)")
+            }
+        }
+    }
+
     // MARK: - Sync History Section
 
     private var syncHistorySection: some View {
@@ -268,6 +313,19 @@ struct SyncPage: View {
     }
 
     private var statusColor: Color {
+        // 优先检查服务状态
+        if !stateManager.isReady {
+            switch stateManager.syncStatus {
+            case .indexing:
+                return .orange
+            case .starting:
+                return .yellow
+            case .reconnecting:
+                return .orange
+            default:
+                return .gray
+            }
+        }
         if isSyncing {
             return isPaused ? .orange : .blue
         }
@@ -275,6 +333,21 @@ struct SyncPage: View {
     }
 
     private var statusTitle: String {
+        // 优先检查服务状态
+        if !stateManager.isReady {
+            switch stateManager.syncStatus {
+            case .starting:
+                return "sync.status.starting".localized
+            case .indexing:
+                return "sync.status.indexing".localized
+            case .reconnecting:
+                return "sync.status.reconnecting".localized
+            case .serviceUnavailable:
+                return "sync.status.serviceUnavailable".localized
+            default:
+                return "sync.status.preparing".localized
+            }
+        }
         if isSyncing {
             return isPaused
                 ? "sync.status.paused".localized
@@ -284,6 +357,21 @@ struct SyncPage: View {
     }
 
     private var statusSubtitle: String {
+        // 优先检查服务状态
+        if !stateManager.isReady {
+            switch stateManager.syncStatus {
+            case .starting:
+                return "sync.status.startingDesc".localized
+            case .indexing:
+                return "sync.status.indexingDesc".localized
+            case .reconnecting:
+                return "sync.status.reconnectingDesc".localized
+            case .serviceUnavailable:
+                return "sync.status.serviceUnavailableDesc".localized
+            default:
+                return "sync.status.preparingDesc".localized
+            }
+        }
         if isSyncing {
             if isPaused {
                 return "sync.status.tapToResume".localized
@@ -294,7 +382,7 @@ struct SyncPage: View {
     }
 
     private var canStartSync: Bool {
-        diskManager.isAnyExternalConnected && !config.syncPairs.isEmpty
+        stateManager.isReady && diskManager.isAnyExternalConnected && !config.syncPairs.isEmpty
     }
 
     // MARK: - Actions
@@ -302,21 +390,15 @@ struct SyncPage: View {
     private func startSync() {
         guard canStartSync else { return }
 
-        isSyncing = true
-        isPaused = false
-        syncProgress = 0
-        processedFiles = 0
-        totalFiles = 0
+        // 清空失败文件列表
         failedFiles = []
 
         Task {
             do {
                 try await serviceClient.updateConfig(config)
                 try await serviceClient.syncAll()
+                // 同步状态由 StateManager 通过 XPC 回调更新
             } catch {
-                await MainActor.run {
-                    isSyncing = false
-                }
                 Logger.shared.error("Sync failed: \(error.localizedDescription)")
             }
         }
@@ -324,22 +406,29 @@ struct SyncPage: View {
 
     private func togglePause() {
         Task {
-            if isPaused {
-                try? await serviceClient.resumeSync()
-                await MainActor.run { isPaused = false }
-            } else {
-                try? await serviceClient.pauseSync()
-                await MainActor.run { isPaused = true }
+            do {
+                if isPaused {
+                    try await serviceClient.resumeSync()
+                    Logger.shared.info("已发送恢复同步请求")
+                } else {
+                    try await serviceClient.pauseSync()
+                    Logger.shared.info("已发送暂停同步请求")
+                }
+                // 状态将通过 XPC 回调由 StateManager 更新
+            } catch {
+                Logger.shared.error("暂停/恢复同步失败: \(error)")
             }
         }
     }
 
     private func cancelSync() {
         Task {
-            try? await serviceClient.cancelSync()
-            await MainActor.run {
-                isSyncing = false
-                isPaused = false
+            do {
+                try await serviceClient.cancelSync()
+                Logger.shared.info("已发送取消同步请求")
+                // 状态将通过 XPC 回调由 StateManager 更新
+            } catch {
+                Logger.shared.error("取消同步失败: \(error)")
             }
         }
     }
@@ -370,43 +459,29 @@ struct SyncPage: View {
         }
     }
 
-    private func setupProgressListener() {
-        serviceClient.progressDelegate = progressListener
-    }
+    /// 从 StateManager 更新本地状态
+    private func updateFromStateManager() {
+        isSyncing = stateManager.syncStatus == .syncing
+        isPaused = stateManager.syncStatus == .paused
+        syncProgress = stateManager.syncProgressValue
+        processedFiles = stateManager.processedFiles
+        totalFiles = stateManager.totalFilesCount
+        processedBytes = stateManager.processedBytes
+        totalBytes = stateManager.totalBytes
+        currentFile = stateManager.currentSyncFile
+        syncSpeed = stateManager.syncSpeed
 
-    private func updateFromProgress(_ progress: ServiceSyncProgressInfo) {
-        isSyncing = progress.status == .inProgress
-        syncProgress = progress.progress
-        processedFiles = progress.processedFiles
-        totalFiles = progress.totalFiles
-        processedBytes = progress.processedBytes
-        totalBytes = progress.totalBytes
-        currentFile = progress.currentFile
-        isPaused = progress.isPaused
-
-        // Calculate speed (simplified)
-        if progress.processedBytes > 0 {
-            syncSpeed = progress.processedBytes / max(1, Int64(Date().timeIntervalSince1970) % 60)
+        // 计算剩余时间
+        if syncSpeed > 0 && totalBytes > processedBytes {
+            let remainingBytes = totalBytes - processedBytes
+            estimatedTimeRemaining = TimeInterval(remainingBytes) / TimeInterval(syncSpeed)
+        } else {
+            estimatedTimeRemaining = nil
         }
 
-        if progress.status == .completed || progress.status == .failed {
+        // 同步完成时刷新历史
+        if stateManager.syncStatus == .ready && isSyncing {
             loadData()
-        }
-    }
-
-    private func handleStatusChange(_ change: SyncStatusChange) {
-        switch change.status {
-        case .inProgress:
-            isSyncing = true
-            isPaused = false
-        case .completed, .failed, .cancelled:
-            isSyncing = false
-            isPaused = false
-            loadData()
-        case .paused:
-            isPaused = true
-        default:
-            break
         }
     }
 
@@ -476,6 +551,88 @@ struct SyncErrorRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
+    }
+}
+
+// MARK: - Sync Pair Card
+
+struct SyncPairCard: View {
+    let pair: SyncPairConfig
+    let disk: DiskConfig?
+    let isDiskConnected: Bool
+    let isSyncing: Bool
+    let onSync: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Connection status
+            ZStack {
+                Circle()
+                    .fill(isDiskConnected ? Color.green.opacity(0.15) : Color.gray.opacity(0.15))
+                    .frame(width: 36, height: 36)
+                Image(systemName: isDiskConnected ? "link.circle.fill" : "link.circle")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(isDiskConnected ? .green : .gray)
+            }
+
+            // Info
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(pair.name)
+                        .font(.body)
+                        .fontWeight(.medium)
+
+                    if !pair.enabled {
+                        Text("sync.pairs.disabled".localized)
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.gray.opacity(0.2))
+                            .cornerRadius(4)
+                    }
+                }
+
+                HStack(spacing: 4) {
+                    // Direction
+                    Image(systemName: "arrow.right")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    Text(disk?.name ?? pair.diskId)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Text("·")
+                        .foregroundColor(.secondary)
+
+                    Text(pair.externalRelativePath)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            // Status + action
+            if isDiskConnected {
+                Button(action: onSync) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(isSyncing || !pair.enabled)
+            } else {
+                Text("sync.pairs.diskOffline".localized)
+                    .font(.caption)
+                    .foregroundColor(.orange)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(8)
     }

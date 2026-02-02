@@ -41,7 +41,7 @@ struct ActivityRow: View {
 // MARK: - Activity Icon
 
 struct ActivityIcon: View {
-    let type: ActivityType
+    let type: LegacyActivityType
 
     var body: some View {
         ZStack {
@@ -57,7 +57,7 @@ struct ActivityIcon: View {
 
 // MARK: - Activity Type
 
-enum ActivityType {
+enum LegacyActivityType {
     case syncCompleted
     case syncFailed
     case conflictDetected
@@ -100,7 +100,7 @@ enum ActivityType {
 
 struct ActivityItem: Identifiable {
     let id = UUID()
-    let type: ActivityType
+    let type: LegacyActivityType
     let title: String
     let subtitle: String
     let timestamp: Date

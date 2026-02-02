@@ -12,7 +12,10 @@ protocol MenuBarDelegate: AnyObject {
 /// Sync state enumeration
 enum SyncState {
     case idle
+    case starting
+    case indexing
     case syncing
+    case reconnecting
     case error(String)
 }
 
@@ -29,12 +32,14 @@ final class MenuBarManager {
     private var syncState: SyncState = .idle
     private var lastSyncTime: Date?
     private var configManager: ConfigManager
+    private var stateManager: StateManager
     private var isAutoSyncEnabled: Bool = true
 
     weak var delegate: MenuBarDelegate?
 
-    init(configManager: ConfigManager = ConfigManager.shared) {
+    init(configManager: ConfigManager = ConfigManager.shared, stateManager: StateManager = StateManager.shared) {
         self.configManager = configManager
+        self.stateManager = stateManager
         self.isAutoSyncEnabled = configManager.config.general.autoSyncEnabled
         setupStatusItem()
         setupNotifications()
@@ -48,6 +53,19 @@ final class MenuBarManager {
             name: .languageDidChange,
             object: nil
         )
+
+        // Observe sync status change notification to update icon
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSyncStatusChanged),
+            name: .syncStatusDidChange,
+            object: nil
+        )
+    }
+
+    @objc private func handleSyncStatusChanged() {
+        Logger.shared.debug("收到状态变更通知，更新菜单栏")
+        syncWithAppState()
     }
 
     @objc private func handleLanguageChanged() {
@@ -245,6 +263,10 @@ final class MenuBarManager {
     // MARK: - State Updates
 
     private var isSyncEnabled: Bool {
+        // Check if service is ready (使用 MainActor.assumeIsolated 访问 MainActor 隔离的属性)
+        let isReady = MainActor.assumeIsolated { stateManager.isReady }
+        if !isReady { return false }
+
         // Check if any configured disk is connected
         let hasConnectedDisk = configManager.config.disks.contains { $0.isConnected }
         if !hasConnectedDisk { return false }
@@ -282,9 +304,15 @@ final class MenuBarManager {
 
         let symbolName: String
         switch syncState {
+        case .starting:
+            symbolName = "gear"
+        case .indexing:
+            symbolName = "doc.text.magnifyingglass"
         case .syncing:
             symbolName = "arrow.triangle.2.circlepath.circle"
             // TODO: Add rotation animation
+        case .reconnecting:
+            symbolName = "arrow.triangle.2.circlepath"
         case .error:
             symbolName = "exclamationmark.triangle"
         case .idle:
@@ -360,16 +388,20 @@ final class MenuBarManager {
         MainActor.assumeIsolated {
             let stateManager = StateManager.shared
 
-            // Update sync state based on StateManager
-            if stateManager.isSyncing {
+            // Update sync state based on StateManager.syncStatus
+            switch stateManager.syncStatus {
+            case .syncing:
                 syncState = .syncing
-            } else {
-                switch stateManager.syncStatus {
-                case .error(let message):
-                    syncState = .error(message)
-                default:
-                    syncState = .idle
-                }
+            case .indexing:
+                syncState = .indexing
+            case .starting:
+                syncState = .starting
+            case .reconnecting:
+                syncState = .reconnecting
+            case .error(let message):
+                syncState = .error(message)
+            case .ready, .paused, .serviceUnavailable:
+                syncState = .idle
             }
         }
 

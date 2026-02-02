@@ -443,7 +443,19 @@ extension ServiceInstaller {
     /// 生成 LaunchDaemon plist 内容
     /// - Parameter programPath: 服务二进制的完整路径
     /// - Returns: plist XML 字符串
+    ///
+    /// 环境变量说明:
+    /// - DMSA_USER_HOME: 当前登录用户的 Home 目录，用于 Service 访问用户数据
+    /// - DMSA_USER_NAME: 当前登录用户名
     private func generatePlistContent(programPath: String) -> String {
+        // 获取当前用户信息
+        let userHome = FileManager.default.homeDirectoryForCurrentUser.path
+        let userName = NSUserName()
+
+        // 日志和数据存储在用户目录下
+        let logsDir = "\(userHome)/Library/Logs/DMSA"
+        let dataDir = "\(userHome)/Library/Application Support/DMSA"
+
         return """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -477,12 +489,20 @@ extension ServiceInstaller {
             <dict>
                 <key>PATH</key>
                 <string>/usr/bin:/bin:/usr/sbin:/sbin:/Library/Frameworks</string>
+                <key>DMSA_USER_HOME</key>
+                <string>\(userHome)</string>
+                <key>DMSA_USER_NAME</key>
+                <string>\(userName)</string>
+                <key>DMSA_LOGS_DIR</key>
+                <string>\(logsDir)</string>
+                <key>DMSA_DATA_DIR</key>
+                <string>\(dataDir)</string>
             </dict>
 
             <key>StandardOutPath</key>
-            <string>/var/log/dmsa-service.log</string>
+            <string>\(logsDir)/service-stdout.log</string>
             <key>StandardErrorPath</key>
-            <string>/var/log/dmsa-service.error.log</string>
+            <string>\(logsDir)/service-stderr.log</string>
 
             <key>ExitTimeOut</key>
             <integer>30</integer>

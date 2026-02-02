@@ -1004,4 +1004,16 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
             reply(canPerform)
         }
     }
+
+    // MARK: - ========== 活动记录 ==========
+
+    func getRecentActivities(withReply reply: @escaping (Data) -> Void) {
+        logXPCReceive("getRecentActivities")
+        Task {
+            let activities = await ActivityManager.shared.getActivities()
+            let data = (try? JSONEncoder().encode(activities)) ?? Data()
+            logXPCReplyData("getRecentActivities", data: data)
+            reply(data)
+        }
+    }
 }

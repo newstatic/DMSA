@@ -8,16 +8,21 @@
 
 /* Begin PBXBuildFile section */
 		0237376DA29A0DC66317864C /* ServiceStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF8C8F83D2253C581CE41C8 /* ServiceStateManager.swift */; };
+		0730ED7590EA7A15AC8E249E /* ErrorHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15399D79C3729B90EE115863 /* ErrorHandler.swift */; };
 		103D012852AD894F01F8A7DE /* ServiceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A6760E115CE1FA255CDF6DF /* ServiceState.swift */; };
-		SHARED001020 /* ServiceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A6760E115CE1FA255CDF6DF /* ServiceState.swift */; };
-		SHARED001021 /* ConflictInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101016 /* SharedConflictInfo.swift */; };
-		SHARED001022 /* FileMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101014 /* SharedFileMetadata.swift */; };
+		221B3EAE2E7D043444463DB3 /* ActivityRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101020 /* ActivityRecord.swift */; };
 		4F4DD5E4DB1E07444A32B86D /* StartupChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BA1D9ADC5DD754B58559D2B /* StartupChecker.swift */; };
 		5369BCE35A841C463CF0C51A /* ServiceSyncProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1191E9FF477BD5969B36D363 /* ServiceSyncProgress.swift */; };
+		7696F60B8391BF9BD3ECEC49 /* ServiceError.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101021 /* ServiceError.swift */; };
+		798E64B21BD7BA33F017CD0D /* EvictionHistoryPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 139019FE04B14B87C695A68F /* EvictionHistoryPage.swift */; };
 		858ACF162F28A2BB0015612A /* ObjectBox.xcframework in Frameworks */ = {isa = PBXBuildFile; productRef = 858ACF152F28A2BB0015612A /* ObjectBox.xcframework */; };
+		955C0FC0B203F0587EFA6B4A /* DMSAClientProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DB428095662878BA9551175 /* DMSAClientProtocol.swift */; };
+		B558B35A15D0F7558B9C1F9E /* SyncHistoryPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73A488D10A4EBDE7F9A7428 /* SyncHistoryPage.swift */; };
 		C4807613EADB08BDFE9F4128 /* SyncProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99E3EA9C7983DC9E070EFAF0 /* SyncProgress.swift */; };
+		C855E99CE112B877571980C5 /* ActivityRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101020 /* ActivityRecord.swift */; };
 		COPY001003 /* com.ttttt.dmsa.service in Copy Service */ = {isa = PBXBuildFile; fileRef = SVC000001 /* com.ttttt.dmsa.service */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		COPY001004 /* com.ttttt.dmsa.service.plist in Copy LaunchDaemon plist */ = {isa = PBXBuildFile; fileRef = SVC101011 /* com.ttttt.dmsa.service.plist */; };
+		D6880FDAE01A52A8BF70660E /* ServiceFullState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CEE18C27F2A055DC739B80F /* ServiceFullState.swift */; };
 		E20CCD9B320EC2E095D5B5C3 /* ServiceFullState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CEE18C27F2A055DC739B80F /* ServiceFullState.swift */; };
 		F0001001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101001 /* main.swift */; };
 		F0001002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101002 /* AppDelegate.swift */; };
@@ -55,9 +60,7 @@
 		F0001052 /* LogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101052 /* LogView.swift */; };
 		F0001054 /* LaunchAtLoginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101054 /* LaunchAtLoginManager.swift */; };
 		F0001055 /* AppearanceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101055 /* AppearanceManager.swift */; };
-		F0001060 /* FileMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101060 /* FileMetadata.swift */; };
 		F0001061 /* SyncPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101061 /* SyncPlan.swift */; };
-		F0001062 /* ConflictInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101062 /* ConflictInfo.swift */; };
 		F0001071 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101071 /* PermissionManager.swift */; };
 		F0001072 /* PermissionRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101072 /* PermissionRow.swift */; };
 		F0001073 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101073 /* DashboardView.swift */; };
@@ -74,20 +77,25 @@
 		F0001092 /* DisksPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101092 /* DisksPage.swift */; };
 		F0001093 /* SettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101093 /* SettingsPage.swift */; };
 		F0001094 /* ActionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101094 /* ActionCard.swift */; };
-		F0001099 /* AddDiskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101099 /* AddDiskSheet.swift */; };
 		F0001095 /* ActivityRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101095 /* ActivityRow.swift */; };
 		F0001096 /* ConflictCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101096 /* ConflictCard.swift */; };
 		F0001097 /* StatCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101097 /* StatCard.swift */; };
 		F0001098 /* StatusRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101098 /* StatusRing.swift */; };
+		F0001099 /* AddDiskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101099 /* AddDiskSheet.swift */; };
 		F0002001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F0201001 /* Localizable.strings */; };
 		F0002002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F0201004 /* Assets.xcassets */; };
 		F0003001 /* PermissionsKit in Frameworks */ = {isa = PBXBuildFile; productRef = F0900001 /* PermissionsKit */; };
 		F2F8F41C767128CF09D2556C /* SyncProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C6B2F7E8FA27526BD42365A /* SyncProgress.swift */; };
+		F5753EB3F71BF05CFDA56E5E /* DMSAClientProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DB428095662878BA9551175 /* DMSAClientProtocol.swift */; };
+		FED229BFDBF766689A645B3F /* ServiceError.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101021 /* ServiceError.swift */; };
 		GEN001001 /* EntityInfo-com.ttttt.dmsa.service.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = GEN101001 /* EntityInfo-com.ttttt.dmsa.service.generated.swift */; };
 		SHARED001008 /* SharedConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101008 /* SharedConfig.swift */; };
 		SHARED001011 /* SharedState.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101011 /* SharedState.swift */; };
 		SHARED001013 /* DMSAServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101013 /* DMSAServiceProtocol.swift */; };
 		SHARED001019 /* SharedUserPathManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101019 /* SharedUserPathManager.swift */; };
+		SHARED001020 /* ServiceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A6760E115CE1FA255CDF6DF /* ServiceState.swift */; };
+		SHARED001021 /* SharedConflictInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101016 /* SharedConflictInfo.swift */; };
+		SHARED001022 /* SharedFileMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101014 /* SharedFileMetadata.swift */; };
 		SVC001001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101001 /* main.swift */; };
 		SVC001002 /* ServiceDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101002 /* ServiceDelegate.swift */; };
 		SVC001003 /* ServiceImplementation.swift in Sources */ = {isa = PBXBuildFile; fileRef = SVC101003 /* ServiceImplementation.swift */; };
@@ -167,9 +175,15 @@
 		0C6B2F7E8FA27526BD42365A /* SyncProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncProgress.swift; sourceTree = "<group>"; };
 		0CEE18C27F2A055DC739B80F /* ServiceFullState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceFullState.swift; sourceTree = "<group>"; };
 		1191E9FF477BD5969B36D363 /* ServiceSyncProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceSyncProgress.swift; sourceTree = "<group>"; };
+		139019FE04B14B87C695A68F /* EvictionHistoryPage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EvictionHistoryPage.swift; sourceTree = "<group>"; };
+		15399D79C3729B90EE115863 /* ErrorHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ErrorHandler.swift; sourceTree = "<group>"; };
+		1DB428095662878BA9551175 /* DMSAClientProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DMSAClientProtocol.swift; sourceTree = "<group>"; };
+		SHARED101020 /* ActivityRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRecord.swift; sourceTree = "<group>"; };
 		6BA1D9ADC5DD754B58559D2B /* StartupChecker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StartupChecker.swift; sourceTree = "<group>"; };
 		7A6760E115CE1FA255CDF6DF /* ServiceState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceState.swift; sourceTree = "<group>"; };
+		SHARED101021 /* ServiceError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceError.swift; sourceTree = "<group>"; };
 		99E3EA9C7983DC9E070EFAF0 /* SyncProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncProgress.swift; sourceTree = "<group>"; };
+		B73A488D10A4EBDE7F9A7428 /* SyncHistoryPage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncHistoryPage.swift; sourceTree = "<group>"; };
 		DAF8C8F83D2253C581CE41C8 /* ServiceStateManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceStateManager.swift; sourceTree = "<group>"; };
 		F0000001 /* DMSA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DMSA.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0101001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -227,13 +241,11 @@
 		F0101092 /* DisksPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisksPage.swift; sourceTree = "<group>"; };
 		F0101093 /* SettingsPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPage.swift; sourceTree = "<group>"; };
 		F0101094 /* ActionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionCard.swift; sourceTree = "<group>"; };
-		F0101099 /* AddDiskSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDiskSheet.swift; sourceTree = "<group>"; };
 		F0101095 /* ActivityRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRow.swift; sourceTree = "<group>"; };
 		F0101096 /* ConflictCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictCard.swift; sourceTree = "<group>"; };
 		F0101097 /* StatCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCard.swift; sourceTree = "<group>"; };
 		F0101098 /* StatusRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusRing.swift; sourceTree = "<group>"; };
-		F0201002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
-		F0201003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		F0101099 /* AddDiskSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDiskSheet.swift; sourceTree = "<group>"; };
 		F0201004 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F0201005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F0201006 /* DMSA.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DMSA.entitlements; sourceTree = "<group>"; };
@@ -262,7 +274,6 @@
 		SVC101006 /* SyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManager.swift; sourceTree = "<group>"; };
 		SVC101007 /* PrivilegedOperations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegedOperations.swift; sourceTree = "<group>"; };
 		SVC101008 /* EvictionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvictionManager.swift; sourceTree = "<group>"; };
-		SVC101009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		SVC101010 /* DMSAService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DMSAService.entitlements; sourceTree = "<group>"; };
 		SVC101011 /* com.ttttt.dmsa.service.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.ttttt.dmsa.service.plist; sourceTree = "<group>"; };
 		SVC101012 /* ServiceDatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDatabaseManager.swift; sourceTree = "<group>"; };
@@ -390,6 +401,7 @@
 				F0101085 /* ServiceInstaller.swift */,
 				F0101086 /* StateManager.swift */,
 				F0101087 /* NotificationHandler.swift */,
+				15399D79C3729B90EE115863 /* ErrorHandler.swift */,
 				F93176731F1554B49F0EA2C2 /* VFS */,
 			);
 			path = Services;
@@ -491,6 +503,8 @@
 				F0101050 /* MainView.swift */,
 				F0101093 /* SettingsPage.swift */,
 				F0101090 /* SyncPage.swift */,
+				139019FE04B14B87C695A68F /* EvictionHistoryPage.swift */,
+				B73A488D10A4EBDE7F9A7428 /* SyncHistoryPage.swift */,
 				F0400014 /* Common */,
 				F0400015 /* History */,
 				F0400019 /* Logs */,
@@ -596,6 +610,7 @@
 			isa = PBXGroup;
 			children = (
 				SHARED101013 /* DMSAServiceProtocol.swift */,
+				1DB428095662878BA9551175 /* DMSAClientProtocol.swift */,
 			);
 			path = Protocols;
 			sourceTree = "<group>";
@@ -623,6 +638,8 @@
 				SHARED400004 /* Sync */,
 				7A6760E115CE1FA255CDF6DF /* ServiceState.swift */,
 				0CEE18C27F2A055DC739B80F /* ServiceFullState.swift */,
+				SHARED101020 /* ActivityRecord.swift */,
+				SHARED101021 /* ServiceError.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -699,7 +716,6 @@
 		SVC400004 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				SVC101009 /* Info.plist */,
 				SVC101010 /* DMSAService.entitlements */,
 				SVC101011 /* com.ttttt.dmsa.service.plist */,
 			);
@@ -743,6 +759,7 @@
 				F0500002 /* Sources */,
 				F0300001 /* Frameworks */,
 				F0500003 /* Resources */,
+				EMB400001 /* Embed ObjectBox Framework */,
 				SVC400005 /* Copy Service */,
 				SVC400006 /* Copy LaunchDaemon plist */,
 			);
@@ -829,6 +846,24 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		EMB400001 /* Embed ObjectBox Framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Embed ObjectBox Framework";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Copy ObjectBox.framework to app bundle and sign it\nFRAMEWORK_SRC=\"${BUILD_DIR}/${CONFIGURATION}/ObjectBox.framework\"\nFRAMEWORK_DST=\"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}/ObjectBox.framework\"\n\nif [ -d \"$FRAMEWORK_SRC\" ]; then\n    rm -rf \"$FRAMEWORK_DST\"\n    mkdir -p \"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\n    ditto \"$FRAMEWORK_SRC\" \"$FRAMEWORK_DST\"\n    \n    # Sign the framework with the same identity as the app\n    if [ -n \"${EXPANDED_CODE_SIGN_IDENTITY}\" ]; then\n        /usr/bin/codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp=none --preserve-metadata=identifier,entitlements,flags \"$FRAMEWORK_DST\"\n    fi\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		F0500002 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -870,7 +905,7 @@
 				F0001049 /* NotificationRecord.swift in Sources */,
 				F0001050 /* MainView.swift in Sources */,
 				F0001052 /* LogView.swift in Sources */,
-				SHARED001022 /* FileMetadata.swift in Sources */,
+				SHARED001022 /* SharedFileMetadata.swift in Sources */,
 				F0001061 /* SyncPlan.swift in Sources */,
 				F0001071 /* PermissionManager.swift in Sources */,
 				F0001072 /* PermissionRow.swift in Sources */,
@@ -893,7 +928,7 @@
 				F0001097 /* StatCard.swift in Sources */,
 				F0001098 /* StatusRing.swift in Sources */,
 				SHARED001020 /* ServiceState.swift in Sources */,
-				SHARED001021 /* ConflictInfo.swift in Sources */,
+				SHARED001021 /* SharedConflictInfo.swift in Sources */,
 				SHARED001008 /* SharedConfig.swift in Sources */,
 				SHARED001013 /* DMSAServiceProtocol.swift in Sources */,
 				SHARED001011 /* SharedState.swift in Sources */,
@@ -901,6 +936,13 @@
 				F0001083 /* PathValidator.swift in Sources */,
 				XPC001005 /* XPCClientTypes.swift in Sources */,
 				C4807613EADB08BDFE9F4128 /* SyncProgress.swift in Sources */,
+				D6880FDAE01A52A8BF70660E /* ServiceFullState.swift in Sources */,
+				955C0FC0B203F0587EFA6B4A /* DMSAClientProtocol.swift in Sources */,
+				0730ED7590EA7A15AC8E249E /* ErrorHandler.swift in Sources */,
+				798E64B21BD7BA33F017CD0D /* EvictionHistoryPage.swift in Sources */,
+				B558B35A15D0F7558B9C1F9E /* SyncHistoryPage.swift in Sources */,
+				221B3EAE2E7D043444463DB3 /* ActivityRecord.swift in Sources */,
+				FED229BFDBF766689A645B3F /* ServiceError.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -952,6 +994,9 @@
 				E20CCD9B320EC2E095D5B5C3 /* ServiceFullState.swift in Sources */,
 				F2F8F41C767128CF09D2556C /* SyncProgress.swift in Sources */,
 				5369BCE35A841C463CF0C51A /* ServiceSyncProgress.swift in Sources */,
+				F5753EB3F71BF05CFDA56E5E /* DMSAClientProtocol.swift in Sources */,
+				C855E99CE112B877571980C5 /* ActivityRecord.swift in Sources */,
+				7696F60B8391BF9BD3ECEC49 /* ServiceError.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -975,6 +1020,8 @@
 			name = Localizable.strings;
 			sourceTree = "<group>";
 		};
+		F0201002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		F0201003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
@@ -1015,7 +1062,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -1078,7 +1125,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -1181,6 +1228,8 @@
 				INFOPLIST_FILE = DMSAService/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
+					"@loader_path/../../Frameworks",
+					"@executable_path/../../Frameworks",
 					/usr/lib/swift,
 					/Library/Frameworks,
 				);
@@ -1225,6 +1274,8 @@
 				INFOPLIST_FILE = DMSAService/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
+					"@loader_path/../../Frameworks",
+					"@executable_path/../../Frameworks",
 					/usr/lib/swift,
 					/Library/Frameworks,
 				);

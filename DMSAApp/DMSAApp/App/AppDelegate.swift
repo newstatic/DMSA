@@ -72,6 +72,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Logger.shared.info("============================================")
 
         setupUI()
+        setupServiceClientCallbacks()
         setupDiskCallbacks()
 
         // 检查并安装/更新 Service
@@ -227,9 +228,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Logger.shared.info("UI 管理器初始化完成")
     }
 
+    private func setupServiceClientCallbacks() {
+        // 设置连接状态变化回调 (需要在 MainActor 上设置)
+        Task { @MainActor in
+            serviceClient.onConnectionStateChanged = { [weak self] isConnected in
+                Task { @MainActor in
+                    if isConnected {
+                        self?.stateManager.updateConnectionState(.connected)
+                        Logger.shared.info("XPC 连接已恢复")
+                    } else {
+                        self?.stateManager.updateConnectionState(.interrupted)
+                        Logger.shared.warning("XPC 连接已断开")
+                    }
+                }
+            }
+            Logger.shared.info("ServiceClient 回调已设置")
+        }
+    }
+
     private func setupDiskCallbacks() {
         diskManager.onDiskConnected = { [weak self] disk in
-            self?.handleDiskConnected(disk)
+            self?.handleDiskConnected(disk, isInitialCheck: false)
         }
 
         diskManager.onDiskDisconnected = { [weak self] disk in
@@ -248,7 +267,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     await setupDefaultConfig()
                 } else {
                     Logger.shared.info("已配置 \(disks.count) 个硬盘")
-                    diskManager.checkInitialState()
+                    // 使用静默模式检查初始状态，避免启动时弹窗
+                    diskManager.checkInitialState(silent: true)
                 }
             } catch {
                 Logger.shared.error("获取配置失败: \(error)")
@@ -377,6 +397,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             Logger.shared.info("已连接到 DMSAService \(versionInfo.fullVersion)")
             Logger.shared.info("服务运行时间: \(formatUptime(versionInfo.uptime))")
 
+            // 连接 StateManager 以同步服务状态
+            // StateManager.connect() 会自动调用 syncFullState() 并启动定时器
+            await stateManager.connect()
+            Logger.shared.info("StateManager 已连接，状态同步已启动")
+
+            // 应用外观设置 (如 Dock 图标显示)
+            let config = await getConfig()
+            AppearanceManager.shared.applySettings(from: config.general)
+            Logger.shared.info("外观设置已应用: showInDock=\(config.general.showInDock)")
+
             // 连接成功后检查初始状态
             checkInitialState()
         } catch {
@@ -486,17 +516,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - 硬盘事件处理 (UI 更新)
 
-    private func handleDiskConnected(_ disk: DiskConfig) {
-        Logger.shared.info("硬盘已连接: \(disk.name)")
+    private func handleDiskConnected(_ disk: DiskConfig, isInitialCheck: Bool = false) {
+        Logger.shared.info("硬盘已连接: \(disk.name) (isInitialCheck=\(isInitialCheck))")
 
         Task { @MainActor in
             menuBarManager.updateDiskState(disk.name, state: .connected(diskName: disk.name, usedSpace: nil, totalSpace: nil))
-            alertManager.alertDiskConnected(diskName: disk.name)
+
+            // 初始检查时不弹窗
+            if !isInitialCheck {
+                alertManager.alertDiskConnected(diskName: disk.name)
+            }
+
+            // 检查服务是否已就绪
+            guard stateManager.isReady else {
+                Logger.shared.info("服务未就绪，跳过自动同步")
+                return
+            }
 
             // 自动同步由 Service 处理，这里只触发
             let config = await getConfig()
             guard config.general.autoSyncEnabled else { return }
-            try? await serviceClient.syncNow(syncPairId: "default_downloads")
+
+            // 找到与此硬盘关联的所有同步对并触发同步
+            let syncPairsForDisk = config.syncPairs.filter { $0.diskId == disk.id && $0.enabled }
+            for syncPair in syncPairsForDisk {
+                Logger.shared.info("触发同步: syncPairId=\(syncPair.id), disk=\(disk.name)")
+                try? await serviceClient.syncNow(syncPairId: syncPair.id)
+            }
         }
     }
 
@@ -528,7 +574,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate: MenuBarDelegate {
     func menuBarDidRequestSync() {
         Logger.shared.info("用户请求手动同步")
-        Task {
+
+        Task { @MainActor in
+            // 检查服务是否已就绪
+            guard stateManager.isReady else {
+                Logger.shared.warning("服务未就绪，无法执行同步")
+                alertManager.alertInfo(
+                    title: "无法同步",
+                    message: "服务正在启动中，请稍后再试。"
+                )
+                return
+            }
+
             try? await serviceClient.syncAll()
         }
     }

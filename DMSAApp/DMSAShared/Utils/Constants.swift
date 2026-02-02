@@ -112,15 +112,18 @@ public enum Constants {
         /// 当前用户的 home 目录
         /// Service 以 root 运行时，需要访问实际用户的目录
         private static var userHome: URL {
-            // 检测是否以 root 身份运行
+            // 检测是否以 root 身份运行 (Service)
             if getuid() == 0 {
-                // 尝试从环境变量获取真实用户
+                // 优先从 plist 注入的环境变量获取用户 Home
+                if let userHome = ProcessInfo.processInfo.environment["DMSA_USER_HOME"] {
+                    return URL(fileURLWithPath: userHome)
+                }
+                // 回退: 尝试从 SUDO_USER 获取
                 if let sudoUser = ProcessInfo.processInfo.environment["SUDO_USER"],
                    let pw = getpwnam(sudoUser) {
                     return URL(fileURLWithPath: String(cString: pw.pointee.pw_dir))
                 }
-                // 回退: 获取 UID 1000+ 的第一个用户 (通常是主用户)
-                // 简化方案: 硬编码常见路径
+                // 最后回退: 硬编码
                 return URL(fileURLWithPath: "/Users/ttttt")
             }
             return FileManager.default.homeDirectoryForCurrentUser
@@ -167,15 +170,19 @@ public enum Constants {
         }
 
         /// 日志目录
-        /// 注意: Service 以 root 运行时使用 /var/log/dmsa/
+        /// Service 以 root 运行时，使用 plist 注入的用户目录
         public static var logs: URL {
-            // 检测是否以 root 身份运行
+            // 检测是否以 root 身份运行 (Service)
             if getuid() == 0 {
-                return URL(fileURLWithPath: "/var/log/dmsa")
-            } else {
-                return FileManager.default.homeDirectoryForCurrentUser
-                    .appendingPathComponent("Library/Logs/DMSA")
+                // 优先从 plist 注入的环境变量获取日志目录
+                if let logsDir = ProcessInfo.processInfo.environment["DMSA_LOGS_DIR"] {
+                    return URL(fileURLWithPath: logsDir)
+                }
+                // 回退: 使用 userHome
+                return userHome.appendingPathComponent("Library/Logs/DMSA")
             }
+            return FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Logs/DMSA")
         }
 
         /// 统一服务日志

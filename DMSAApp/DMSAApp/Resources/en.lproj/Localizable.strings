@@ -719,3 +719,28 @@
 // MARK: - Recovery Extended (v4.9)
 "recovery.reconnect" = "Reconnect";
 "recovery.retry" = "Retry";
+
+// MARK: - Navigation Extended (v5.0)
+"nav.syncHistory" = "Sync History";
+"nav.evictionHistory" = "Eviction History";
+
+// MARK: - Sync History Page (v5.0)
+"syncHistory.filter.syncPair" = "Sync Pair";
+"syncHistory.filter.all" = "All";
+"syncHistory.empty" = "No sync history yet";
+"common.files" = "files";
+"common.search" = "Search...";
+"sync.status.cancelled" = "Cancelled";
+"sync.pairs" = "Sync Pairs";
+"sync.pairs.empty" = "No sync pairs configured. Go to Disks to add.";
+"sync.pairs.disabled" = "Disabled";
+"sync.pairs.diskOffline" = "Disk offline";
+
+// MARK: - Eviction History Page (v5.0)
+"eviction.filter" = "Filter";
+"eviction.status.success" = "Success";
+"eviction.status.failed" = "Failed";
+"eviction.empty" = "No eviction records yet";
+"eviction.summary.total" = "Total";
+"eviction.summary.freed" = "Freed";
+"eviction.summary.failed" = "Failed";

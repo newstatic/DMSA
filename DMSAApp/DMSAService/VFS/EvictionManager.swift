@@ -267,6 +267,16 @@ actor EvictionManager {
         stats.evictedSize += freedSpace
         stats.lastEvictionTime = Date()
 
+        // 记录活动
+        if !evictedFiles.isEmpty || !errors.isEmpty {
+            await ActivityManager.shared.addEvictionActivity(
+                filesCount: evictedFiles.count,
+                bytesCount: freedSpace,
+                syncPairId: syncPairId,
+                failed: evictedFiles.isEmpty && !errors.isEmpty
+            )
+        }
+
         return EvictionResult(evictedFiles: evictedFiles, freedSpace: freedSpace, errors: errors)
     }
 

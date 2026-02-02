@@ -1363,4 +1363,66 @@ DMSAApp/DMSAApp.xcodeproj/project.pbxproj          # 添加 AddDiskSheet
 
 ---
 
+### pbxproj 编译修复 + i18n 修复 + 同步历史解码修复
+
+**相关会话:** c2bc39ee
+**日期:** 2026-02-02
+**状态:** ✅ 完成
+
+**功能描述:**
+修复上一会话 (7ec270c8) 遗留的编译错误、i18n 丢失问题，以及同步历史页面数据无法加载的问题。
+
+**问题与解决:**
+
+| 问题 | 根因 | 解决方案 |
+|------|------|----------|
+| pbxproj 文件路径错误 | pbxproj_tool 添加文件到错误的 root group | 手动修正 PBXFileReference 路径和 group 归属 |
+| ActivityType 重复定义 | ActivityRow.swift 旧枚举与 ActivityRecord.ActivityType 冲突 | 重命名为 LegacyActivityType |
+| SyncHistoryRow 重复定义 | SyncPage.swift 和 SyncHistoryPage.swift 都有同名 struct | 重命名为 SyncHistoryDetailRow |
+| if let 非可选绑定 | SyncHistoryPage 对 String 类型用 if let | 改为 !isEmpty 检查 |
+| i18n 全部丢失 (显示原始 key) | PBXVariantGroup children 为空，无 lproj 引用 | 添加 en/zh-Hans PBXFileReference 到 VariantGroup |
+| 同步历史页面数据为空 | ServiceSyncHistory 字段名 (startTime/endTime/totalFiles/bytesTransferred) 与 App 端 SyncHistory CodingKeys (startedAt/completedAt/filesCount/totalSize) 不匹配，JSON 解码静默失败 | 更新 CodingKeys 映射 + 增强 id 解码兼容性 |
+
+**修改文件:**
+```
+DMSAApp.xcodeproj/project.pbxproj          # 修正文件路径、group 归属、PBXVariantGroup
+DMSAApp/UI/Components/ActivityRow.swift     # ActivityType → LegacyActivityType
+DMSAApp/UI/Views/SyncHistoryPage.swift      # SyncHistoryRow → SyncHistoryDetailRow, if let 修复
+DMSAApp/Models/Entities/SyncHistory.swift   # CodingKeys 映射到 Service 字段名
+```
+
+**关键代码变更:**
+
+```swift
+// SyncHistory.swift - CodingKeys 映射修复
+enum CodingKeys: String, CodingKey {
+    case id
+    case startedAt = "startTime"       // Service 发送 startTime
+    case completedAt = "endTime"       // Service 发送 endTime
+    case status
+    case direction
+    case filesCount = "totalFiles"     // Service 发送 totalFiles
+    case totalSize = "bytesTransferred" // Service 发送 bytesTransferred
+    case diskId
+    case syncPairId
+    case errorMessage
+}
+
+// id 解码兼容 Int64/UInt64
+if let uint64Id = try? container.decode(UInt64.self, forKey: .id) {
+    id = uint64Id
+} else if let int64Id = try? container.decode(Int64.self, forKey: .id) {
+    id = UInt64(bitPattern: int64Id)
+} else {
+    id = 0
+}
+```
+
+**经验教训:**
+- 跨进程 JSON 序列化时，两端的 CodingKeys 必须完全匹配
+- `try?` 会吞掉解码错误，建议在调试阶段用 `do/catch` + 日志（XPCClientTypes 已有此逻辑）
+- PBXVariantGroup 必须包含 lproj 子引用才能正确加载本地化资源
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*

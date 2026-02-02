@@ -192,17 +192,17 @@ struct DashboardView: View {
             SectionHeader(
                 title: "dashboard.recentActivity".localized,
                 actionTitle: "dashboard.viewAll".localized,
-                action: navigateToLogs
+                action: navigateToSyncHistory
             )
 
-            if recentHistory.isEmpty {
+            if stateManager.recentActivities.isEmpty {
                 EmptyActivityView()
             } else {
                 VStack(spacing: 0) {
-                    ForEach(recentHistory.prefix(5)) { history in
-                        RecentActivityRow(history: history)
+                    ForEach(stateManager.recentActivities) { activity in
+                        ActivityRecordRow(activity: activity)
 
-                        if history.id != recentHistory.prefix(5).last?.id {
+                        if activity.id != stateManager.recentActivities.last?.id {
                             Divider()
                                 .padding(.leading, 52)
                         }
@@ -387,7 +387,7 @@ struct DashboardView: View {
     }
 
     private var lastSyncTime: Date? {
-        recentHistory.first?.startedAt
+        stateManager.recentActivities.first(where: { $0.type == .syncCompleted })?.timestamp ?? recentHistory.first?.startedAt
     }
 
     // MARK: - Actions
@@ -418,6 +418,14 @@ struct DashboardView: View {
             name: .selectMainTab,
             object: nil,
             userInfo: ["tab": MainView.MainTab.logs]
+        )
+    }
+
+    private func navigateToSyncHistory() {
+        NotificationCenter.default.post(
+            name: .selectMainTab,
+            object: nil,
+            userInfo: ["tab": MainView.MainTab.syncHistory]
         )
     }
 
@@ -594,6 +602,73 @@ struct RecentActivityRow: View {
 
     private var statusColor: Color {
         history.status == .completed ? .green : .red
+    }
+}
+
+// MARK: - Activity Record Row
+
+struct ActivityRecordRow: View {
+    let activity: ActivityRecord
+
+    private var formattedTime: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: activity.timestamp)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(activityColor.opacity(0.15))
+                    .frame(width: 28, height: 28)
+
+                Image(systemName: activity.icon)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(activityColor)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(activity.title)
+                    .font(.body)
+                    .lineLimit(1)
+
+                if let detail = activity.detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(formattedTime)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                if let count = activity.filesCount {
+                    Text("\(count) \("common.files".localized)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    private var activityColor: Color {
+        switch activity.colorName {
+        case "green": return .green
+        case "red": return .red
+        case "blue": return .blue
+        case "orange": return .orange
+        case "gray": return .gray
+        default: return .secondary
+        }
     }
 }
 

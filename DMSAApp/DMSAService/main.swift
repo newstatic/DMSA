@@ -73,7 +73,20 @@ let logger = Logger.forService("Main")
 logger.info("========================================")
 logger.info("DMSAService v\(Constants.appVersion) 启动")
 logger.info("PID: \(ProcessInfo.processInfo.processIdentifier)")
-logger.info("构建时间: \(Date())")  // 编译时记录启动时间，用于验证版本
+logger.info("UID: \(getuid())")
+logger.info("========================================")
+
+// 输出环境变量配置
+let env = ProcessInfo.processInfo.environment
+logger.info("环境变量:")
+logger.info("  DMSA_USER_HOME: \(env["DMSA_USER_HOME"] ?? "(未设置)")")
+logger.info("  DMSA_USER_NAME: \(env["DMSA_USER_NAME"] ?? "(未设置)")")
+logger.info("  DMSA_LOGS_DIR: \(env["DMSA_LOGS_DIR"] ?? "(未设置)")")
+logger.info("  DMSA_DATA_DIR: \(env["DMSA_DATA_DIR"] ?? "(未设置)")")
+logger.info("路径配置:")
+logger.info("  userHome: \(Constants.Paths.appSupport.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().path)")
+logger.info("  logs: \(Constants.Paths.logs.path)")
+logger.info("  appSupport: \(Constants.Paths.appSupport.path)")
 logger.info("========================================")
 
 // MARK: - 目录设置
@@ -161,8 +174,10 @@ let listener = NSXPCListener(machServiceName: Constants.XPCService.service)
 listener.delegate = delegate
 listener.resume()
 
-// 更新日志状态缓存
-LoggerStateCache.update("XPC_READY")
+// 设置 XPC_READY 状态，启用通知队列刷新
+Task {
+    await ServiceStateManager.shared.setState(.xpcReady)
+}
 
 logger.info("XPC 监听器已启动: \(Constants.XPCService.service)")
 
@@ -183,20 +198,27 @@ Task {
     // 短暂延迟，让进程初始化完成
     try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 秒
 
-    // 自动挂载 VFS
-    await delegate.autoMount()
-
-    // 启动同步调度器
+    // 先启动同步调度器，确保 SyncManager 有配置
+    // 这样在 autoMount 过程中如果收到 syncNow 请求就能正常处理
     await delegate.startScheduler()
 
-    // 发送服务就绪通知，通知 App 可以获取配置
-    logger.info("发送服务就绪通知...")
-    DistributedNotificationCenter.default().postNotificationName(
-        NSNotification.Name(Constants.Notifications.serviceReady),
-        object: nil,
-        userInfo: nil,
-        deliverImmediately: true
-    )
+    // 自动挂载 VFS
+    // 注意: VFSManager.mount() 内部会:
+    // 1. 设置 INDEXING 状态
+    // 2. 构建索引
+    // 3. 设置 READY 状态并发送 stateChanged 通知
+    // 4. 发送 indexReady 通知
+    await delegate.autoMount()
+
+    // autoMount 完成后，VFSManager 已经设置了 READY 状态
+    // 如果没有同步对需要挂载，我们需要手动设置 READY 状态
+    let currentState = await ServiceStateManager.shared.getState()
+    if currentState != .ready {
+        logger.info("所有挂载完成，手动设置 READY 状态")
+        await ServiceStateManager.shared.setState(.ready)
+    } else {
+        logger.info("VFSManager 已设置 READY 状态")
+    }
 }
 
 // 6. 运行主事件循环

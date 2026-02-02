@@ -482,7 +482,37 @@ actor VFSManager {
         entries = Array(localPaths.values)
         await database.saveFileEntries(entries)
 
-        logger.info("索引构建完成: \(entries.count) 个文件/目录")
+        // 统计各种状态
+        var localOnlyCount = 0
+        var externalOnlyCount = 0
+        var bothCount = 0
+        var directoriesCount = 0
+        var filesCount = 0
+
+        for entry in entries {
+            if entry.isDirectory {
+                directoriesCount += 1
+            } else {
+                filesCount += 1
+            }
+
+            switch entry.location {
+            case FileLocation.localOnly.rawValue: localOnlyCount += 1
+            case FileLocation.externalOnly.rawValue: externalOnlyCount += 1
+            case FileLocation.both.rawValue: bothCount += 1
+            default: break
+            }
+        }
+
+        logger.info("========== 索引构建完成 ==========")
+        logger.info("  syncPairId: \(syncPairId)")
+        logger.info("  总条目: \(entries.count) (文件: \(filesCount), 目录: \(directoriesCount))")
+        logger.info("  位置分布:")
+        logger.info("    - localOnly (仅本地): \(localOnlyCount)")
+        logger.info("    - externalOnly (仅外部): \(externalOnlyCount)")
+        logger.info("    - both (两边都有): \(bothCount)")
+        logger.info("  需要同步的文件 (localOnly 非目录): \(entries.filter { $0.needsSync && !$0.isDirectory }.count)")
+        logger.info("===================================")
 
         // 更新挂载状态统计
         if var mountState = await configManager.getMountState(syncPairId: syncPairId) {
