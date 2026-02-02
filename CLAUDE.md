@@ -349,6 +349,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | c2bc39ee | 2026-02-02 | Build/i18n/Decode Fix | pbxproj path fix, PBXVariantGroup fix, SyncHistory CodingKeys fix |
 | b6fc182a | 2026-02-02 | Persistence+Index+Eviction+Log+FUSE | ActivityRecord persistence, incremental index, batch writes, eviction logic fix, log rotation, FUSE recovery |
 | 0d89290c | 2026-02-02 | Ownership+Installer+EnvVar+Release | VFS ownership fix, ServiceInstaller plist refactor, remove DMSA_USER_HOME env vars, setUserHome XPC gate, release.sh, v2.0 GitHub release |
+| 4c07df08 | 2026-02-02 | FUSE Exit Diagnostics | Signal handlers + post-exit diagnostics in fuse_wrapper.c, Swift-side pre-recovery diagnostics, v2.0 release rebuild |
 
 ---
 

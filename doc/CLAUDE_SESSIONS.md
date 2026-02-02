@@ -1526,4 +1526,58 @@ XPC listener 立即启动 → 等待 setUserHome (120s timeout)
 
 ---
 
+### FUSE 退出诊断增强
+
+**相关会话:** 4c07df08
+**日期:** 2026-02-02
+**状态:** ✅ 完成
+
+**功能描述:**
+FUSE main loop 反复异常退出（返回值 0），但无任何退出原因日志。添加 C 层信号处理器和退出后诊断，Swift 层 recovery 前状态采集。
+
+**问题分析:**
+- 服务日志显示 FUSE 在 11 分钟内崩溃 2 次，触发 recovery 1/3 和 2/3
+- `fuse_loop()` 返回 0（正常退出码），但 `isUnmounting` 为 false
+- C 层无信号处理器，无法判断是否被信号杀死
+- 退出后未检查挂载点状态和 macFUSE 设备可用性
+- 系统日志也无 unmount 记录
+
+**修改文件:**
+
+| 文件 | 修改内容 |
+|------|----------|
+| `fuse_wrapper.c` | 添加 signal handler (SIGTERM/SIGHUP/SIGINT/SIGUSR1/SIGUSR2)，fuse_loop 退出后记录 errno、信号、mount point stat、statfs |
+| `FUSEFileSystem.swift` | recovery 触发前采集 mount status、path existence、/dev/macfuse0 设备状态 |
+
+**关键代码变更:**
+
+```c
+// fuse_wrapper.c - 信号追踪
+static volatile sig_atomic_t g_last_signal = 0;
+static void fuse_signal_handler(int sig) {
+    g_last_signal = sig;
+    LOG_WARN("Received signal %d (%s)", sig, strsignal(sig));
+}
+
+// fuse_loop 退出后诊断
+int result = fuse_loop(g_state.fuse);
+int saved_errno = errno;
+LOG_INFO("FUSE event loop exited, return value: %d, errno: %d (%s)", result, saved_errno, strerror(saved_errno));
+if (g_last_signal != 0) LOG_WARN("Exit caused by signal: %d", (int)g_last_signal);
+// + stat(mount_path) + statfs(mount_path) 检查
+```
+
+```swift
+// FUSEFileSystem.swift - recovery 前诊断
+let (stillMounted, mountDetail) = self.checkMountStatusDetailed(path: mountPath)
+let macfuseExists = fm.fileExists(atPath: "/dev/macfuse0")
+self.logger.warning("FUSE exited unexpectedly! Diagnostics: \(diagInfo)")
+```
+
+**发布:**
+- 删除旧 v2.0 tag/release，重新编译打包 DMG (6.0M)，发布到 GitHub
+- Release: https://github.com/newstatic/DMSA/releases/tag/v2.0
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*

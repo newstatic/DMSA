@@ -160,7 +160,25 @@ class FUSEFileSystem {
 
             // If not an active unmount, notify delegate for recovery
             if !self.isUnmounting {
-                self.logger.warning("FUSE exited unexpectedly! Notifying VFSManager for recovery")
+                // Collect diagnostics before recovery
+                let mountPath = expandedPath
+                var diagInfo = "exit_code=\(result)"
+
+                // Check mount status
+                let (stillMounted, mountDetail) = self.checkMountStatusDetailed(path: mountPath)
+                diagInfo += ", still_mounted=\(stillMounted), mount_info=\(mountDetail)"
+
+                // Check mount point existence
+                let fm = FileManager.default
+                var isDir: ObjCBool = false
+                let exists = fm.fileExists(atPath: mountPath, isDirectory: &isDir)
+                diagInfo += ", path_exists=\(exists), is_dir=\(isDir.boolValue)"
+
+                // Check /dev/macfuse device
+                let macfuseExists = fm.fileExists(atPath: "/dev/macfuse0")
+                diagInfo += ", macfuse_dev=\(macfuseExists)"
+
+                self.logger.warning("FUSE exited unexpectedly! Diagnostics: \(diagInfo)")
                 self.delegate?.fuseDidExitUnexpectedly(syncPairId: self.syncPairId, exitCode: result)
             }
         }

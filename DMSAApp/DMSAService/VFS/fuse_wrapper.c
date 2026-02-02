@@ -26,6 +26,8 @@
 #include <sys/time.h>
 #include <pthread.h>
 #include <libgen.h>
+#include <signal.h>
+#include <sys/mount.h>
 
 #include "fuse_wrapper.h"
 
@@ -41,7 +43,33 @@
 #endif
 
 #define LOG_INFO(fmt, ...) fprintf(stderr, LOG_PREFIX "INFO: " fmt "\n", ##__VA_ARGS__)
+#define LOG_WARN(fmt, ...) fprintf(stderr, LOG_PREFIX "WARN: " fmt "\n", ##__VA_ARGS__)
 #define LOG_ERROR(fmt, ...) fprintf(stderr, LOG_PREFIX "ERROR: " fmt "\n", ##__VA_ARGS__)
+
+// ============================================================
+// Signal tracking for exit diagnostics
+// ============================================================
+static volatile sig_atomic_t g_last_signal = 0;
+
+static void fuse_signal_handler(int sig) {
+    g_last_signal = sig;
+    LOG_WARN("Received signal %d (%s)", sig, strsignal(sig));
+}
+
+static void install_signal_handlers(void) {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = fuse_signal_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+
+    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGHUP, &sa, NULL);
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGUSR1, &sa, NULL);
+    sigaction(SIGUSR2, &sa, NULL);
+    LOG_INFO("Signal handlers installed (SIGTERM/SIGHUP/SIGINT/SIGUSR1/SIGUSR2)");
+}
 
 // ============================================================
 // Global state
@@ -1216,10 +1244,41 @@ int fuse_wrapper_mount(const char *mount_path, const char *local_dir, const char
 
     free(mount_path_copy);
 
+    // Install signal handlers for exit diagnostics
+    g_last_signal = 0;
+    install_signal_handlers();
+
     // Run FUSE event loop (blocking)
     int result = fuse_loop(g_state.fuse);
+    int saved_errno = errno;
 
-    LOG_INFO("FUSE event loop exited, return value: %d", result);
+    // ---- Post-exit diagnostics ----
+    LOG_INFO("FUSE event loop exited, return value: %d, errno: %d (%s)",
+             result, saved_errno, strerror(saved_errno));
+
+    if (g_last_signal != 0) {
+        LOG_WARN("Exit caused by signal: %d (%s)", (int)g_last_signal, strsignal((int)g_last_signal));
+    } else {
+        LOG_INFO("No signal received before exit");
+    }
+
+    // Check if mount point still exists
+    struct stat mp_stat;
+    if (stat(mount_path, &mp_stat) != 0) {
+        LOG_WARN("Mount point gone after exit: %s (errno=%d %s)",
+                 mount_path, errno, strerror(errno));
+    } else {
+        LOG_INFO("Mount point still exists: %s (type=0x%x)",
+                 mount_path, mp_stat.st_mode & S_IFMT);
+    }
+
+    // Check if still mounted via statfs
+    struct statfs fs_stat;
+    if (statfs(mount_path, &fs_stat) == 0) {
+        LOG_INFO("Filesystem at mount point: type=%s", fs_stat.f_fstypename);
+    } else {
+        LOG_WARN("statfs failed on mount point: errno=%d (%s)", errno, strerror(errno));
+    }
 
     // Cleanup
     fuse_destroy(g_state.fuse);
