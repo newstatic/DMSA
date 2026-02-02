@@ -1468,14 +1468,14 @@ if let uint64Id = try? container.decode(UInt64.self, forKey: .id) {
 
 ---
 
-### 文件权限修复 + 发布脚本
+### 文件权限修复 + 服务安装重构 + 环境变量移除 + 发布脚本
 
 **相关会话:** 0d89290c
 **日期:** 2026-02-02
 **状态:** ✅ 完成
 
 **功能描述:**
-修复 FUSE VFS 创建文件时所有者为 root 的问题，索引时自动修复错误权限，创建 release.sh 发布脚本并发布 v2.0 到 GitHub。
+修复 FUSE VFS 文件所有权问题，重构 ServiceInstaller plist 管理逻辑，移除 DMSA_USER_HOME 环境变量依赖，改为 XPC setUserHome 门控机制，创建 release.sh 并发布 v2.0。
 
 **完成任务:**
 1. ✅ fuse_wrapper.c: 新增 `fix_ownership()` 辅助函数，文件创建后 chown 为用户
@@ -1484,17 +1484,45 @@ if let uint64Id = try? container.decode(UInt64.self, forKey: .id) {
 4. ✅ VFSManager.swift: 新增 `getExpectedOwner()` + `fixOwnershipIfNeeded()` 辅助方法
 5. ✅ VFSManager.swift: incrementalIndex/fullIndex 扫描时自动修复错误 ownership
 6. ✅ 创建 release.sh (构建 → DMG → git tag → GitHub Release)
-7. ✅ 执行发布 v2.0 到 GitHub
+7. ✅ 修复 DMG 打包问题 (Service 不应单独打包，已嵌入 App Bundle)
+8. ✅ ServiceInstaller 重构: 生产模式用嵌入 plist，Xcode 模式动态生成
+9. ✅ 移除所有 DMSA_USER_HOME/NAME/LOGS_DIR/DATA_DIR 环境变量
+10. ✅ UserPathManager 添加 `waitForUserHome()` 信号量门控
+11. ✅ main.swift 重构: setupDirectories/startScheduler/autoMount 等待 setUserHome
+12. ✅ Constants.Paths 简化: 统一使用 UserPathManager
+13. ✅ ServiceDatabaseManager 移除 DMSA_DATA_DIR 环境变量
+14. ✅ 发布 v2.0 到 GitHub (重建发布)
 
 **修改文件:**
-- `DMSAService/VFS/fuse_wrapper.c` - fix_ownership + 6处创建路径修复 + getattr uid/gid 覆盖
-- `DMSAService/VFS/VFSManager.swift` - getExpectedOwner + fixOwnershipIfNeeded + buildIndex/incrementalIndex/fullIndex 集成
-- `release.sh` - **新文件** 发布脚本
+- `DMSAService/VFS/fuse_wrapper.c` - fix_ownership + 6处创建路径修复 + getattr uid/gid
+- `DMSAService/VFS/VFSManager.swift` - ownership 修复集成到索引
+- `DMSAApp/Services/ServiceInstaller.swift` - 双模式 plist 管理 + expectedProgramPath + isPlistProgramPathCorrect
+- `DMSAShared/Utils/UserPathManager.swift` - waitForUserHome(timeout:) + isUserHomeSet + DispatchSemaphore
+- `DMSAShared/Utils/Constants.swift` - 移除环境变量，简化路径
+- `DMSAService/Data/ServiceDatabaseManager.swift` - 移除 DMSA_DATA_DIR
+- `DMSAService/main.swift` - setUserHome 门控启动序列
+- `DMSAService/Resources/com.ttttt.dmsa.service.plist` - 移除 DMSA_USER_* 环境变量
+- `release.sh` - 发布脚本 (修复 Service 不再单独打包)
+
+**关键设计决策 (用户4条规则):**
+1. 二进制始终指向 App Bundle 资源文件
+2. Xcode 模式允许 plist 动态生成 (指向 DerivedData)
+3. 生产模式只允许从 /Applications/ 运行
+4. 生产模式 plist 在发布时构建，打包到 App Bundle Resources
+
+**服务启动序列 (重构后):**
+```
+XPC listener 立即启动 → 等待 setUserHome (120s timeout)
+→ setupDirectories → startScheduler → autoMount → READY
+```
 
 **关键问题与解决:**
-1. **VFS创建的文件 owner 是 root**: Service 以 root 运行，open()/mkdir() 默认创建 root 文件。fix: 每次创建后 lchown 到挂载点 owner。
-2. **已有文件权限错误**: 索引扫描时检测 uid/gid 不匹配则自动 lchown 修复。
-3. **fix_ownership 前向声明错误**: 函数定义在 ensure_parent_directory 之后但被调用。fix: 移动定义到调用之前。
+1. **VFS 文件 owner 是 root**: lchown 到挂载点 owner
+2. **DMG 含独立 Service 文件夹**: release.sh 移除单独 copy 逻辑
+3. **plist Program 路径不匹配**: 旧 plist 指向 /Library/PrivilegedHelperTools/，实际 binary 在 App Bundle。重构为嵌入 plist
+4. **动态 plist 不适合生产**: 无签名证书时动态生成的 plist 无法通过安全检查。生产用预构建嵌入 plist
+5. **环境变量路径依赖**: DMSA_USER_HOME 等 plist 注入的环境变量不可靠。改为 XPC setUserHome + DispatchSemaphore 门控
+6. **启动竞态条件**: setupDirectories 等需要正确路径，但路径依赖 setUserHome。延迟所有路径相关初始化到 setUserHome 之后
 
 ---
 

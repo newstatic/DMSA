@@ -110,23 +110,10 @@ public enum Constants {
     /// Paths
     public enum Paths {
         /// Current user's home directory
-        /// When Service runs as root, it needs to access the actual user's directory
+        /// When Service runs as root, UserPathManager resolves the actual user's directory
+        /// (set via XPC setUserHome call from App)
         private static var userHome: URL {
-            // Detect if running as root (Service)
-            if getuid() == 0 {
-                // Prefer user Home from plist-injected environment variable
-                if let userHome = ProcessInfo.processInfo.environment["DMSA_USER_HOME"] {
-                    return URL(fileURLWithPath: userHome)
-                }
-                // Fallback: try from SUDO_USER
-                if let sudoUser = ProcessInfo.processInfo.environment["SUDO_USER"],
-                   let pw = getpwnam(sudoUser) {
-                    return URL(fileURLWithPath: String(cString: pw.pointee.pw_dir))
-                }
-                // Last resort: hardcoded
-                return URL(fileURLWithPath: "/Users/ttttt")
-            }
-            return FileManager.default.homeDirectoryForCurrentUser
+            return URL(fileURLWithPath: UserPathManager.shared.userHome)
         }
 
         /// App support directory
@@ -170,19 +157,8 @@ public enum Constants {
         }
 
         /// Logs directory
-        /// When Service runs as root, uses plist-injected user directory
         public static var logs: URL {
-            // Detect if running as root (Service)
-            if getuid() == 0 {
-                // Prefer logs directory from plist-injected environment variable
-                if let logsDir = ProcessInfo.processInfo.environment["DMSA_LOGS_DIR"] {
-                    return URL(fileURLWithPath: logsDir)
-                }
-                // Fallback: use userHome
-                return userHome.appendingPathComponent("Library/Logs/DMSA")
-            }
-            return FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library/Logs/DMSA")
+            userHome.appendingPathComponent("Library/Logs/DMSA")
         }
 
         /// Date formatter (log file names)

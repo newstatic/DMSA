@@ -94,18 +94,19 @@ log "Build succeeded"
 # ─── Locate Products ────────────────────────────────────────────────
 step "Locating build products"
 
-APP_PATH=$(find "$BUILD_DIR" -name "${APP_NAME}.app" -type d | head -1)
-SERVICE_PATH=$(find "$BUILD_DIR" -name "${SERVICE_TARGET}" -type f | head -1)
+APP_PATH=$(find "$BUILD_DIR" -name "${APP_NAME}.app" -type d -maxdepth 4 | head -1)
 
 if [ -z "$APP_PATH" ]; then
     err "Cannot find ${APP_NAME}.app in $BUILD_DIR"
 fi
 log "App: $APP_PATH"
 
-if [ -n "$SERVICE_PATH" ]; then
-    log "Service: $SERVICE_PATH"
+# Verify service is embedded in app bundle
+EMBEDDED_SERVICE="$APP_PATH/Contents/Library/LaunchServices/${SERVICE_TARGET}"
+if [ -f "$EMBEDDED_SERVICE" ]; then
+    log "Service embedded: $EMBEDDED_SERVICE"
 else
-    warn "Service binary not found separately (may be embedded in app)"
+    err "Service not found in app bundle: $EMBEDDED_SERVICE"
 fi
 
 # ─── Package DMG ─────────────────────────────────────────────────────
@@ -115,14 +116,8 @@ DMG_STAGING="$BUILD_DIR/dmg_staging"
 rm -rf "$DMG_STAGING"
 mkdir -p "$DMG_STAGING"
 
-# Copy app
+# Copy app (service is already embedded inside)
 cp -R "$APP_PATH" "$DMG_STAGING/"
-
-# Copy service if separate
-if [ -n "$SERVICE_PATH" ]; then
-    mkdir -p "$DMG_STAGING/Service"
-    cp "$SERVICE_PATH" "$DMG_STAGING/Service/"
-fi
 
 # Add symlink to Applications
 ln -s /Applications "$DMG_STAGING/Applications"
@@ -157,16 +152,11 @@ step "Creating GitHub Release"
 
 RELEASE_NOTES="## DMSA $VERSION
 
-### Changes
-- Fixed file ownership: files created via VFS now have correct user permissions
-- Fixed indexing: auto-repairs file ownership during scan
-- VFS getattr returns correct user uid/gid for all files
-
 ### Install
 1. Download \`$DMG_NAME\`
-2. Open DMG, drag DMSA.app to Applications
-3. Copy Service/com.ttttt.dmsa.service to /Library/PrivilegedHelperTools/ (requires sudo)
-4. Requires macFUSE 5.1.3+"
+2. Open DMG, drag **DMSA.app** to Applications
+3. Launch DMSA — service will be installed automatically on first run
+4. Requires [macFUSE 5.1.3+](https://macfuse.github.io/)"
 
 gh release create "$TAG" \
     "$DMG_PATH" \

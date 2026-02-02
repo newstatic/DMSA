@@ -375,13 +375,7 @@ actor ServiceDatabaseManager {
     private let maxStatisticsDays = 90
 
     private init() {
-        // Prefer data directory from plist-injected environment variable
-        if let dataDir = ProcessInfo.processInfo.environment["DMSA_DATA_DIR"] {
-            dataDirectory = URL(fileURLWithPath: dataDir).appendingPathComponent("ServiceData")
-        } else {
-            // Fallback: use Constants.Paths.appSupport
-            dataDirectory = Constants.Paths.appSupport.appendingPathComponent("ServiceData")
-        }
+        dataDirectory = Constants.Paths.appSupport.appendingPathComponent("ServiceData")
 
         Task {
             await initialize()

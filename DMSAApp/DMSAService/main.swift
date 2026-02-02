@@ -77,17 +77,7 @@ logger.info("PID: \(ProcessInfo.processInfo.processIdentifier)")
 logger.info("UID: \(getuid())")
 logger.info("========================================")
 
-// Output environment variable configuration
-let env = ProcessInfo.processInfo.environment
-logger.info("Environment variables:")
-logger.info("  DMSA_USER_HOME: \(env["DMSA_USER_HOME"] ?? "(not set)")")
-logger.info("  DMSA_USER_NAME: \(env["DMSA_USER_NAME"] ?? "(not set)")")
-logger.info("  DMSA_LOGS_DIR: \(env["DMSA_LOGS_DIR"] ?? "(not set)")")
-logger.info("  DMSA_DATA_DIR: \(env["DMSA_DATA_DIR"] ?? "(not set)")")
-logger.info("Path configuration:")
-logger.info("  userHome: \(Constants.Paths.appSupport.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().path)")
-logger.info("  logs: \(Constants.Paths.logs.path)")
-logger.info("  appSupport: \(Constants.Paths.appSupport.path)")
+logger.info("Waiting for App to connect and set userHome via XPC...")
 logger.info("========================================")
 
 // MARK: - Directory Setup
@@ -161,16 +151,13 @@ if !preflightReport.criticalFailures.isEmpty {
     exit(1)
 }
 
-// 1. Set up directories
-setupDirectories()
-
-// 2. Set up signal handlers
+// 1. Set up signal handlers (before anything else)
 setupSignalHandlers()
 
-// 3. Create service delegate
+// 2. Create service delegate
 let delegate = ServiceDelegate()
 
-// 4. Create XPC listener
+// 3. Create XPC listener (must be ready before App connects)
 let listener = NSXPCListener(machServiceName: Constants.XPCService.service)
 listener.delegate = delegate
 listener.resume()
@@ -206,8 +193,27 @@ powerMonitor.onSystemWake = {
 }
 powerMonitor.start()
 
-// 6. Start background tasks
+// 6. Start background tasks — wait for App to set userHome first
 Task {
+    // Wait for App to connect and call setUserHome via XPC
+    // This blocks until userHome is set (timeout 120s)
+    logger.info("Waiting for setUserHome from App...")
+    let gotUserHome = await Task.detached {
+        UserPathManager.shared.waitForUserHome(timeout: 120)
+    }.value
+
+    if !gotUserHome {
+        logger.error("Timeout waiting for setUserHome, using fallback path")
+    }
+
+    let home = UserPathManager.shared.userHome
+    logger.info("userHome resolved: \(home)")
+    logger.info("  logs: \(Constants.Paths.logs.path)")
+    logger.info("  appSupport: \(Constants.Paths.appSupport.path)")
+
+    // Now safe to set up directories (paths depend on userHome)
+    setupDirectories()
+
     // Brief delay to let process initialization complete
     try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 seconds
 

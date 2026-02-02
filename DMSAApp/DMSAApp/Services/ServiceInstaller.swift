@@ -52,7 +52,7 @@ final class ServiceInstaller {
     func checkAndInstallService() async -> ServiceInstallResult {
         logger.info("Checking DMSAService status...")
 
-        // Step 1: Check if both binary and plist exist
+        // Step 1: Check if binary and plist exist
         let binaryExists = FileManager.default.fileExists(atPath: serviceBinaryPath)
         let plistExists = FileManager.default.fileExists(atPath: launchDaemonPlistPath)
 
@@ -126,32 +126,35 @@ final class ServiceInstaller {
 
         logger.info("Service binary: \(serviceBinaryPath), Xcode mode: \(isRunningFromXcode)")
 
-        // Prepare plist file path
+        // Determine plist source
         let plistToInstall: String
 
         if isRunningFromXcode {
-            // Xcode debug mode: dynamically generate plist pointing to DerivedData binary
+            // Xcode mode: dynamically generate plist pointing to DerivedData binary
             let tempPlistPath = "/tmp/com.ttttt.dmsa.service.plist"
             let plistContent = generatePlistContent(programPath: serviceBinaryPath)
 
             do {
                 try plistContent.write(toFile: tempPlistPath, atomically: true, encoding: .utf8)
-                logger.info("Generated temp plist: \(tempPlistPath)")
+                logger.info("Generated dynamic plist: \(tempPlistPath), Program=\(serviceBinaryPath)")
             } catch {
-                logger.error("Failed to generate temp plist: \(error)")
-                return .failed(error: "Failed to generate temp plist")
+                logger.error("Failed to generate plist: \(error)")
+                return .failed(error: "Failed to generate plist")
             }
             plistToInstall = tempPlistPath
         } else {
-            // Production mode: use embedded plist
+            // Production mode: use embedded plist from App Bundle Resources
+            // (pre-built during release, Program points to /Applications/DMSA.app/...)
             guard let embeddedPlist = embeddedPlistPath else {
-                logger.error("Embedded service plist not found")
+                logger.error("Embedded service plist not found in App Bundle")
                 return .failed(error: "Embedded service plist not found")
             }
+            logger.info("Using embedded plist: \(embeddedPlist)")
             plistToInstall = embeddedPlist
         }
 
         // Build installation script
+        // Binary stays in App Bundle, plist points to it
         let script = """
             do shell script "\\
             mkdir -p '\(launchDaemonsDir)' && \\
@@ -346,7 +349,16 @@ final class ServiceInstaller {
         }
     }
 
-    /// Check if Program path in installed plist matches current binary path
+    /// Expected Program path in the installed plist
+    private var expectedProgramPath: String {
+        if isRunningFromXcode {
+            return serviceBinaryPath  // DerivedData path
+        } else {
+            return "/Applications/DMSA.app/Contents/Library/LaunchServices/\(serviceIdentifier)"
+        }
+    }
+
+    /// Check if Program path in installed plist matches expected path
     private func isPlistProgramPathCorrect() -> Bool {
         guard let plistData = FileManager.default.contents(atPath: launchDaemonPlistPath),
               let plist = try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil) as? [String: Any],
@@ -355,7 +367,7 @@ final class ServiceInstaller {
             return false
         }
 
-        let expected = serviceBinaryPath
+        let expected = expectedProgramPath
         let isMatch = programPath == expected
 
         if !isMatch {
@@ -440,22 +452,10 @@ private func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async
 // MARK: - Plist Generation
 
 extension ServiceInstaller {
-    /// Generate LaunchDaemon plist content
+    /// Generate LaunchDaemon plist content (Xcode debug mode only)
     /// - Parameter programPath: Full path to the service binary
     /// - Returns: plist XML string
-    ///
-    /// Environment variables:
-    /// - DMSA_USER_HOME: Current user's home directory, used by Service to access user data
-    /// - DMSA_USER_NAME: Current username
     private func generatePlistContent(programPath: String) -> String {
-        // Get current user info
-        let userHome = FileManager.default.homeDirectoryForCurrentUser.path
-        let userName = NSUserName()
-
-        // Logs and data stored under user directory
-        let logsDir = "\(userHome)/Library/Logs/DMSA"
-        let dataDir = "\(userHome)/Library/Application Support/DMSA"
-
         return """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -489,20 +489,14 @@ extension ServiceInstaller {
             <dict>
                 <key>PATH</key>
                 <string>/usr/bin:/bin:/usr/sbin:/sbin:/Library/Frameworks</string>
-                <key>DMSA_USER_HOME</key>
-                <string>\(userHome)</string>
-                <key>DMSA_USER_NAME</key>
-                <string>\(userName)</string>
-                <key>DMSA_LOGS_DIR</key>
-                <string>\(logsDir)</string>
-                <key>DMSA_DATA_DIR</key>
-                <string>\(dataDir)</string>
+                <key>OBJC_DISABLE_INITIALIZE_FORK_SAFETY</key>
+                <string>YES</string>
             </dict>
 
             <key>StandardOutPath</key>
-            <string>\(logsDir)/service-stdout.log</string>
+            <string>/var/log/dmsa-service.log</string>
             <key>StandardErrorPath</key>
-            <string>\(logsDir)/service-stderr.log</string>
+            <string>/var/log/dmsa-service.error.log</string>
 
             <key>ExitTimeOut</key>
             <integer>30</integer>
