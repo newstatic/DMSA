@@ -348,6 +348,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | 7ec270c8 | 2026-01-28 | File-level Sync/Eviction Records | ServiceSyncFileRecord entity + XPC + UI display |
 | c2bc39ee | 2026-02-02 | Build/i18n/Decode Fix | pbxproj path fix, PBXVariantGroup fix, SyncHistory CodingKeys fix |
 | b6fc182a | 2026-02-02 | Persistence+Index+Eviction+Log+FUSE | ActivityRecord persistence, incremental index, batch writes, eviction logic fix, log rotation, FUSE recovery |
+| 0d89290c | 2026-02-02 | File Ownership Fix + Release Script | VFS file ownership fix (chown to user), index auto-repair, release.sh, v2.0 GitHub release |
 
 ---
 

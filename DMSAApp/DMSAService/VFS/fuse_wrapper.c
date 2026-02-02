@@ -158,6 +158,13 @@ static char* resolve_actual_path(const char *virtual_path) {
     return NULL;
 }
 
+// Fix ownership of a file/directory to the mount owner (user)
+static void fix_ownership(const char *path) {
+    if (g_state.owner_uid != 0 || g_state.owner_gid != 0) {
+        lchown(path, g_state.owner_uid, g_state.owner_gid);
+    }
+}
+
 // Ensure parent directory exists
 static int ensure_parent_directory(const char *path) {
     char *path_copy = strdup(path);
@@ -186,6 +193,7 @@ static int ensure_parent_directory(const char *path) {
                     result = -errno;
                     break;
                 }
+                fix_ownership(path_copy);
             }
             *p = '/';
         }
@@ -274,6 +282,10 @@ static int dmsa_getattr(const char *path, struct stat *stbuf) {
     if (res == -1) {
         return -errno;
     }
+
+    // Always report files as owned by the mount owner
+    stbuf->st_uid = g_state.owner_uid;
+    stbuf->st_gid = g_state.owner_gid;
 
     return 0;
 }
@@ -416,6 +428,7 @@ static int dmsa_open(const char *path, struct fuse_file_info *fi) {
                 return -err;
             }
             close(fd);
+            fix_ownership(actual_path);
         } else {
             return -ENOENT;
         }
@@ -564,11 +577,15 @@ static int dmsa_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     }
 
     int fd = open(local, O_CREAT | O_WRONLY | O_TRUNC, mode);
-    free(local);
 
     if (fd == -1) {
-        return -errno;
+        int err = errno;
+        free(local);
+        return -err;
     }
+
+    fix_ownership(local);
+    free(local);
 
     fi->fh = fd;
     return 0;
@@ -623,11 +640,15 @@ static int dmsa_mkdir(const char *path, mode_t mode) {
     }
 
     res = mkdir(local, mode);
-    free(local);
 
     if (res == -1) {
-        return -errno;
+        int err = errno;
+        free(local);
+        return -err;
     }
+
+    fix_ownership(local);
+    free(local);
 
     return 0;
 }
@@ -702,6 +723,7 @@ static int dmsa_rename(const char *from, const char *to) {
                         write(dst_fd, copy_buf, bytes);
                     }
                     close(dst_fd);
+                    fix_ownership(local_from);
                 }
                 close(src_fd);
             }
@@ -906,11 +928,15 @@ static int dmsa_symlink(const char *target, const char *linkpath) {
     ensure_parent_directory(local);
 
     int res = symlink(target, local);
-    free(local);
 
     if (res == -1) {
-        return -errno;
+        int err = errno;
+        free(local);
+        return -err;
     }
+
+    fix_ownership(local);
+    free(local);
 
     return 0;
 }

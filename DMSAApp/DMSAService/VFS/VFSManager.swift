@@ -412,6 +412,14 @@ actor VFSManager {
     private func buildIndex(for syncPairId: String) async {
         guard let mountPoint = mountPoints[syncPairId] else { return }
 
+        // Fix ownership of localDir itself
+        if let owner = getExpectedOwner(localDir: mountPoint.localDir) {
+            let fm = FileManager.default
+            if let attrs = try? fm.attributesOfItem(atPath: mountPoint.localDir) {
+                fixOwnershipIfNeeded(path: mountPoint.localDir, expectedUID: owner.uid, expectedGID: owner.gid, attrs: attrs)
+            }
+        }
+
         // Check if database has existing index -> incremental; otherwise full build
         let existingEntries = await database.getAllFileEntries(syncPairId: syncPairId)
         if !existingEntries.isEmpty {
@@ -458,6 +466,7 @@ actor VFSManager {
 
         // Scan current filesystem
         var currentPaths: [String: ServiceFileEntry] = [:]
+        let expectedOwner = getExpectedOwner(localDir: mountPoint.localDir)
 
         // Scan LOCAL_DIR
         if let localContents = try? fm.subpathsOfDirectory(atPath: mountPoint.localDir) {
@@ -474,6 +483,11 @@ actor VFSManager {
                     entry.modifiedAt = attrs[.modificationDate] as? Date ?? Date()
                     entry.createdAt = attrs[.creationDate] as? Date ?? Date()
                     entry.isDirectory = (attrs[.type] as? FileAttributeType) == .typeDirectory
+
+                    // Fix ownership if wrong
+                    if let owner = expectedOwner {
+                        fixOwnershipIfNeeded(path: fullPath, expectedUID: owner.uid, expectedGID: owner.gid, attrs: attrs)
+                    }
                 }
 
                 entry.location = FileLocation.localOnly.rawValue
@@ -577,6 +591,7 @@ actor VFSManager {
         buffer.reserveCapacity(batchSize)
         var totalCount = 0
         var localPaths: [String: ServiceFileEntry] = [:]
+        let expectedOwner = getExpectedOwner(localDir: mountPoint.localDir)
 
         // Producer: scan LOCAL_DIR
         if let localContents = try? fm.subpathsOfDirectory(atPath: mountPoint.localDir) {
@@ -592,6 +607,11 @@ actor VFSManager {
                     entry.modifiedAt = attrs[.modificationDate] as? Date ?? Date()
                     entry.createdAt = attrs[.creationDate] as? Date ?? Date()
                     entry.isDirectory = (attrs[.type] as? FileAttributeType) == .typeDirectory
+
+                    // Fix ownership if wrong
+                    if let owner = expectedOwner {
+                        fixOwnershipIfNeeded(path: fullPath, expectedUID: owner.uid, expectedGID: owner.gid, attrs: attrs)
+                    }
                 }
 
                 entry.location = FileLocation.localOnly.rawValue
@@ -702,6 +722,29 @@ actor VFSManager {
             return name.range(of: "^\(regex)$", options: .regularExpression) != nil
         } else {
             return name == pattern
+        }
+    }
+
+    /// Get expected owner uid/gid from the parent directory of localDir
+    private nonisolated func getExpectedOwner(localDir: String) -> (uid: UInt32, gid: UInt32)? {
+        let parent = (localDir as NSString).deletingLastPathComponent
+        let fm = FileManager.default
+        guard let attrs = try? fm.attributesOfItem(atPath: parent) else { return nil }
+        let uid = attrs[.ownerAccountID] as? UInt32 ?? 0
+        let gid = attrs[.groupOwnerAccountID] as? UInt32 ?? 0
+        if uid == 0 && gid == 0 { return nil }
+        return (uid, gid)
+    }
+
+    /// Fix file ownership if it doesn't match expected owner
+    private nonisolated func fixOwnershipIfNeeded(path: String, expectedUID: UInt32, expectedGID: UInt32, attrs: [FileAttributeKey: Any]) {
+        let currentUID = attrs[.ownerAccountID] as? UInt32 ?? 0
+        let currentGID = attrs[.groupOwnerAccountID] as? UInt32 ?? 0
+        if currentUID != expectedUID || currentGID != expectedGID {
+            let logger = Logger.forService("VFS")
+            logger.info("Fixing ownership: \(path) uid \(currentUID)->\(expectedUID) gid \(currentGID)->\(expectedGID)")
+            // Use lchown so symlinks themselves get fixed
+            lchown(path, expectedUID, expectedGID)
         }
     }
 

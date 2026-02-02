@@ -1468,4 +1468,34 @@ if let uint64Id = try? container.decode(UInt64.self, forKey: .id) {
 
 ---
 
+### 文件权限修复 + 发布脚本
+
+**相关会话:** 0d89290c
+**日期:** 2026-02-02
+**状态:** ✅ 完成
+
+**功能描述:**
+修复 FUSE VFS 创建文件时所有者为 root 的问题，索引时自动修复错误权限，创建 release.sh 发布脚本并发布 v2.0 到 GitHub。
+
+**完成任务:**
+1. ✅ fuse_wrapper.c: 新增 `fix_ownership()` 辅助函数，文件创建后 chown 为用户
+2. ✅ fuse_wrapper.c: 修复 create/mkdir/symlink/open/rename/ensure_parent_directory 全部创建路径
+3. ✅ fuse_wrapper.c: getattr 对所有文件强制返回用户 uid/gid
+4. ✅ VFSManager.swift: 新增 `getExpectedOwner()` + `fixOwnershipIfNeeded()` 辅助方法
+5. ✅ VFSManager.swift: incrementalIndex/fullIndex 扫描时自动修复错误 ownership
+6. ✅ 创建 release.sh (构建 → DMG → git tag → GitHub Release)
+7. ✅ 执行发布 v2.0 到 GitHub
+
+**修改文件:**
+- `DMSAService/VFS/fuse_wrapper.c` - fix_ownership + 6处创建路径修复 + getattr uid/gid 覆盖
+- `DMSAService/VFS/VFSManager.swift` - getExpectedOwner + fixOwnershipIfNeeded + buildIndex/incrementalIndex/fullIndex 集成
+- `release.sh` - **新文件** 发布脚本
+
+**关键问题与解决:**
+1. **VFS创建的文件 owner 是 root**: Service 以 root 运行，open()/mkdir() 默认创建 root 文件。fix: 每次创建后 lchown 到挂载点 owner。
+2. **已有文件权限错误**: 索引扫描时检测 uid/gid 不匹配则自动 lchown 修复。
+3. **fix_ownership 前向声明错误**: 函数定义在 ensure_parent_directory 之后但被调用。fix: 移动定义到调用之前。
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*
