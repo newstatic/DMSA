@@ -258,7 +258,19 @@ actor EvictionManager {
 
             do {
                 let fileSize = entry.size
+
+                // Mark path in FUSE exclude list so IO redirects to EXTERNAL
+                entry.virtualPath.withCString { cstr in
+                    fuse_wrapper_mark_evicting(cstr)
+                }
+
+                // Delete local copy (FUSE now routes to EXTERNAL for this path)
                 try fm.removeItem(atPath: localPath)
+
+                // Unmark after deletion complete
+                entry.virtualPath.withCString { cstr in
+                    fuse_wrapper_unmark_evicting(cstr)
+                }
 
                 evictedFiles.append(entry.virtualPath)
                 freedSpace += fileSize
@@ -276,6 +288,11 @@ actor EvictionManager {
                 logger.debug("Evicted: \(entry.virtualPath) (\(formatBytes(fileSize)))")
 
             } catch {
+                // Unmark on failure too
+                entry.virtualPath.withCString { cstr in
+                    fuse_wrapper_unmark_evicting(cstr)
+                }
+
                 errors.append("Delete failed: \(entry.virtualPath) - \(error.localizedDescription)")
 
                 // Record eviction failure
@@ -399,8 +416,25 @@ actor EvictionManager {
             throw EvictionError.noLocalPath(virtualPath)
         }
 
+        // Mark path in FUSE exclude list so IO redirects to EXTERNAL
+        virtualPath.withCString { cstr in
+            fuse_wrapper_mark_evicting(cstr)
+        }
+
         // Delete local copy
-        try FileManager.default.removeItem(atPath: localPath)
+        do {
+            try FileManager.default.removeItem(atPath: localPath)
+        } catch {
+            virtualPath.withCString { cstr in
+                fuse_wrapper_unmark_evicting(cstr)
+            }
+            throw error
+        }
+
+        // Unmark after deletion
+        virtualPath.withCString { cstr in
+            fuse_wrapper_unmark_evicting(cstr)
+        }
 
         // Update index
         await updateEntryLocation(entry: entry, vfsManager: vfsManager)

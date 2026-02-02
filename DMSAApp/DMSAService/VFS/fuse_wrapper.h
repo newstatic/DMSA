@@ -116,6 +116,44 @@ int fuse_wrapper_is_index_ready(void);
  */
 const char* fuse_wrapper_error_string(int error);
 
+// ============================================================
+// Eviction exclude list API
+// ============================================================
+
+/**
+ * Mark a virtual path as being evicted.
+ * While marked, FUSE resolve skips LOCAL and goes directly to EXTERNAL.
+ * Call this BEFORE deleting the local file.
+ *
+ * @param virtual_path Virtual path (e.g. "/folder/file.txt")
+ */
+void fuse_wrapper_mark_evicting(const char *virtual_path);
+
+/**
+ * Unmark a virtual path from eviction.
+ * Call this AFTER deleting the local file.
+ *
+ * @param virtual_path Virtual path (e.g. "/folder/file.txt")
+ */
+void fuse_wrapper_unmark_evicting(const char *virtual_path);
+
+/**
+ * Clear all eviction marks.
+ */
+void fuse_wrapper_clear_evicting(void);
+
+// ============================================================
+// Debug control API
+// ============================================================
+
+/**
+ * Enable/disable FUSE debug logging at runtime.
+ * Off by default. Use for diagnostics only.
+ *
+ * @param enabled 1 to enable, 0 to disable
+ */
+void fuse_wrapper_set_debug(int enabled);
+
 #ifdef __cplusplus
 }
 #endif

@@ -36,11 +36,16 @@
 // ============================================================
 #define LOG_PREFIX "[FUSE-C] "
 
-#ifdef DEBUG
-#define LOG_DEBUG(fmt, ...) fprintf(stderr, LOG_PREFIX "DEBUG: " fmt "\n", ##__VA_ARGS__)
-#else
-#define LOG_DEBUG(fmt, ...) ((void)0)
-#endif
+// Runtime debug toggle - off by default even in DEBUG builds
+// Enable via fuse_wrapper_set_debug(1) from Swift when needed
+static volatile int g_fuse_debug = 0;
+
+void fuse_wrapper_set_debug(int enabled) {
+    g_fuse_debug = enabled;
+    fprintf(stderr, LOG_PREFIX "INFO: Debug logging %s\n", enabled ? "ENABLED" : "DISABLED");
+}
+
+#define LOG_DEBUG(fmt, ...) do { if (g_fuse_debug) fprintf(stderr, LOG_PREFIX "DEBUG: " fmt "\n", ##__VA_ARGS__); } while(0)
 
 #define LOG_INFO(fmt, ...) fprintf(stderr, LOG_PREFIX "INFO: " fmt "\n", ##__VA_ARGS__)
 #define LOG_WARN(fmt, ...) fprintf(stderr, LOG_PREFIX "WARN: " fmt "\n", ##__VA_ARGS__)
@@ -69,6 +74,97 @@ static void install_signal_handlers(void) {
     sigaction(SIGUSR1, &sa, NULL);
     sigaction(SIGUSR2, &sa, NULL);
     LOG_INFO("Signal handlers installed (SIGTERM/SIGHUP/SIGINT/SIGUSR1/SIGUSR2)");
+}
+
+// ============================================================
+// Eviction exclude list - paths being evicted skip LOCAL, go to EXTERNAL
+// ============================================================
+#define MAX_EVICTING 256
+static struct {
+    char *paths[MAX_EVICTING];
+    int count;
+    pthread_mutex_t lock;
+} g_evicting = {
+    .paths = {NULL},
+    .count = 0,
+    .lock = PTHREAD_MUTEX_INITIALIZER
+};
+
+static int is_evicting(const char *virtual_path) {
+    pthread_mutex_lock(&g_evicting.lock);
+    for (int i = 0; i < g_evicting.count; i++) {
+        if (g_evicting.paths[i] && strcmp(g_evicting.paths[i], virtual_path) == 0) {
+            pthread_mutex_unlock(&g_evicting.lock);
+            return 1;
+        }
+    }
+    pthread_mutex_unlock(&g_evicting.lock);
+    return 0;
+}
+
+void fuse_wrapper_mark_evicting(const char *virtual_path) {
+    if (!virtual_path) return;
+    pthread_mutex_lock(&g_evicting.lock);
+    if (g_evicting.count < MAX_EVICTING) {
+        g_evicting.paths[g_evicting.count++] = strdup(virtual_path);
+        LOG_DEBUG("Mark evicting: %s (count=%d)", virtual_path, g_evicting.count);
+    } else {
+        LOG_WARN("Eviction exclude list full (%d), cannot add: %s", MAX_EVICTING, virtual_path);
+    }
+    pthread_mutex_unlock(&g_evicting.lock);
+}
+
+void fuse_wrapper_unmark_evicting(const char *virtual_path) {
+    if (!virtual_path) return;
+    pthread_mutex_lock(&g_evicting.lock);
+    for (int i = 0; i < g_evicting.count; i++) {
+        if (g_evicting.paths[i] && strcmp(g_evicting.paths[i], virtual_path) == 0) {
+            free(g_evicting.paths[i]);
+            // Swap with last element
+            g_evicting.paths[i] = g_evicting.paths[g_evicting.count - 1];
+            g_evicting.paths[g_evicting.count - 1] = NULL;
+            g_evicting.count--;
+            LOG_DEBUG("Unmark evicting: %s (count=%d)", virtual_path, g_evicting.count);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_evicting.lock);
+}
+
+void fuse_wrapper_clear_evicting(void) {
+    pthread_mutex_lock(&g_evicting.lock);
+    for (int i = 0; i < g_evicting.count; i++) {
+        free(g_evicting.paths[i]);
+        g_evicting.paths[i] = NULL;
+    }
+    g_evicting.count = 0;
+    LOG_INFO("Eviction exclude list cleared");
+    pthread_mutex_unlock(&g_evicting.lock);
+}
+
+// ============================================================
+// Path depth check - POSIX ELOOP protection
+// ============================================================
+#define MAX_PATH_DEPTH 40  // macOS MAXSYMLINKS=32, allow some headroom
+
+static int path_depth(const char *path) {
+    if (!path || path[0] == '\0') return 0;
+    int depth = 0;
+    for (const char *p = path; *p; p++) {
+        if (*p == '/') depth++;
+    }
+    // "/a/b/c" has 3 slashes but depth 3 components
+    // "/" has 1 slash but depth 0 (root)
+    if (path[0] == '/' && path[1] == '\0') return 0;
+    return depth;
+}
+
+static inline int check_path_depth(const char *path) {
+    if (path_depth(path) > MAX_PATH_DEPTH) {
+        LOG_WARN("Path depth exceeds limit (%d): %.120s...", MAX_PATH_DEPTH, path);
+        return -ELOOP;
+    }
+    return 0;
 }
 
 // ============================================================
@@ -164,14 +260,19 @@ static char* get_external_path(const char *virtual_path) {
 }
 
 // Resolve actual path (prefer local, then external)
+// If path is in eviction exclude list, skip LOCAL and go directly to EXTERNAL
 static char* resolve_actual_path(const char *virtual_path) {
-    char *local = get_local_path(virtual_path);
-    if (local) {
-        struct stat st;
-        if (stat(local, &st) == 0) {
-            return local;
+    int evicting = is_evicting(virtual_path);
+
+    if (!evicting) {
+        char *local = get_local_path(virtual_path);
+        if (local) {
+            struct stat st;
+            if (stat(local, &st) == 0) {
+                return local;
+            }
+            free(local);
         }
-        free(local);
     }
 
     char *external = get_external_path(virtual_path);
@@ -269,6 +370,9 @@ static int root_getattr_logged = 0;  // Avoid log flooding
 static int index_not_ready_logged = 0;  // Avoid index-not-ready log flooding
 
 static int dmsa_getattr(const char *path, struct stat *stbuf) {
+    int depth_err = check_path_depth(path);
+    if (depth_err) return depth_err;
+
     LOG_DEBUG("getattr: %s", path);
 
     memset(stbuf, 0, sizeof(struct stat));
@@ -301,15 +405,18 @@ static int dmsa_getattr(const char *path, struct stat *stbuf) {
 
     char *actual_path = resolve_actual_path(path);
     if (!actual_path) {
+        LOG_DEBUG("getattr: ENOENT for %s", path);
         return -ENOENT;
     }
 
     int res = stat(actual_path, stbuf);
-    free(actual_path);
-
     if (res == -1) {
-        return -errno;
+        int err = errno;
+        LOG_WARN("getattr: stat failed for %s (actual=%s): errno=%d (%s)", path, actual_path, err, strerror(err));
+        free(actual_path);
+        return -err;
     }
+    free(actual_path);
 
     // Always report files as owned by the mount owner
     stbuf->st_uid = g_state.owner_uid;
@@ -323,6 +430,9 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                         off_t offset, struct fuse_file_info *fi) {
     (void) offset;
     (void) fi;
+
+    int depth_err = check_path_depth(path);
+    if (depth_err) return depth_err;
 
     LOG_DEBUG("readdir: %s", path);
 
@@ -426,6 +536,9 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 // open: open file
 static int dmsa_open(const char *path, struct fuse_file_info *fi) {
+    int depth_err = check_path_depth(path);
+    if (depth_err) return depth_err;
+
     LOG_DEBUG("open: %s, flags=%d", path, fi->flags);
 
     // Block file open when index is not ready
@@ -495,6 +608,7 @@ static int dmsa_open(const char *path, struct fuse_file_info *fi) {
     int fd = open(actual_path, fi->flags);
     if (fd == -1) {
         int err = errno;
+        LOG_WARN("open: failed for %s (actual=%s, flags=%d): errno=%d (%s)", path, actual_path, fi->flags, err, strerror(err));
         free(actual_path);
         if (local) free(local);
         return -err;
@@ -922,6 +1036,9 @@ static int dmsa_statfs(const char *path, struct statvfs *stbuf) {
 
 // readlink: read symbolic link
 static int dmsa_readlink(const char *path, char *buf, size_t size) {
+    int depth_err = check_path_depth(path);
+    if (depth_err) return depth_err;
+
     LOG_DEBUG("readlink: %s", path);
 
     char *actual = resolve_actual_path(path);
