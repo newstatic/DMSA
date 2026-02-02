@@ -283,6 +283,20 @@ actor SyncManager {
         logger.info("同步已暂停: \(syncPairId)")
     }
 
+    /// 暂停所有同步对
+    func pauseAll() async {
+        for syncPairId in syncStatuses.keys {
+            await pauseSync(syncPairId: syncPairId)
+        }
+    }
+
+    /// 恢复所有同步对
+    func resumeAll() async {
+        for syncPairId in syncStatuses.keys {
+            await resumeSync(syncPairId: syncPairId)
+        }
+    }
+
     func resumeSync(syncPairId: String) async {
         if var status = syncStatuses[syncPairId] {
             status.isPaused = false

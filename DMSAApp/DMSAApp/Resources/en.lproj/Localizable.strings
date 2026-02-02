@@ -728,6 +728,9 @@
 "syncHistory.filter.syncPair" = "Sync Pair";
 "syncHistory.filter.all" = "All";
 "syncHistory.empty" = "No sync history yet";
+"syncHistory.tab.tasks" = "Sync Tasks";
+"syncHistory.tab.files" = "File Records";
+"syncHistory.loadingMore" = "Loading more...";
 "common.files" = "files";
 "common.search" = "Search...";
 "sync.status.cancelled" = "Cancelled";

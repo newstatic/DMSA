@@ -8,7 +8,7 @@ final class ServiceDelegate: NSObject, NSXPCListenerDelegate {
     static weak var shared: ServiceDelegate?
 
     private let logger = Logger.forService("DMSAService")
-    private let implementation = ServiceImplementation()
+    let implementation = ServiceImplementation()
     private var activeConnections: [NSXPCConnection] = []
     private let connectionLock = NSLock()
 

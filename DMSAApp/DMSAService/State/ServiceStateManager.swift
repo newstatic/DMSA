@@ -108,20 +108,35 @@ actor ActivityManager {
     private let logger = Logger.forService("ActivityManager")
     private var activities: [ActivityRecord] = []
     private let maxCount = 5
+    private var isLoaded = false
 
     private init() {}
 
+    /// 从数据库加载活动记录 (首次访问时懒加载)
+    private func loadFromDatabaseIfNeeded() async {
+        guard !isLoaded else { return }
+        isLoaded = true
+        let dbActivities = await ServiceDatabaseManager.shared.getRecentActivities(limit: maxCount)
+        if !dbActivities.isEmpty {
+            activities = dbActivities
+            logger.info("从数据库加载 \(dbActivities.count) 条活动记录")
+        }
+    }
+
     /// 添加活动记录
-    func addActivity(_ activity: ActivityRecord) {
+    func addActivity(_ activity: ActivityRecord) async {
+        await loadFromDatabaseIfNeeded()
         activities.insert(activity, at: 0)
         if activities.count > maxCount {
             activities = Array(activities.prefix(maxCount))
         }
+        // 持久化到数据库
+        await ServiceDatabaseManager.shared.saveActivityRecord(activity)
         pushToClients()
     }
 
     /// 便捷方法：添加同步相关活动
-    func addSyncActivity(type: ActivityType, syncPairId: String, diskId: String? = nil, filesCount: Int? = nil, bytesCount: Int64? = nil, detail: String? = nil) {
+    func addSyncActivity(type: ActivityType, syncPairId: String, diskId: String? = nil, filesCount: Int? = nil, bytesCount: Int64? = nil, detail: String? = nil) async {
         let title: String
         switch type {
         case .syncStarted: title = "开始同步 \(syncPairId)"
@@ -130,29 +145,30 @@ actor ActivityManager {
         default: title = "\(syncPairId)"
         }
         let activity = ActivityRecord(type: type, title: title, detail: detail, syncPairId: syncPairId, diskId: diskId, filesCount: filesCount, bytesCount: bytesCount)
-        addActivity(activity)
+        await addActivity(activity)
     }
 
     /// 便捷方法：添加淘汰活动
-    func addEvictionActivity(filesCount: Int, bytesCount: Int64, syncPairId: String? = nil, failed: Bool = false) {
+    func addEvictionActivity(filesCount: Int, bytesCount: Int64, syncPairId: String? = nil, failed: Bool = false) async {
         let type: ActivityType = failed ? .evictionFailed : .evictionCompleted
         let sizeStr = ByteCountFormatter.string(fromByteCount: bytesCount, countStyle: .file)
         let title = failed ? "淘汰失败" : "淘汰完成"
         let detail = "\(filesCount) 个文件, \(sizeStr)"
         let activity = ActivityRecord(type: type, title: title, detail: detail, syncPairId: syncPairId, filesCount: filesCount, bytesCount: bytesCount)
-        addActivity(activity)
+        await addActivity(activity)
     }
 
     /// 便捷方法：添加磁盘活动
-    func addDiskActivity(diskName: String, isConnected: Bool) {
+    func addDiskActivity(diskName: String, isConnected: Bool) async {
         let type: ActivityType = isConnected ? .diskConnected : .diskDisconnected
         let title = isConnected ? "磁盘已连接" : "磁盘已断开"
         let activity = ActivityRecord(type: type, title: title, detail: diskName, diskId: diskName)
-        addActivity(activity)
+        await addActivity(activity)
     }
 
     /// 获取当前活动列表
-    func getActivities() -> [ActivityRecord] {
+    func getActivities() async -> [ActivityRecord] {
+        await loadFromDatabaseIfNeeded()
         return activities
     }
 

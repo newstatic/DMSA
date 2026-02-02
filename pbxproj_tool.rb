@@ -377,6 +377,7 @@ class PBXProjTool
     @project.files.each do |file|
       next unless file.path
       next if file.path.start_with?('System/') # 跳过系统文件
+      next if file.parent.is_a?(Xcodeproj::Project::Object::PBXVariantGroup) # 跳过 i18n 文件
 
       full_path = build_path_from_group(file)
       if full_path && !File.exist?(full_path)
@@ -425,6 +426,7 @@ class PBXProjTool
     @project.files.each do |file|
       next unless file.path
       next if file.path.start_with?('System/')
+      next if file.parent.is_a?(Xcodeproj::Project::Object::PBXVariantGroup) # 跳过 i18n 文件
 
       full_path = build_path_from_group(file)
       if full_path && !File.exist?(full_path)
@@ -548,6 +550,8 @@ class PBXProjTool
       next if file.path.start_with?('System/')
       # 跳过产物文件
       next if file.path.end_with?('.app', '.service')
+      # 跳过 PBXVariantGroup 子项 (i18n 本地化文件，如 en.lproj/Localizable.strings)
+      next if file.parent.is_a?(Xcodeproj::Project::Object::PBXVariantGroup)
 
       full_path = build_path_from_group(file)
       if full_path && !File.exist?(full_path)
@@ -688,24 +692,37 @@ class PBXProjTool
   private
 
   def find_or_create_group_for_file(file_path)
-    # 从文件路径推断组结构
+    # file_path 格式: DMSAService/Monitor/ServicePowerMonitor.swift
+    # 磁盘实际路径: DMSAApp/DMSAService/Monitor/ServicePowerMonitor.swift
+    # pbxproj 组层级: main_group > DMSAApp > DMSAService > Monitor
+    #
+    # 扫描目录是 DMSAApp, DMSAService, DMSAShared (都在 DMSAApp/ 磁盘目录下)
+    # 所以路径前缀 DMSAService/ 在 pbxproj 中对应 DMSAApp > DMSAService 两级组
+
     parts = file_path.split('/')
+    parts.pop  # 移除文件名
 
-    # 移除开头的 DMSAApp 或 DMSAService
-    if parts[0] == 'DMSAApp' || parts[0] == 'DMSAService' || parts[0] == 'DMSAShared'
-      parts = parts[1..]
-    end
-
-    # 移除文件名
-    parts.pop
+    # 构建完整的组路径 (从 main_group 开始)
+    # DMSAApp/xxx -> 组路径: ['DMSAApp', 'DMSAApp', ...]  (磁盘目录和组名恰好相同)
+    # DMSAService/xxx -> 组路径: ['DMSAApp', 'DMSAService', ...]
+    # DMSAShared/xxx -> 组路径: ['DMSAApp', 'DMSAShared', ...]
+    group_parts = if parts[0] == 'DMSAApp'
+                    parts  # DMSAApp/App/xxx -> ['DMSAApp', 'App', ...]
+                  elsif parts[0] == 'DMSAService' || parts[0] == 'DMSAShared'
+                    ['DMSAApp'] + parts  # DMSAService/VFS/xxx -> ['DMSAApp', 'DMSAService', 'VFS', ...]
+                  else
+                    parts
+                  end
 
     # 遍历或创建组
     current_group = @project.main_group
-    parts.each do |part|
-      child = current_group.children.find { |c| c.respond_to?(:name) && c.name == part }
-      child ||= current_group.children.find { |c| c.respond_to?(:path) && c.path == part }
+    group_parts.each do |part|
+      child = current_group.children.find do |c|
+        c.is_a?(Xcodeproj::Project::Object::PBXGroup) &&
+          (c.name == part || c.path == part || c.display_name == part)
+      end
 
-      if child && child.is_a?(Xcodeproj::Project::Object::PBXGroup)
+      if child
         current_group = child
       else
         current_group = current_group.new_group(part, part)
@@ -716,6 +733,20 @@ class PBXProjTool
   end
 
   def build_path_from_group(file_ref)
+    # PBXVariantGroup 子项 (i18n 文件如 en.lproj/Localizable.strings) 特殊处理
+    # VariantGroup 子项的 path 是 "en.lproj/Localizable.strings"，
+    # 父级是 PBXVariantGroup (name="Localizable.strings")，再上级才是普通 PBXGroup
+    if file_ref.parent.is_a?(Xcodeproj::Project::Object::PBXVariantGroup)
+      # 跳过 VariantGroup 层，从 VariantGroup 的父组开始构建路径
+      parts = [file_ref.path]  # e.g. "en.lproj/Localizable.strings"
+      parent = file_ref.parent.parent  # 跳过 PBXVariantGroup
+      while parent && parent.respond_to?(:path) && parent.path
+        parts.unshift(parent.path)
+        parent = parent.parent
+      end
+      return File.join(@project_dir, *parts)
+    end
+
     parts = [file_ref.path]
     parent = file_ref.parent
 

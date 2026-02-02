@@ -99,6 +99,20 @@ public final class Logger: @unchecked Sendable {
     private static var sharedLogFileURL: URL?
     private static var sharedUseStandardFormat: Bool = false
     private static var isInitialized = false
+    private static var isRunningAsRootCached: Bool = false
+
+    /// 当前日志文件对应的日期 (用于按天轮转)
+    private static var currentLogDate: String = ""
+
+    /// 日期格式器 (用于生成日志文件名)
+    private static let logDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    /// 日志保留天数
+    private static let maxLogRetentionDays = 7
 
     /// 初始化共享资源 (只执行一次)
     private static func initializeSharedResources() {
@@ -108,22 +122,64 @@ public final class Logger: @unchecked Sendable {
         let logsDir = Constants.Paths.logs
         try? FileManager.default.createDirectory(at: logsDir, withIntermediateDirectories: true)
 
-        // 根据运行身份选择日志文件
-        let isRunningAsRoot = getuid() == 0
-        if isRunningAsRoot {
-            sharedLogFileURL = Constants.Paths.serviceLog
-            sharedUseStandardFormat = true
-        } else {
-            sharedLogFileURL = Constants.Paths.appLog
-            sharedUseStandardFormat = false
+        isRunningAsRootCached = getuid() == 0
+        sharedUseStandardFormat = isRunningAsRootCached
+
+        // 打开今日日志文件
+        rotateLogFileIfNeeded()
+
+        // 清理旧日志
+        cleanupOldLogs()
+    }
+
+    /// 按天轮转日志文件
+    /// 调用方必须持有 sharedQueue 或在初始化阶段调用
+    private static func rotateLogFileIfNeeded() {
+        let today = logDateFormatter.string(from: Date())
+        guard today != currentLogDate else { return }
+
+        // 关闭旧文件句柄
+        sharedFileHandle?.closeFile()
+        sharedFileHandle = nil
+
+        currentLogDate = today
+
+        let logsDir = Constants.Paths.logs
+        let prefix = isRunningAsRootCached ? "service" : "app"
+        let logFile = logsDir.appendingPathComponent("\(prefix)-\(today).log")
+        sharedLogFileURL = logFile
+
+        if !FileManager.default.fileExists(atPath: logFile.path) {
+            FileManager.default.createFile(atPath: logFile.path, contents: nil)
+        }
+        sharedFileHandle = FileHandle(forWritingAtPath: logFile.path)
+        sharedFileHandle?.seekToEndOfFile()
+    }
+
+    /// 清理超过保留天数的旧日志
+    private static func cleanupOldLogs() {
+        let logsDir = Constants.Paths.logs
+        let prefix = isRunningAsRootCached ? "service" : "app"
+        let fm = FileManager.default
+
+        guard let files = try? fm.contentsOfDirectory(atPath: logsDir.path) else { return }
+
+        let cutoffDate = Calendar.current.date(byAdding: .day, value: -maxLogRetentionDays, to: Date()) ?? Date()
+        let cutoffStr = logDateFormatter.string(from: cutoffDate)
+
+        for file in files {
+            // 匹配 service-2026-01-25.log 或 app-2026-01-25.log
+            guard file.hasPrefix("\(prefix)-"), file.hasSuffix(".log") else { continue }
+            let dateStr = String(file.dropFirst(prefix.count + 1).dropLast(4))  // 提取日期部分
+            if dateStr < cutoffStr {
+                try? fm.removeItem(at: logsDir.appendingPathComponent(file))
+            }
         }
 
-        if let url = sharedLogFileURL {
-            if !FileManager.default.fileExists(atPath: url.path) {
-                FileManager.default.createFile(atPath: url.path, contents: nil)
-            }
-            sharedFileHandle = FileHandle(forWritingAtPath: url.path)
-            sharedFileHandle?.seekToEndOfFile()
+        // 清理旧的不带日期的日志文件 (迁移)
+        let oldLogFile = logsDir.appendingPathComponent("\(prefix).log")
+        if fm.fileExists(atPath: oldLogFile.path) {
+            try? fm.removeItem(at: oldLogFile)
         }
     }
 
@@ -186,6 +242,9 @@ public final class Logger: @unchecked Sendable {
 
         // 使用共享队列同步写入，确保所有 Logger 实例的日志顺序正确
         Logger.sharedQueue.sync {
+            // 检查是否需要按天轮转
+            Logger.rotateLogFileIfNeeded()
+
             // 写入文件
             if let data = logMessage.data(using: .utf8) {
                 Logger.sharedFileHandle?.write(data)

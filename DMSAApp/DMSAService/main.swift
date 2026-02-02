@@ -193,7 +193,19 @@ logger.info("XPC 监听器已启动: \(Constants.XPCService.service)")
 // 3. 延迟一小段时间让进程稳定后再挂载
 // ============================================================
 
-// 5. 启动后台任务
+// 5. 启动电源监控 (sleep/wake)
+let powerMonitor = ServicePowerMonitor()
+powerMonitor.onSystemWillSleep = {
+    logger.info("系统即将休眠，暂停同步...")
+    await delegate.implementation.pauseSyncForSleep()
+}
+powerMonitor.onSystemWake = {
+    logger.info("系统唤醒，检查 FUSE 挂载状态...")
+    await delegate.implementation.checkAndRecoverAfterWake()
+}
+powerMonitor.start()
+
+// 6. 启动后台任务
 Task {
     // 短暂延迟，让进程初始化完成
     try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 秒

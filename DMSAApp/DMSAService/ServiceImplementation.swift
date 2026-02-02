@@ -612,9 +612,10 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
     }
 
     func dataGetAllSyncFileRecords(limit: Int,
+                                   offset: Int,
                                    withReply reply: @escaping (Data) -> Void) {
         Task {
-            let records = await ServiceDatabaseManager.shared.getAllSyncFileRecords(limit: limit)
+            let records = await ServiceDatabaseManager.shared.getAllSyncFileRecords(limit: limit, offset: offset)
             let data = (try? JSONEncoder().encode(records)) ?? Data()
             reply(data)
         }
@@ -968,6 +969,20 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         config = Self.loadConfig()
         await syncManager.updateConfig(config)
         logger.info("配置已重新加载")
+    }
+
+    /// 系统休眠前暂停同步
+    func pauseSyncForSleep() async {
+        logger.info("[电源] 系统即将休眠，暂停同步")
+        await syncManager.pauseAll()
+    }
+
+    /// 系统唤醒后检查并恢复 FUSE 挂载
+    func checkAndRecoverAfterWake() async {
+        logger.info("[电源] 系统唤醒，检查 FUSE 挂载...")
+        await vfsManager.checkAndRecoverMounts()
+        logger.info("[电源] 恢复同步")
+        await syncManager.resumeAll()
     }
 
     // MARK: - ========== 状态管理操作 ==========

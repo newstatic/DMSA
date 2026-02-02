@@ -185,32 +185,23 @@ public enum Constants {
                 .appendingPathComponent("Library/Logs/DMSA")
         }
 
-        /// 统一服务日志
+        /// 日期格式器 (日志文件名)
+        private static let logDateFormatter: DateFormatter = {
+            let f = DateFormatter()
+            f.dateFormat = "yyyy-MM-dd"
+            return f
+        }()
+
+        /// 统一服务日志 (今日)
         public static var serviceLog: URL {
-            logs.appendingPathComponent("service.log")
+            let today = logDateFormatter.string(from: Date())
+            return logs.appendingPathComponent("service-\(today).log")
         }
 
-        /// VFS 服务日志 (已废弃)
-        @available(*, deprecated, message: "使用 serviceLog 替代")
-        public static var vfsLog: URL {
-            logs.appendingPathComponent("vfs.log")
-        }
-
-        /// Sync 服务日志 (已废弃)
-        @available(*, deprecated, message: "使用 serviceLog 替代")
-        public static var syncLog: URL {
-            logs.appendingPathComponent("sync.log")
-        }
-
-        /// Helper 服务日志 (已废弃)
-        @available(*, deprecated, message: "使用 serviceLog 替代")
-        public static var helperLog: URL {
-            logs.appendingPathComponent("helper.log")
-        }
-
-        /// 应用日志
+        /// 应用日志 (今日)
         public static var appLog: URL {
-            logs.appendingPathComponent("app.log")
+            let today = logDateFormatter.string(from: Date())
+            return logs.appendingPathComponent("app-\(today).log")
         }
 
         /// LaunchAgent plist

@@ -130,21 +130,26 @@ class ServiceSyncHistory: Entity, Identifiable, Codable {
         return end.timeIntervalSince(startTime)
     }
 
-    // MARK: - Codable (映射到 App 端的 SyncHistory 字段名)
+    // MARK: - Codable
+    // App 端 SyncHistory (class) CodingKeys:
+    //   startedAt → "startTime", completedAt → "endTime",
+    //   filesCount → "totalFiles", totalSize → "bytesTransferred"
+    // 所以 Service 编码时 key 必须是: startTime, endTime, totalFiles, bytesTransferred
+    // 而这些恰好就是 ServiceSyncHistory 的属性名，所以不需要重映射
 
     enum CodingKeys: String, CodingKey {
         case id
         case syncPairId
         case diskId
-        case startTime = "startedAt"
-        case endTime = "completedAt"
+        case startTime
+        case endTime
         case status
         case direction
-        case totalFiles = "filesCount"
+        case totalFiles
         case filesUpdated
         case filesDeleted
         case filesSkipped
-        case bytesTransferred = "totalSize"
+        case bytesTransferred
         case errorMessage
     }
 }
@@ -240,6 +245,67 @@ class ServiceSyncFileRecord: Entity, Identifiable, Codable {
     }
 }
 
+// objectbox: entity
+/// 活动记录实体 - 持久化最近活动 (Dashboard 显示)
+class ServiceActivityRecord: Entity, Identifiable, Codable {
+    var id: Id = 0
+
+    /// 活动类型 (ActivityType.rawValue)
+    var type: Int = 0
+
+    /// 标题
+    var title: String = ""
+
+    /// 详细信息
+    var detail: String?
+
+    /// 时间戳
+    // objectbox: index
+    var timestamp: Date = Date()
+
+    /// 关联的同步对 ID
+    var syncPairId: String?
+
+    /// 关联的磁盘 ID
+    var diskId: String?
+
+    /// 文件数量
+    var filesCount: Int?
+
+    /// 字节数量
+    var bytesCount: Int64?
+
+    required init() {}
+
+    convenience init(from record: ActivityRecord) {
+        self.init()
+        self.type = record.type.rawValue
+        self.title = record.title
+        self.detail = record.detail
+        self.timestamp = record.timestamp
+        self.syncPairId = record.syncPairId
+        self.diskId = record.diskId
+        self.filesCount = record.filesCount
+        self.bytesCount = record.bytesCount
+    }
+
+    /// 转换为共享的 ActivityRecord
+    func toActivityRecord() -> ActivityRecord {
+        var record = ActivityRecord(
+            type: ActivityType(rawValue: type) ?? .error,
+            title: title,
+            detail: detail,
+            syncPairId: syncPairId,
+            diskId: diskId,
+            filesCount: filesCount,
+            bytesCount: bytesCount
+        )
+        // 恢复原始时间戳 (ActivityRecord.init 会设置为 Date())
+        record.timestamp = timestamp
+        return record
+    }
+}
+
 /// 索引统计
 public struct IndexStats: Codable, Sendable {
     public var totalFiles: Int
@@ -295,6 +361,7 @@ actor ServiceDatabaseManager {
     private var syncHistoryBox: Box<ServiceSyncHistory>?
     private var syncStatisticsBox: Box<ServiceSyncStatistics>?
     private var syncFileRecordBox: Box<ServiceSyncFileRecord>?
+    private var activityRecordBox: Box<ServiceActivityRecord>?
 
     // 内存缓存 (用于频繁访问)
     private var fileEntryCache: [String: [String: ServiceFileEntry]] = [:]  // [syncPairId: [virtualPath: Entry]]
@@ -342,6 +409,7 @@ actor ServiceDatabaseManager {
             syncHistoryBox = store?.box(for: ServiceSyncHistory.self)
             syncStatisticsBox = store?.box(for: ServiceSyncStatistics.self)
             syncFileRecordBox = store?.box(for: ServiceSyncFileRecord.self)
+            activityRecordBox = store?.box(for: ServiceActivityRecord.self)
 
             logger.info("ObjectBox Store 初始化成功")
 
@@ -692,14 +760,17 @@ actor ServiceDatabaseManager {
         }
     }
 
-    /// 查询所有文件同步历史 (按时间倒序)
-    func getAllSyncFileRecords(limit: Int = 200) -> [ServiceSyncFileRecord] {
+    /// 查询所有文件同步历史 (按时间倒序，支持分页)
+    func getAllSyncFileRecords(limit: Int = 200, offset: Int = 0) -> [ServiceSyncFileRecord] {
         do {
             let query = try syncFileRecordBox?.query()
                 .ordered(by: ServiceSyncFileRecord.syncedAt, flags: .descending)
                 .build()
 
-            return Array((try query?.find() ?? []).prefix(limit))
+            let all = try query?.find() ?? []
+            let start = min(offset, all.count)
+            let end = min(start + limit, all.count)
+            return Array(all[start..<end])
         } catch {
             logger.error("查询所有文件同步记录失败: \(error)")
             return []
@@ -801,6 +872,42 @@ actor ServiceDatabaseManager {
         } catch {
             logger.error("查询今日统计失败: \(error)")
             return nil
+        }
+    }
+
+    // MARK: - ActivityRecord 操作
+
+    /// 保存活动记录 (保留最新 maxCount 条)
+    func saveActivityRecord(_ record: ActivityRecord, maxCount: Int = 20) {
+        do {
+            let entity = ServiceActivityRecord(from: record)
+            try activityRecordBox?.put(entity)
+
+            // 清理超出上限的旧记录
+            let query = try activityRecordBox?.query()
+                .ordered(by: ServiceActivityRecord.timestamp, flags: .descending)
+                .build()
+            let all = try query?.find() ?? []
+            if all.count > maxCount {
+                let toRemove = Array(all.dropFirst(maxCount))
+                try activityRecordBox?.remove(toRemove)
+            }
+        } catch {
+            logger.error("保存活动记录失败: \(error)")
+        }
+    }
+
+    /// 获取最近活动记录
+    func getRecentActivities(limit: Int = 5) -> [ActivityRecord] {
+        do {
+            let query = try activityRecordBox?.query()
+                .ordered(by: ServiceActivityRecord.timestamp, flags: .descending)
+                .build()
+            let entities = Array((try query?.find() ?? []).prefix(limit))
+            return entities.map { $0.toActivityRecord() }
+        } catch {
+            logger.error("查询活动记录失败: \(error)")
+            return []
         }
     }
 

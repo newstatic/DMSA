@@ -601,6 +601,80 @@ actor VFSManager {
         logger.debug("文件创建: \(virtualPath)")
     }
 
+    // MARK: - FUSE 意外退出恢复
+
+    /// 最大自动恢复尝试次数
+    private var remountAttempts: [String: Int] = [:]
+    private let maxRemountAttempts = 3
+    /// 恢复冷却时间 (秒)，防止快速循环重启
+    private let remountCooldown: UInt64 = 3_000_000_000  // 3 秒
+
+    /// FUSE 意外退出后尝试自动恢复挂载
+    func handleUnexpectedFUSEExit(syncPairId: String) async {
+        guard let mountPoint = mountPoints[syncPairId] else {
+            logger.error("[恢复] 未找到挂载点记录: \(syncPairId)")
+            return
+        }
+
+        let attempts = remountAttempts[syncPairId] ?? 0
+        if attempts >= maxRemountAttempts {
+            logger.error("[恢复] 已达到最大重试次数 (\(maxRemountAttempts))，放弃恢复: \(syncPairId)")
+            // 清理挂载点记录
+            mountPoints.removeValue(forKey: syncPairId)
+            await ServiceStateManager.shared.setState(.error)
+            return
+        }
+
+        remountAttempts[syncPairId] = attempts + 1
+        logger.warning("[恢复] FUSE 意外退出，尝试恢复 (\(attempts + 1)/\(maxRemountAttempts)): \(mountPoint.targetDir)")
+
+        // 等待冷却时间
+        try? await Task.sleep(nanoseconds: remountCooldown)
+
+        // 清理旧的挂载点记录 (但保留配置信息)
+        let localDir = mountPoint.localDir
+        let externalDir = mountPoint.externalDir
+        let targetDir = mountPoint.targetDir
+        mountPoints.removeValue(forKey: syncPairId)
+
+        do {
+            // 重新挂载
+            try await mount(
+                syncPairId: syncPairId,
+                localDir: localDir,
+                externalDir: externalDir,
+                targetDir: targetDir
+            )
+
+            // 恢复成功，重置计数器
+            remountAttempts[syncPairId] = 0
+            logger.info("[恢复] FUSE 重新挂载成功: \(targetDir)")
+        } catch {
+            logger.error("[恢复] FUSE 重新挂载失败: \(error)")
+            // mount 内部会再次注册到 mountPoints，如果失败则不会
+            // 下次 handleUnexpectedFUSEExit 调用时会再次尝试
+        }
+    }
+
+    /// 系统唤醒后检查所有挂载点，恢复已丢失的挂载
+    func checkAndRecoverMounts() async {
+        logger.info("[唤醒恢复] 检查所有挂载点状态...")
+
+        for (syncPairId, mountPoint) in mountPoints {
+            let stillMounted = isPathMounted(mountPoint.targetDir)
+            let fuseAlive = mountPoint.fuseFileSystem?.isMounted ?? false
+
+            if stillMounted && fuseAlive {
+                logger.info("[唤醒恢复] 挂载正常: \(mountPoint.targetDir)")
+            } else {
+                logger.warning("[唤醒恢复] 挂载已丢失: \(mountPoint.targetDir) (system=\(stillMounted), fuse=\(fuseAlive))")
+                // 重置恢复计数器（唤醒恢复不算入意外退出计数）
+                remountAttempts[syncPairId] = 0
+                await handleUnexpectedFUSEExit(syncPairId: syncPairId)
+            }
+        }
+    }
+
     // MARK: - 健康检查
 
     func healthCheck() -> Bool {
@@ -917,6 +991,12 @@ extension VFSManager: VFSFileSystemDelegate {
     nonisolated func fileCreated(virtualPath: String, syncPairId: String, localPath: String, isDirectory: Bool) {
         Task {
             await onFileCreated(virtualPath: virtualPath, syncPairId: syncPairId, localPath: localPath, isDirectory: isDirectory)
+        }
+    }
+
+    nonisolated func fuseDidExitUnexpectedly(syncPairId: String, exitCode: Int32) {
+        Task {
+            await handleUnexpectedFUSEExit(syncPairId: syncPairId)
         }
     }
 }

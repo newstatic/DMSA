@@ -5,10 +5,35 @@ struct SyncHistoryPage: View {
     @ObservedObject private var stateManager = StateManager.shared
     private let serviceClient = ServiceClient.shared
 
+    enum HistoryTab: String, CaseIterable {
+        case syncHistory
+        case fileRecords
+
+        var title: String {
+            switch self {
+            case .syncHistory: return "syncHistory.tab.tasks".localized
+            case .fileRecords: return "syncHistory.tab.files".localized
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .syncHistory: return "clock.arrow.circlepath"
+            case .fileRecords: return "doc.text"
+            }
+        }
+    }
+
     @State private var histories: [SyncHistory] = []
+    @State private var fileRecords: [SyncFileRecord] = []
     @State private var isLoading = false
+    @State private var isLoadingMore = false
+    @State private var hasMoreFileRecords = true
     @State private var selectedSyncPairId: String? = nil
     @State private var searchText = ""
+    @State private var selectedTab: HistoryTab = .fileRecords
+
+    private let pageSize = 50
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,10 +46,21 @@ struct SyncHistoryPage: View {
             if isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if filteredHistories.isEmpty {
-                emptyView
             } else {
-                historyList
+                switch selectedTab {
+                case .syncHistory:
+                    if filteredHistories.isEmpty {
+                        emptyView(icon: "clock.arrow.circlepath", text: "syncHistory.empty".localized)
+                    } else {
+                        historyList
+                    }
+                case .fileRecords:
+                    if filteredFileRecords.isEmpty {
+                        emptyView(icon: "doc.text", text: "dashboard.fileHistory.empty".localized)
+                    } else {
+                        fileRecordsList
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -36,6 +72,15 @@ struct SyncHistoryPage: View {
 
     private var toolbarSection: some View {
         HStack(spacing: 12) {
+            // Tab picker
+            Picker("", selection: $selectedTab) {
+                ForEach(HistoryTab.allCases, id: \.self) { tab in
+                    Label(tab.title, systemImage: tab.icon).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 240)
+
             // SyncPair filter
             Picker("syncHistory.filter.syncPair".localized, selection: $selectedSyncPairId) {
                 Text("syncHistory.filter.all".localized).tag(nil as String?)
@@ -44,7 +89,7 @@ struct SyncHistoryPage: View {
                 }
             }
             .pickerStyle(.menu)
-            .frame(width: 200)
+            .frame(width: 180)
 
             Spacer()
 
@@ -87,6 +132,20 @@ struct SyncHistoryPage: View {
         return result
     }
 
+    private var filteredFileRecords: [SyncFileRecord] {
+        var result = fileRecords
+        if let pairId = selectedSyncPairId {
+            result = result.filter { $0.syncPairId == pairId }
+        }
+        if !searchText.isEmpty {
+            result = result.filter {
+                $0.virtualPath.localizedCaseInsensitiveContains(searchText) ||
+                $0.fileName.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+        return result
+    }
+
     private var historyList: some View {
         List {
             ForEach(filteredHistories) { history in
@@ -96,12 +155,40 @@ struct SyncHistoryPage: View {
         .listStyle(.inset(alternatesRowBackgrounds: true))
     }
 
-    private var emptyView: some View {
+    private var fileRecordsList: some View {
+        List {
+            ForEach(filteredFileRecords) { record in
+                FileRecordRow(record: record)
+                    .onAppear {
+                        // 滚动到倒数第5条时加载更多
+                        if record.id == filteredFileRecords.dropLast(min(5, filteredFileRecords.count)).last?.id {
+                            loadMoreFileRecords()
+                        }
+                    }
+            }
+
+            if isLoadingMore {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("syncHistory.loadingMore".localized)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .padding(.vertical, 8)
+            }
+        }
+        .listStyle(.inset(alternatesRowBackgrounds: true))
+    }
+
+    private func emptyView(icon: String, text: String) -> some View {
         VStack(spacing: 12) {
-            Image(systemName: "clock.arrow.circlepath")
+            Image(systemName: icon)
                 .font(.system(size: 48))
                 .foregroundColor(.secondary.opacity(0.5))
-            Text("syncHistory.empty".localized)
+            Text(text)
                 .font(.title3)
                 .foregroundColor(.secondary)
         }
@@ -113,11 +200,106 @@ struct SyncHistoryPage: View {
     private func loadData() {
         isLoading = true
         Task {
-            let data = (try? await serviceClient.getSyncHistory(limit: 500)) ?? []
+            let historyData = (try? await serviceClient.getSyncHistory(limit: 500)) ?? []
+            let fileData = (try? await serviceClient.getAllSyncFileRecords(limit: pageSize, offset: 0)) ?? []
             await MainActor.run {
-                histories = data
+                histories = historyData
+                fileRecords = fileData
+                hasMoreFileRecords = fileData.count >= pageSize
                 isLoading = false
             }
+        }
+    }
+
+    private func loadMoreFileRecords() {
+        guard !isLoadingMore, hasMoreFileRecords else { return }
+        isLoadingMore = true
+        let currentOffset = fileRecords.count
+
+        Task {
+            let moreData = (try? await serviceClient.getAllSyncFileRecords(limit: pageSize, offset: currentOffset)) ?? []
+            await MainActor.run {
+                fileRecords.append(contentsOf: moreData)
+                hasMoreFileRecords = moreData.count >= pageSize
+                isLoadingMore = false
+            }
+        }
+    }
+}
+
+// MARK: - File Record Row
+
+struct FileRecordRow: View {
+    let record: SyncFileRecord
+
+    private var formattedTime: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: record.syncedAt)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(statusColor.opacity(0.15))
+                    .frame(width: 28, height: 28)
+
+                Image(systemName: statusIcon)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(statusColor)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(record.fileName)
+                    .font(.body)
+                    .lineLimit(1)
+
+                Text(record.virtualPath)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(record.statusDescription)
+                    .font(.caption)
+                    .foregroundColor(statusColor)
+
+                HStack(spacing: 4) {
+                    Text(ByteCountFormatter.string(fromByteCount: record.fileSize, countStyle: .file))
+                    Text("·")
+                    Text(formattedTime)
+                }
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var statusIcon: String {
+        switch record.status {
+        case 0: return "checkmark.circle.fill"
+        case 1: return "xmark.circle.fill"
+        case 2: return "arrow.right.circle.fill"
+        case 3: return "trash.circle.fill"
+        case 4: return "exclamationmark.circle.fill"
+        default: return "questionmark.circle"
+        }
+    }
+
+    private var statusColor: Color {
+        switch record.status {
+        case 0: return .green
+        case 1: return .red
+        case 2: return .orange
+        case 3: return .blue
+        case 4: return .red
+        default: return .gray
         }
     }
 }

@@ -6,6 +6,8 @@ protocol VFSFileSystemDelegate: AnyObject, Sendable {
     func fileRead(virtualPath: String, syncPairId: String)
     func fileDeleted(virtualPath: String, syncPairId: String)
     func fileCreated(virtualPath: String, syncPairId: String, localPath: String, isDirectory: Bool)
+    /// FUSE 事件循环意外退出时回调 (非主动 unmount)
+    func fuseDidExitUnexpectedly(syncPairId: String, exitCode: Int32)
 }
 
 /// FUSE 文件系统实现 - 使用 C libfuse 包装器
@@ -44,6 +46,9 @@ class FUSEFileSystem {
 
     /// 是否只读模式
     private var isReadOnly: Bool = false
+
+    /// 是否正在执行主动卸载 (区分意外退出和主动卸载)
+    private var isUnmounting: Bool = false
 
     /// 卷名
     private let volumeName: String
@@ -152,6 +157,12 @@ class FUSEFileSystem {
 
             self.logger.info("FUSE 主循环退出，返回值: \(result)")
             self.isMounted = false
+
+            // 如果不是主动卸载，通知委托进行恢复
+            if !self.isUnmounting {
+                self.logger.warning("FUSE 意外退出! 将通知 VFSManager 尝试恢复")
+                self.delegate?.fuseDidExitUnexpectedly(syncPairId: self.syncPairId, exitCode: result)
+            }
         }
 
         fuseThread?.name = "DMSA-FUSE-Thread"
@@ -247,6 +258,9 @@ class FUSEFileSystem {
         guard isMounted, let path = mountPath else { return }
 
         logger.info("卸载 FUSE: \(path)")
+
+        // 标记为主动卸载，防止触发恢复逻辑
+        isUnmounting = true
 
         // 调用 C 包装器卸载
         fuse_wrapper_unmount()

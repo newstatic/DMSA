@@ -992,6 +992,120 @@ internal final class ServiceSyncFileRecordBinding: ObjectBox.EntityBinding, Send
 }
 
 
+extension ServiceActivityRecord: ObjectBox.__EntityRelatable {
+    internal typealias EntityType = ServiceActivityRecord
+
+    internal var _id: EntityId<ServiceActivityRecord> {
+        return EntityId<ServiceActivityRecord>(self.id.value)
+    }
+}
+
+extension ServiceActivityRecord: ObjectBox.EntityInspectable {
+    internal typealias EntityBindingType = ServiceActivityRecordBinding
+
+    /// Generated metadata used by ObjectBox to persist the entity.
+    internal static let entityInfo = ObjectBox.EntityInfo(name: "ServiceActivityRecord", id: 5)
+
+    internal static let entityBinding = EntityBindingType()
+
+    fileprivate static func buildEntity(modelBuilder: ObjectBox.ModelBuilder) throws {
+        let entityBuilder = try modelBuilder.entityBuilder(for: ServiceActivityRecord.self, id: 5, uid: 1847291056482719744)
+        try entityBuilder.addProperty(name: "id", type: PropertyType.long, flags: [.id], id: 1, uid: 2182736401928345600)
+        try entityBuilder.addProperty(name: "type", type: PropertyType.long, id: 2, uid: 3293841502637184000)
+        try entityBuilder.addProperty(name: "title", type: PropertyType.string, id: 3, uid: 4401927365482918912)
+        try entityBuilder.addProperty(name: "detail", type: PropertyType.string, id: 4, uid: 5928374650192837632)
+        try entityBuilder.addProperty(name: "timestamp", type: PropertyType.date, flags: [.indexed], id: 5, uid: 6019284756019283456, indexId: 11, indexUid: 1192736450182736384)
+        try entityBuilder.addProperty(name: "syncPairId", type: PropertyType.string, id: 6, uid: 7102938475601928192)
+        try entityBuilder.addProperty(name: "diskId", type: PropertyType.string, id: 7, uid: 8201938475610293760)
+        try entityBuilder.addProperty(name: "filesCount", type: PropertyType.long, id: 8, uid: 9302948576710394368)
+        try entityBuilder.addProperty(name: "bytesCount", type: PropertyType.long, id: 9, uid: 1403958677810495488)
+
+        try entityBuilder.lastProperty(id: 9, uid: 1403958677810495488)
+    }
+}
+
+extension ServiceActivityRecord {
+    internal static var id: Property<ServiceActivityRecord, Id, Id> { return Property<ServiceActivityRecord, Id, Id>(propertyId: 1, isPrimaryKey: true) }
+    internal static var type: Property<ServiceActivityRecord, Int, Void> { return Property<ServiceActivityRecord, Int, Void>(propertyId: 2, isPrimaryKey: false) }
+    internal static var title: Property<ServiceActivityRecord, String, Void> { return Property<ServiceActivityRecord, String, Void>(propertyId: 3, isPrimaryKey: false) }
+    internal static var detail: Property<ServiceActivityRecord, String?, Void> { return Property<ServiceActivityRecord, String?, Void>(propertyId: 4, isPrimaryKey: false) }
+    internal static var timestamp: Property<ServiceActivityRecord, Date, Void> { return Property<ServiceActivityRecord, Date, Void>(propertyId: 5, isPrimaryKey: false) }
+    internal static var syncPairId: Property<ServiceActivityRecord, String?, Void> { return Property<ServiceActivityRecord, String?, Void>(propertyId: 6, isPrimaryKey: false) }
+    internal static var diskId: Property<ServiceActivityRecord, String?, Void> { return Property<ServiceActivityRecord, String?, Void>(propertyId: 7, isPrimaryKey: false) }
+    internal static var filesCount: Property<ServiceActivityRecord, Int?, Void> { return Property<ServiceActivityRecord, Int?, Void>(propertyId: 8, isPrimaryKey: false) }
+    internal static var bytesCount: Property<ServiceActivityRecord, Int64?, Void> { return Property<ServiceActivityRecord, Int64?, Void>(propertyId: 9, isPrimaryKey: false) }
+
+    fileprivate func __setId(identifier: ObjectBox.Id) {
+        self.id = Id(identifier)
+    }
+}
+
+extension ObjectBox.Property where E == ServiceActivityRecord {
+    internal static var id: Property<ServiceActivityRecord, Id, Id> { return Property<ServiceActivityRecord, Id, Id>(propertyId: 1, isPrimaryKey: true) }
+    internal static var type: Property<ServiceActivityRecord, Int, Void> { return Property<ServiceActivityRecord, Int, Void>(propertyId: 2, isPrimaryKey: false) }
+    internal static var title: Property<ServiceActivityRecord, String, Void> { return Property<ServiceActivityRecord, String, Void>(propertyId: 3, isPrimaryKey: false) }
+    internal static var detail: Property<ServiceActivityRecord, String?, Void> { return Property<ServiceActivityRecord, String?, Void>(propertyId: 4, isPrimaryKey: false) }
+    internal static var timestamp: Property<ServiceActivityRecord, Date, Void> { return Property<ServiceActivityRecord, Date, Void>(propertyId: 5, isPrimaryKey: false) }
+    internal static var syncPairId: Property<ServiceActivityRecord, String?, Void> { return Property<ServiceActivityRecord, String?, Void>(propertyId: 6, isPrimaryKey: false) }
+    internal static var diskId: Property<ServiceActivityRecord, String?, Void> { return Property<ServiceActivityRecord, String?, Void>(propertyId: 7, isPrimaryKey: false) }
+    internal static var filesCount: Property<ServiceActivityRecord, Int?, Void> { return Property<ServiceActivityRecord, Int?, Void>(propertyId: 8, isPrimaryKey: false) }
+    internal static var bytesCount: Property<ServiceActivityRecord, Int64?, Void> { return Property<ServiceActivityRecord, Int64?, Void>(propertyId: 9, isPrimaryKey: false) }
+}
+
+
+/// Generated service type to handle persisting and reading entity data. Exposed through `ServiceActivityRecord.EntityBindingType`.
+internal final class ServiceActivityRecordBinding: ObjectBox.EntityBinding, Sendable {
+    internal typealias EntityType = ServiceActivityRecord
+    internal typealias IdType = Id
+
+    internal required init() {}
+
+    internal func generatorBindingVersion() -> Int { 1 }
+
+    internal func setEntityIdUnlessStruct(of entity: EntityType, to entityId: ObjectBox.Id) {
+        entity.__setId(identifier: entityId)
+    }
+
+    internal func entityId(of entity: EntityType) -> ObjectBox.Id {
+        return entity.id.value
+    }
+
+    internal func collect(fromEntity entity: EntityType, id: ObjectBox.Id,
+                                  propertyCollector: ObjectBox.FlatBufferBuilder, store: ObjectBox.Store) throws {
+        let propertyOffset_title = propertyCollector.prepare(string: entity.title)
+        let propertyOffset_detail = propertyCollector.prepare(string: entity.detail)
+        let propertyOffset_syncPairId = propertyCollector.prepare(string: entity.syncPairId)
+        let propertyOffset_diskId = propertyCollector.prepare(string: entity.diskId)
+
+        propertyCollector.collect(id, at: 2 + 2 * 1)
+        propertyCollector.collect(entity.type, at: 2 + 2 * 2)
+        propertyCollector.collect(entity.timestamp, at: 2 + 2 * 5)
+        propertyCollector.collect(entity.filesCount, at: 2 + 2 * 8)
+        propertyCollector.collect(entity.bytesCount, at: 2 + 2 * 9)
+        propertyCollector.collect(dataOffset: propertyOffset_title, at: 2 + 2 * 3)
+        propertyCollector.collect(dataOffset: propertyOffset_detail, at: 2 + 2 * 4)
+        propertyCollector.collect(dataOffset: propertyOffset_syncPairId, at: 2 + 2 * 6)
+        propertyCollector.collect(dataOffset: propertyOffset_diskId, at: 2 + 2 * 7)
+    }
+
+    internal func createEntity(entityReader: ObjectBox.FlatBufferReader, store: ObjectBox.Store) -> EntityType {
+        let entity = ServiceActivityRecord()
+
+        entity.id = entityReader.read(at: 2 + 2 * 1)
+        entity.type = entityReader.read(at: 2 + 2 * 2)
+        entity.title = entityReader.read(at: 2 + 2 * 3)
+        entity.detail = entityReader.read(at: 2 + 2 * 4)
+        entity.timestamp = entityReader.read(at: 2 + 2 * 5)
+        entity.syncPairId = entityReader.read(at: 2 + 2 * 6)
+        entity.diskId = entityReader.read(at: 2 + 2 * 7)
+        entity.filesCount = entityReader.read(at: 2 + 2 * 8)
+        entity.bytesCount = entityReader.read(at: 2 + 2 * 9)
+
+        return entity
+    }
+}
+
+
 /// Helper function that allows calling Enum(rawValue: value) with a nil value, which will return nil.
 fileprivate func optConstruct<T: RawRepresentable>(_ type: T.Type, rawValue: T.RawValue?) -> T? {
     guard let rawValue = rawValue else { return nil }
@@ -1006,8 +1120,9 @@ fileprivate func cModel() throws -> OpaquePointer {
     try ServiceSyncHistory.buildEntity(modelBuilder: modelBuilder)
     try ServiceSyncStatistics.buildEntity(modelBuilder: modelBuilder)
     try ServiceSyncFileRecord.buildEntity(modelBuilder: modelBuilder)
-    modelBuilder.lastEntity(id: 4, uid: 3847291056482719744)
-    modelBuilder.lastIndex(id: 10, uid: 9283746501928374272)
+    try ServiceActivityRecord.buildEntity(modelBuilder: modelBuilder)
+    modelBuilder.lastEntity(id: 5, uid: 1847291056482719744)
+    modelBuilder.lastIndex(id: 11, uid: 1192736450182736384)
     return modelBuilder.finish()
 }
 

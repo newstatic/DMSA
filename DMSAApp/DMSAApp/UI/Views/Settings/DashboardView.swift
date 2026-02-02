@@ -13,7 +13,6 @@ struct DashboardView: View {
 
     // Local state
     @State private var recentHistory: [SyncHistory] = []
-    @State private var recentFileRecords: [SyncFileRecord] = []
     @State private var isLoading = false
 
     // MARK: - Body
@@ -33,8 +32,7 @@ struct DashboardView: View {
                 // Recent Activity
                 recentActivitySection
 
-                // File Sync History
-                fileRecordsSection
+                // (文件同步记录已移至同步历史页面)
             }
             .padding(32)
             .frame(maxWidth: 800)
@@ -203,37 +201,6 @@ struct DashboardView: View {
                         ActivityRecordRow(activity: activity)
 
                         if activity.id != stateManager.recentActivities.last?.id {
-                            Divider()
-                                .padding(.leading, 52)
-                        }
-                    }
-                }
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
-            }
-        }
-    }
-
-    // MARK: - File Records Section
-
-    private var fileRecordsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "dashboard.fileHistory".localized)
-
-            if recentFileRecords.isEmpty {
-                Text("dashboard.fileHistory.empty".localized)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 20)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(8)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(recentFileRecords.prefix(10)) { record in
-                        FileRecordRow(record: record)
-
-                        if record.id != recentFileRecords.prefix(10).last?.id {
                             Divider()
                                 .padding(.leading, 52)
                         }
@@ -439,11 +406,9 @@ struct DashboardView: View {
 
         Task {
             let history = (try? await serviceClient.getSyncHistory(limit: 10)) ?? []
-            let fileRecords = (try? await serviceClient.getAllSyncFileRecords(limit: 50)) ?? []
 
             await MainActor.run {
                 recentHistory = history
-                recentFileRecords = fileRecords
                 isLoading = false
             }
         }
@@ -740,84 +705,6 @@ struct DiskStatusCard: View {
         .padding()
         .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(8)
-    }
-}
-
-// MARK: - File Record Row
-
-struct FileRecordRow: View {
-    let record: SyncFileRecord
-
-    private var formattedTime: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .short
-        return formatter.string(from: record.syncedAt)
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(statusColor.opacity(0.15))
-                    .frame(width: 28, height: 28)
-
-                Image(systemName: statusIcon)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(statusColor)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(record.fileName)
-                    .font(.body)
-                    .lineLimit(1)
-
-                Text(record.virtualPath)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(record.statusDescription)
-                    .font(.caption)
-                    .foregroundColor(statusColor)
-
-                HStack(spacing: 4) {
-                    Text(ByteCountFormatter.string(fromByteCount: record.fileSize, countStyle: .file))
-                    Text("·")
-                    Text(formattedTime)
-                }
-                .font(.caption2)
-                .foregroundColor(.secondary)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-    }
-
-    private var statusIcon: String {
-        switch record.status {
-        case 0: return "checkmark.circle.fill"
-        case 1: return "xmark.circle.fill"
-        case 2: return "arrow.right.circle.fill"
-        case 3: return "trash.circle.fill"
-        case 4: return "exclamationmark.circle.fill"
-        default: return "questionmark.circle"
-        }
-    }
-
-    private var statusColor: Color {
-        switch record.status {
-        case 0: return .green
-        case 1: return .red
-        case 2: return .orange
-        case 3: return .blue
-        case 4: return .red
-        default: return .gray
-        }
     }
 }
 

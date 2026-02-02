@@ -16,6 +16,7 @@
 		7696F60B8391BF9BD3ECEC49 /* ServiceError.swift in Sources */ = {isa = PBXBuildFile; fileRef = SHARED101021 /* ServiceError.swift */; };
 		798E64B21BD7BA33F017CD0D /* EvictionHistoryPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 139019FE04B14B87C695A68F /* EvictionHistoryPage.swift */; };
 		858ACF162F28A2BB0015612A /* ObjectBox.xcframework in Frameworks */ = {isa = PBXBuildFile; productRef = 858ACF152F28A2BB0015612A /* ObjectBox.xcframework */; };
+		858E2A9EA95B9317D1282866 /* ServicePowerMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02BBCFD0D4B47F78498C1007 /* ServicePowerMonitor.swift */; };
 		955C0FC0B203F0587EFA6B4A /* DMSAClientProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DB428095662878BA9551175 /* DMSAClientProtocol.swift */; };
 		B558B35A15D0F7558B9C1F9E /* SyncHistoryPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73A488D10A4EBDE7F9A7428 /* SyncHistoryPage.swift */; };
 		C4807613EADB08BDFE9F4128 /* SyncProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99E3EA9C7983DC9E070EFAF0 /* SyncProgress.swift */; };
@@ -172,21 +173,22 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		02BBCFD0D4B47F78498C1007 /* ServicePowerMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServicePowerMonitor.swift; sourceTree = "<group>"; };
 		0C6B2F7E8FA27526BD42365A /* SyncProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncProgress.swift; sourceTree = "<group>"; };
 		0CEE18C27F2A055DC739B80F /* ServiceFullState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceFullState.swift; sourceTree = "<group>"; };
 		1191E9FF477BD5969B36D363 /* ServiceSyncProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceSyncProgress.swift; sourceTree = "<group>"; };
 		139019FE04B14B87C695A68F /* EvictionHistoryPage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EvictionHistoryPage.swift; sourceTree = "<group>"; };
 		15399D79C3729B90EE115863 /* ErrorHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ErrorHandler.swift; sourceTree = "<group>"; };
 		1DB428095662878BA9551175 /* DMSAClientProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DMSAClientProtocol.swift; sourceTree = "<group>"; };
-		SHARED101020 /* ActivityRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRecord.swift; sourceTree = "<group>"; };
 		6BA1D9ADC5DD754B58559D2B /* StartupChecker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StartupChecker.swift; sourceTree = "<group>"; };
 		7A6760E115CE1FA255CDF6DF /* ServiceState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceState.swift; sourceTree = "<group>"; };
-		SHARED101021 /* ServiceError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceError.swift; sourceTree = "<group>"; };
 		99E3EA9C7983DC9E070EFAF0 /* SyncProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncProgress.swift; sourceTree = "<group>"; };
 		B73A488D10A4EBDE7F9A7428 /* SyncHistoryPage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncHistoryPage.swift; sourceTree = "<group>"; };
 		DAF8C8F83D2253C581CE41C8 /* ServiceStateManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceStateManager.swift; sourceTree = "<group>"; };
 		F0000001 /* DMSA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DMSA.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0101001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		F0201002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		F0201003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		F0101002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		F0101003 /* ConfigExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigExtensions.swift; sourceTree = "<group>"; };
 		F0101004 /* DiskConfigEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskConfigEntity.swift; sourceTree = "<group>"; };
@@ -265,6 +267,8 @@
 		SHARED101017 /* SharedSyncTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedSyncTask.swift; path = SyncTask.swift; sourceTree = "<group>"; };
 		SHARED101018 /* SharedNotificationRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedNotificationRecord.swift; path = NotificationRecord.swift; sourceTree = "<group>"; };
 		SHARED101019 /* SharedUserPathManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SharedUserPathManager.swift; path = UserPathManager.swift; sourceTree = "<group>"; };
+		SHARED101020 /* ActivityRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRecord.swift; sourceTree = "<group>"; };
+		SHARED101021 /* ServiceError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceError.swift; sourceTree = "<group>"; };
 		SVC000001 /* com.ttttt.dmsa.service */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.ttttt.dmsa.service; sourceTree = BUILT_PRODUCTS_DIR; };
 		SVC101001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		SVC101002 /* ServiceDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDelegate.swift; sourceTree = "<group>"; };
@@ -315,6 +319,7 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		/* removed duplicate Monitor group */
 		B8B67EF5F234721828334A8D /* State */ = {
 			isa = PBXGroup;
 			children = (
@@ -341,6 +346,7 @@
 				SVC400000 /* DMSAService */,
 				GEN400000 /* generated */,
 				F0400002 /* Products */,
+				/* removed */
 			);
 			sourceTree = "<group>";
 		};
@@ -737,6 +743,7 @@
 			children = (
 				SVC101015 /* ServiceFSEventsMonitor.swift */,
 				SVC101016 /* ServiceDiskMonitor.swift */,
+				02BBCFD0D4B47F78498C1007 /* ServicePowerMonitor.swift */,
 			);
 			path = Monitor;
 			sourceTree = "<group>";
@@ -997,6 +1004,7 @@
 				F5753EB3F71BF05CFDA56E5E /* DMSAClientProtocol.swift in Sources */,
 				C855E99CE112B877571980C5 /* ActivityRecord.swift in Sources */,
 				7696F60B8391BF9BD3ECEC49 /* ServiceError.swift in Sources */,
+				858E2A9EA95B9317D1282866 /* ServicePowerMonitor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1020,8 +1028,6 @@
 			name = Localizable.strings;
 			sourceTree = "<group>";
 		};
-		F0201002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
-		F0201003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */

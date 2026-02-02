@@ -36,10 +36,14 @@ final class Logger: ObservableObject {
     static let shared = Logger()
 
     private let subsystem = "com.ttttt.dmsa"
-    private let logFileURL: URL
-    private let fileHandle: FileHandle?
+    private var logFileURL: URL
+    private var fileHandle: FileHandle?
     private let dateFormatter: DateFormatter
+    private let logDateFormatter: DateFormatter
     private let queue = DispatchQueue(label: "com.ttttt.dmsa.logger")
+    private var currentLogDate: String = ""
+    private let logsDir: URL
+    private static let maxLogRetentionDays = 7
 
     enum Level: String, CaseIterable {
         case debug = "DEBUG"
@@ -83,12 +87,21 @@ final class Logger: ObservableObject {
     private let flushInterval: TimeInterval = 0.1  // 100ms 批量更新一次
 
     private init() {
-        let logsDir = FileManager.default.homeDirectoryForCurrentUser
+        logsDir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/DMSA")
 
         try? FileManager.default.createDirectory(at: logsDir, withIntermediateDirectories: true)
 
-        logFileURL = logsDir.appendingPathComponent("app.log")
+        dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+
+        logDateFormatter = DateFormatter()
+        logDateFormatter.dateFormat = "yyyy-MM-dd"
+
+        // 打开今日日志文件
+        let today = logDateFormatter.string(from: Date())
+        currentLogDate = today
+        logFileURL = logsDir.appendingPathComponent("app-\(today).log")
 
         if !FileManager.default.fileExists(atPath: logFileURL.path) {
             FileManager.default.createFile(atPath: logFileURL.path, contents: nil)
@@ -96,8 +109,47 @@ final class Logger: ObservableObject {
         fileHandle = FileHandle(forWritingAtPath: logFileURL.path)
         fileHandle?.seekToEndOfFile()
 
-        dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        // 清理旧日志
+        cleanupOldLogs()
+    }
+
+    /// 按天轮转日志文件 (在 queue 中调用)
+    private func rotateLogFileIfNeeded() {
+        let today = logDateFormatter.string(from: Date())
+        guard today != currentLogDate else { return }
+
+        fileHandle?.closeFile()
+        currentLogDate = today
+        logFileURL = logsDir.appendingPathComponent("app-\(today).log")
+
+        if !FileManager.default.fileExists(atPath: logFileURL.path) {
+            FileManager.default.createFile(atPath: logFileURL.path, contents: nil)
+        }
+        fileHandle = FileHandle(forWritingAtPath: logFileURL.path)
+        fileHandle?.seekToEndOfFile()
+    }
+
+    /// 清理超过保留天数的旧日志
+    private func cleanupOldLogs() {
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(atPath: logsDir.path) else { return }
+
+        let cutoffDate = Calendar.current.date(byAdding: .day, value: -Logger.maxLogRetentionDays, to: Date()) ?? Date()
+        let cutoffStr = logDateFormatter.string(from: cutoffDate)
+
+        for file in files {
+            guard file.hasPrefix("app-"), file.hasSuffix(".log") else { continue }
+            let dateStr = String(file.dropFirst(4).dropLast(4))
+            if dateStr < cutoffStr {
+                try? fm.removeItem(at: logsDir.appendingPathComponent(file))
+            }
+        }
+
+        // 清理旧的不带日期的日志文件
+        let oldLog = logsDir.appendingPathComponent("app.log")
+        if fm.fileExists(atPath: oldLog.path) {
+            try? fm.removeItem(at: oldLog)
+        }
     }
 
     func log(_ message: String, level: Level = .info, file: String = #file, line: Int = #line) {
@@ -118,6 +170,9 @@ final class Logger: ObservableObject {
         // 使用节流机制批量更新 UI
         queue.async { [weak self] in
             guard let self = self else { return }
+
+            // 检查是否需要按天轮转
+            self.rotateLogFileIfNeeded()
 
             // 添加到待发布缓冲
             self.pendingEntries.append(entry)

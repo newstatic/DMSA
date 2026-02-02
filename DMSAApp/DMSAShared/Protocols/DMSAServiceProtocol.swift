@@ -271,8 +271,9 @@ import Foundation
                                 limit: Int,
                                 withReply reply: @escaping (Data) -> Void)
 
-    /// 获取所有文件同步记录
+    /// 获取所有文件同步记录 (支持分页)
     func dataGetAllSyncFileRecords(limit: Int,
+                                   offset: Int,
                                    withReply reply: @escaping (Data) -> Void)
 
     /// 获取树版本信息

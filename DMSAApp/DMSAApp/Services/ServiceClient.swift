@@ -1338,12 +1338,12 @@ final class ServiceClient {
         }
     }
 
-    /// 获取所有文件同步记录
-    func getAllSyncFileRecords(limit: Int = 200) async throws -> [SyncFileRecord] {
+    /// 获取所有文件同步记录 (支持分页)
+    func getAllSyncFileRecords(limit: Int = 200, offset: Int = 0) async throws -> [SyncFileRecord] {
         let proxy = try await getProxy()
 
         return try await withCheckedThrowingContinuation { continuation in
-            proxy.dataGetAllSyncFileRecords(limit: limit) { data in
+            proxy.dataGetAllSyncFileRecords(limit: limit, offset: offset) { data in
                 continuation.resume(returning: SyncFileRecord.arrayFrom(data: data))
             }
         }
