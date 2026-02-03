@@ -11,7 +11,62 @@ public final class UserPathManager: @unchecked Sendable {
     private let continuation = DispatchSemaphore(value: 0)
     private var isSet = false
 
-    private init() {}
+    /// Persistence file path (root-accessible location)
+    private let persistPath = "/var/root/Library/Application Support/DMSA/user_home.txt"
+
+    private init() {
+        // Try to load persisted userHome on init
+        loadPersistedUserHome()
+    }
+
+    // MARK: - Persistence
+
+    /// Load persisted userHome from file
+    private func loadPersistedUserHome() {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: persistPath),
+              let content = try? String(contentsOfFile: persistPath, encoding: .utf8) else {
+            return
+        }
+        let home = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !home.isEmpty, fm.fileExists(atPath: home) else {
+            return
+        }
+
+        lock.lock()
+        _userHome = home
+        isSet = true
+        lock.unlock()
+
+        // Signal waiters since we already have userHome
+        continuation.signal()
+
+        #if DEBUG
+        print("[UserPathManager] Loaded persisted userHome: \(home)")
+        #endif
+    }
+
+    /// Persist userHome to file
+    private func persistUserHome(_ path: String) {
+        let fm = FileManager.default
+        let dir = (persistPath as NSString).deletingLastPathComponent
+
+        // Create directory if needed
+        if !fm.fileExists(atPath: dir) {
+            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        }
+
+        do {
+            try path.write(toFile: persistPath, atomically: true, encoding: .utf8)
+            #if DEBUG
+            print("[UserPathManager] Persisted userHome to: \(persistPath)")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[UserPathManager] Failed to persist userHome: \(error)")
+            #endif
+        }
+    }
 
     /// Set user home directory (called by App via XPC)
     public func setUserHome(_ path: String) {
@@ -20,6 +75,9 @@ public final class UserPathManager: @unchecked Sendable {
         _userHome = path
         isSet = true
         lock.unlock()
+
+        // Persist to file for next startup
+        persistUserHome(path)
 
         // Signal all waiters (only first time)
         if !wasSet {

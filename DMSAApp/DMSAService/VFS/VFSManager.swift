@@ -453,129 +453,21 @@ actor VFSManager {
         await ActivityManager.shared.addActivity(activity)
     }
 
-    /// Incremental index: based on existing DB entries, only update changes
+    /// Incremental index: DB has complete tree, trust it completely
+    /// No filesystem scan - just load from DB
     private func incrementalIndex(for syncPairId: String, mountPoint: VFSMountPoint, existingEntries: [ServiceFileEntry]) async {
-        let fm = FileManager.default
         let startTime = Date()
 
-        // Build old index dictionary (virtualPath -> entry)
-        var oldIndex: [String: ServiceFileEntry] = [:]
-        for entry in existingEntries {
-            oldIndex[entry.virtualPath] = entry
-        }
-
-        // Scan current filesystem
-        var currentPaths: [String: ServiceFileEntry] = [:]
-        let expectedOwner = getExpectedOwner(localDir: mountPoint.localDir)
-
-        // Scan LOCAL_DIR
-        if let localContents = try? fm.subpathsOfDirectory(atPath: mountPoint.localDir) {
-            for relativePath in localContents {
-                if shouldExclude(path: relativePath) { continue }
-                let fullPath = (mountPoint.localDir as NSString).appendingPathComponent(relativePath)
-                let virtualPath = "/" + relativePath
-
-                var entry = ServiceFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
-                entry.localPath = fullPath
-
-                if let attrs = try? fm.attributesOfItem(atPath: fullPath) {
-                    entry.size = attrs[.size] as? Int64 ?? 0
-                    entry.modifiedAt = attrs[.modificationDate] as? Date ?? Date()
-                    entry.createdAt = attrs[.creationDate] as? Date ?? Date()
-                    entry.isDirectory = (attrs[.type] as? FileAttributeType) == .typeDirectory
-
-                    // Fix ownership if wrong
-                    if let owner = expectedOwner {
-                        fixOwnershipIfNeeded(path: fullPath, expectedUID: owner.uid, expectedGID: owner.gid, attrs: attrs)
-                    }
-                }
-
-                entry.location = FileLocation.localOnly.rawValue
-                currentPaths[virtualPath] = entry
-            }
-        }
-
-        // Scan EXTERNAL_DIR
-        if mountPoint.isExternalOnline, let externalDir = mountPoint.externalDir {
-            if let externalContents = try? fm.subpathsOfDirectory(atPath: externalDir) {
-                for relativePath in externalContents {
-                    if shouldExclude(path: relativePath) { continue }
-                    let fullPath = (externalDir as NSString).appendingPathComponent(relativePath)
-                    let virtualPath = "/" + relativePath
-
-                    if var entry = currentPaths[virtualPath] {
-                        entry.externalPath = fullPath
-                        entry.location = FileLocation.both.rawValue
-                        currentPaths[virtualPath] = entry
-                    } else {
-                        var entry = ServiceFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
-                        entry.externalPath = fullPath
-                        if let attrs = try? fm.attributesOfItem(atPath: fullPath) {
-                            entry.size = attrs[.size] as? Int64 ?? 0
-                            entry.modifiedAt = attrs[.modificationDate] as? Date ?? Date()
-                            entry.createdAt = attrs[.creationDate] as? Date ?? Date()
-                            entry.isDirectory = (attrs[.type] as? FileAttributeType) == .typeDirectory
-                        }
-                        entry.location = FileLocation.externalOnly.rawValue
-                        currentPaths[virtualPath] = entry
-                    }
-                }
-            }
-        }
-
-        // Diff calculation
-        var added = 0
-        var updated = 0
-        var removed = 0
-        var unchanged = 0
-        var entriesToSave: [ServiceFileEntry] = []
-        var entriesToRemove: [ServiceFileEntry] = []
-
-        // Added + Updated
-        for (vpath, newEntry) in currentPaths {
-            if let oldEntry = oldIndex[vpath] {
-                // Check for changes: size, modification time, location
-                if oldEntry.size != newEntry.size ||
-                   oldEntry.location != newEntry.location ||
-                   abs(oldEntry.modifiedAt.timeIntervalSince(newEntry.modifiedAt)) > 1.0 {
-                    // Preserve old entry runtime state: id, isDirty, lockState, accessedAt, etc.
-                    var merged = newEntry
-                    merged.id = oldEntry.id
-                    merged.isDirty = oldEntry.isDirty
-                    merged.lockState = oldEntry.lockState
-                    merged.accessedAt = oldEntry.accessedAt
-                    entriesToSave.append(merged)
-                    updated += 1
-                } else {
-                    unchanged += 1
-                }
-                oldIndex.removeValue(forKey: vpath)
-            } else {
-                entriesToSave.append(newEntry)
-                added += 1
-            }
-        }
-
-        // Deleted (remaining oldIndex entries no longer exist in filesystem)
-        for (_, oldEntry) in oldIndex {
-            entriesToRemove.append(oldEntry)
-            removed += 1
-        }
-
-        // Batch save/delete
-        if !entriesToSave.isEmpty {
-            await database.saveFileEntries(entriesToSave)
-        }
-        if !entriesToRemove.isEmpty {
-            await database.removeFileEntries(entriesToRemove)
-        }
+        // DB stores complete tree, trust it completely
+        // VFS callbacks (onFileCreated/onFileWritten/onFileDeleted) keep it updated in real-time
+        // No filesystem scan needed
 
         let elapsed = Date().timeIntervalSince(startTime)
-        logger.info("========== Incremental index complete ==========")
+        logger.info("========== Index loaded from DB ==========")
         logger.info("  syncPairId: \(syncPairId)")
-        logger.info("  elapsed: \(String(format: "%.2f", elapsed))s")
-        logger.info("  added: \(added), updated: \(updated), removed: \(removed), unchanged: \(unchanged)")
-        logIndexStats(Array(currentPaths.values))
+        logger.info("  elapsed: \(String(format: "%.3f", elapsed))s")
+        logger.info("  entries: \(existingEntries.count)")
+        logger.info("==========================================")
     }
 
     /// Full index: producer scan + consumer batch write (10k per batch)
@@ -750,36 +642,130 @@ actor VFSManager {
 
     // MARK: - File Operation Callbacks
 
+    // Throttle for file written notifications (avoid flooding)
+    private var lastWrittenNotificationTime: Date = .distantPast
+    private let writtenNotificationThrottleInterval: TimeInterval = 0.5  // 500ms
+
+    // Throttle for file read access time updates (LRU tracking)
+    // Use a pending set instead of updating every read to avoid Actor serialization bottleneck
+    private var pendingAccessTimeUpdates: Set<String> = []  // virtualPath set
+    private var lastAccessTimeFlushTime: Date = .distantPast
+    private let accessTimeFlushInterval: TimeInterval = 5.0  // Flush every 5 seconds
+    private let accessTimeLock = NSLock()
+
     func onFileWritten(virtualPath: String, syncPairId: String) async {
-        // Update index in database
+        // Update index in database (fast - in-memory cache + async ObjectBox)
         await database.markFileDirty(virtualPath: virtualPath, syncPairId: syncPairId, dirty: true)
 
-        // Update shared state and notify Sync Service
-        SharedState.update { state in
-            state.lastWrittenPath = virtualPath
-            state.lastWrittenSyncPair = syncPairId
-            state.lastWrittenTime = Date()
+        // Throttle SharedState updates and notifications to avoid blocking
+        // During bulk operations (cp -rf), we don't need to update for every single file
+        let now = Date()
+        if now.timeIntervalSince(lastWrittenNotificationTime) >= writtenNotificationThrottleInterval {
+            lastWrittenNotificationTime = now
+
+            // Update shared state in background (avoid blocking callback thread)
+            Task.detached(priority: .utility) {
+                SharedState.update { state in
+                    state.lastWrittenPath = virtualPath
+                    state.lastWrittenSyncPair = syncPairId
+                    state.lastWrittenTime = Date()
+                }
+
+                // Send notification with deliverImmediately: false to avoid blocking
+                DistributedNotificationCenter.default().postNotificationName(
+                    NSNotification.Name(Constants.Notifications.fileWritten),
+                    object: nil,
+                    userInfo: nil,
+                    deliverImmediately: false
+                )
+            }
         }
-
-        // Send notification
-        DistributedNotificationCenter.default().postNotificationName(
-            NSNotification.Name(Constants.Notifications.fileWritten),
-            object: nil,
-            userInfo: nil,
-            deliverImmediately: true
-        )
-
-        logger.debug("File written: \(virtualPath)")
+        // NOTE: No logging here - hot path during bulk writes
     }
 
     func onFileRead(virtualPath: String, syncPairId: String) async {
-        // Update access time (LRU)
-        await database.updateAccessTime(virtualPath: virtualPath, syncPairId: syncPairId)
+        // Throttled access time updates to avoid Actor serialization bottleneck during bulk reads
+        // Collect paths in a pending set, flush periodically in batch
+        let key = "\(syncPairId):\(virtualPath)"
+
+        accessTimeLock.lock()
+        pendingAccessTimeUpdates.insert(key)
+        let shouldFlush = Date().timeIntervalSince(lastAccessTimeFlushTime) >= accessTimeFlushInterval
+        accessTimeLock.unlock()
+
+        if shouldFlush {
+            await flushAccessTimeUpdates()
+        }
     }
 
-    func onFileDeleted(virtualPath: String, syncPairId: String) async {
+    /// Flush pending access time updates in batch
+    /// Flow: 1. Update memory  2. Async update DB  3. Async update LOCAL_DIR atime  4. Async update EXTERNAL_DIR atime
+    private func flushAccessTimeUpdates() async {
+        accessTimeLock.lock()
+        let updates = pendingAccessTimeUpdates
+        pendingAccessTimeUpdates.removeAll()
+        lastAccessTimeFlushTime = Date()
+        accessTimeLock.unlock()
+
+        guard !updates.isEmpty else { return }
+
+        // Step 1 & 2: Update memory cache + async database (single Actor call)
+        await database.batchUpdateAccessTime(keys: Array(updates))
+
+        // Capture mountPoints data before detached task (Actor isolation)
+        let mountPointsCopy = self.mountPoints
+
+        // Step 3 & 4: Async update file system atime (LOCAL_DIR + EXTERNAL_DIR)
+        // Run in background to avoid blocking
+        Task.detached(priority: .utility) {
+            let now = Date()
+
+            for key in updates {
+                let parts = key.split(separator: ":", maxSplits: 1)
+                guard parts.count == 2 else { continue }
+
+                let syncPairId = String(parts[0])
+                let virtualPath = String(parts[1])
+
+                guard let mountPoint = mountPointsCopy[syncPairId] else { continue }
+
+                let relativePath = String(virtualPath.dropFirst())  // Remove leading "/"
+
+                // Update LOCAL_DIR atime
+                let localPath = (mountPoint.localDir as NSString).appendingPathComponent(relativePath)
+                Self.touchAccessTime(path: localPath, time: now)
+
+                // Update EXTERNAL_DIR atime (if available)
+                if let externalDir = mountPoint.externalDir {
+                    let externalPath = (externalDir as NSString).appendingPathComponent(relativePath)
+                    Self.touchAccessTime(path: externalPath, time: now)
+                }
+            }
+        }
+    }
+
+    /// Touch file access time (atime) without modifying mtime
+    /// Uses utimes() syscall to update only access time
+    private static func touchAccessTime(path: String, time: Date) {
+        // Get current file stat to preserve mtime
+        var st = stat()
+        guard stat(path, &st) == 0 else { return }
+
+        // Prepare timeval array: [atime, mtime]
+        let timeInterval = time.timeIntervalSince1970
+        var times = [
+            timeval(tv_sec: Int(timeInterval), tv_usec: 0),  // New atime
+            timeval(tv_sec: st.st_mtimespec.tv_sec, tv_usec: Int32(st.st_mtimespec.tv_nsec / 1000))  // Preserve mtime
+        ]
+
+        // Update access time only
+        utimes(path, &times)
+    }
+
+    func onFileDeleted(virtualPath: String, syncPairId: String, isDirectory: Bool = false) async {
+        // Fast deletion - just mark in cache, actual DB delete is batched
         await database.deleteFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
-        logger.debug("File deleted: \(virtualPath)")
+        // Note: No logging here to avoid I/O in hot path
     }
 
     /// Evict file: both -> externalOnly, preserve index entry
@@ -794,22 +780,56 @@ actor VFSManager {
     }
 
     func onFileCreated(virtualPath: String, syncPairId: String, localPath: String, isDirectory: Bool = false) async {
-        // New file created
+        // Fast creation - minimal work in hot path
         var entry = ServiceFileEntry(virtualPath: virtualPath, syncPairId: syncPairId)
         entry.localPath = localPath
         entry.location = FileLocation.localOnly.rawValue
-        entry.isDirty = true
+        entry.isDirty = !isDirectory  // Directories don't need sync
         entry.isDirectory = isDirectory
 
-        let fm = FileManager.default
-        if let attrs = try? fm.attributesOfItem(atPath: localPath) {
-            entry.size = attrs[.size] as? Int64 ?? 0
-            entry.modifiedAt = attrs[.modificationDate] as? Date ?? Date()
-            entry.createdAt = attrs[.creationDate] as? Date ?? Date()
-        }
+        // Defer expensive stat() call - just use defaults for now
+        // The actual size/time will be updated when file is synced or accessed
+        entry.size = 0
+        entry.modifiedAt = Date()
+        entry.createdAt = Date()
 
         await database.saveFileEntry(entry)
-        logger.debug("File created: \(virtualPath)")
+        // Note: No logging here to avoid I/O in hot path
+    }
+
+    func onFileRenamed(fromPath: String, toPath: String, syncPairId: String, isDirectory: Bool) async {
+        // Rename in DB: delete old entry, create new entry with preserved metadata
+        guard let mountPoint = mountPoints[syncPairId] else { return }
+
+        if let oldEntry = await database.getFileEntry(virtualPath: fromPath, syncPairId: syncPairId) {
+            // Create new entry with updated paths
+            let relativePath = String(toPath.dropFirst())
+            let newLocalPath = (mountPoint.localDir as NSString).appendingPathComponent(relativePath)
+
+            var newEntry = ServiceFileEntry(virtualPath: toPath, syncPairId: syncPairId)
+            newEntry.localPath = newLocalPath
+            newEntry.externalPath = mountPoint.externalDir.map { ($0 as NSString).appendingPathComponent(relativePath) }
+            newEntry.location = oldEntry.location
+            newEntry.size = oldEntry.size
+            newEntry.modifiedAt = Date()
+            newEntry.createdAt = oldEntry.createdAt
+            newEntry.accessedAt = oldEntry.accessedAt
+            newEntry.isDirty = oldEntry.isDirty
+            newEntry.isDirectory = isDirectory
+            newEntry.lockState = oldEntry.lockState
+
+            // Delete old, save new
+            await database.deleteFileEntry(virtualPath: fromPath, syncPairId: syncPairId)
+            await database.saveFileEntry(newEntry)
+
+            logger.debug("File renamed: \(fromPath) -> \(toPath), isDirectory: \(isDirectory)")
+        } else {
+            // Old entry not found, just create new one
+            await onFileCreated(virtualPath: toPath, syncPairId: syncPairId,
+                              localPath: (mountPoint.localDir as NSString).appendingPathComponent(String(toPath.dropFirst())),
+                              isDirectory: isDirectory)
+            logger.debug("File renamed (no old entry): \(fromPath) -> \(toPath)")
+        }
     }
 
     // MARK: - FUSE Unexpected Exit Recovery
@@ -1193,15 +1213,21 @@ extension VFSManager: VFSFileSystemDelegate {
         }
     }
 
-    nonisolated func fileDeleted(virtualPath: String, syncPairId: String) {
+    nonisolated func fileDeleted(virtualPath: String, syncPairId: String, isDirectory: Bool) {
         Task {
-            await onFileDeleted(virtualPath: virtualPath, syncPairId: syncPairId)
+            await onFileDeleted(virtualPath: virtualPath, syncPairId: syncPairId, isDirectory: isDirectory)
         }
     }
 
     nonisolated func fileCreated(virtualPath: String, syncPairId: String, localPath: String, isDirectory: Bool) {
         Task {
             await onFileCreated(virtualPath: virtualPath, syncPairId: syncPairId, localPath: localPath, isDirectory: isDirectory)
+        }
+    }
+
+    nonisolated func fileRenamed(fromPath: String, toPath: String, syncPairId: String, isDirectory: Bool) {
+        Task {
+            await onFileRenamed(fromPath: fromPath, toPath: toPath, syncPairId: syncPairId, isDirectory: isDirectory)
         }
     }
 

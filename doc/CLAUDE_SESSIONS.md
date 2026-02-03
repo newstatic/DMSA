@@ -1580,4 +1580,88 @@ self.logger.warning("FUSE exited unexpectedly! Diagnostics: \(diagInfo)")
 
 ---
 
+### FUSE 阻塞修复 + 符号链接死锁 + 删除流程优化
+
+**相关会话:** 0833e23d
+**日期:** 2026-02-03
+**状态:** ✅ 完成
+
+**功能描述:**
+修复 `cp -rf` 大量文件时 FUSE 阻塞问题，解决目录含指向 VFS 内部符号链接时 `ls` 死锁问题，优化删除流程使文件立即从 VFS 消失。
+
+**问题与解决方案:**
+
+| 问题 | 根因 | 解决方案 |
+|------|------|----------|
+| `cp -rf` 阻塞 | Actor 序列化 + 热路径日志 + 每次 read 都 await database | 节流批量访问时间更新 (5秒收集 + 30秒 DB flush) |
+| `ls` 含 symlink 目录死锁 | FUSE 单线程 + symlink 指向 VFS 内部 | `fuse_loop_mt()` 多线程模式 |
+| 删除后文件仍显示 | EXTERNAL 删除失败时 readdir 仍返回 | pending_delete 集合立即隐藏 |
+
+**FUSE 阻塞根因分析:**
+```
+cp -rf ~/Downloads/3DEV (读取几十万文件)
+    ↓
+每次 read → Swift callback → await database.updateAccessTime()
+    ↓
+ServiceDatabaseManager 是 Actor (串行执行)
+    ↓
+50万条缓存 + 每次打印日志 → 严重阻塞
+```
+
+**修复: 访问时间更新流程:**
+```
+onFileRead() → 加入 pendingAccessTimeUpdates Set (快速)
+    ↓
+每 5 秒触发 flushAccessTimeUpdates()
+    ↓
+Step 1: 更新内存 (batchUpdateAccessTime)
+Step 2: 加入 accessTimeQueue (延迟 DB 写入)
+Step 3: Task.detached 更新 LOCAL_DIR atime (utimes)
+Step 4: Task.detached 更新 EXTERNAL_DIR atime (utimes)
+    ↓
+每 30 秒或 10000 条触发 flushAccessTimeEntries() → 批量 DB 写入
+```
+
+**修复: 删除流程新顺序:**
+```
+dmsa_unlink / dmsa_rmdir:
+  1. pending_delete_add(path)     # 立即从 readdir 隐藏
+  2. NOTIFY_FILE_DELETED(path)    # 异步通知 Swift 层
+  3. unlink/rmdir(local)          # 删除 LOCAL_DIR
+  4. unlink/rmdir(external)       # 删除 EXTERNAL_DIR (best effort)
+  5. 如 external 成功则 pending_delete_remove(path)
+```
+
+**修复: 符号链接死锁:**
+- `fuse_loop()` → `fuse_loop_mt()` 多线程模式
+- readdir 标准做法: `filler(buf, name, NULL, 0)` 只返回文件名，不解析 symlink
+
+**新增 C 层功能:**
+- `g_pending_delete` 集合 (1024 条目，线程安全)
+- `pending_delete_add/contains/remove/clear` 函数
+- readdir 过滤: 检查 `pending_delete_contains(full_vpath)`
+
+**新增 Swift 层功能:**
+- `pendingAccessTimeUpdates` Set + `accessTimeLock`
+- `flushAccessTimeUpdates()` 节流批量更新
+- `touchAccessTime()` 使用 `utimes()` 更新文件 atime
+- `accessTimeQueue` + `flushAccessTimeEntries()` 延迟批量 DB 写入
+- `flushAllPendingWrites()` 强制 flush 所有待写入数据
+
+**修改文件:**
+- `DMSAService/VFS/fuse_wrapper.c` - pending_delete + fuse_loop_mt + readdir 注释
+- `DMSAService/VFS/VFSManager.swift` - 节流访问时间更新 + touchAccessTime
+- `DMSAService/Data/ServiceDatabaseManager.swift` - 移除热路径日志 + accessTimeQueue + batchUpdateAccessTime
+
+**性能对比:**
+
+| 场景 | 之前 | 之后 |
+|------|------|------|
+| 50万文件读取 | 50万次 Actor await | ~100 次 Actor 调用 |
+| DB 写入 | 每次 1 条 | 批量 10000 条 |
+| 删除后显示 | EXTERNAL 存在则显示 | 立即隐藏 |
+| symlink 目录 | 死锁 | 正常工作 |
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*

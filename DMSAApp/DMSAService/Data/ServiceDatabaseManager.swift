@@ -431,9 +431,8 @@ actor ServiceDatabaseManager {
     /// Load all files for a given syncPairId into cache
     private func loadCacheForSyncPair(_ syncPairId: String) {
         // Check if already loaded from memory cache
+        // NOTE: No logging here - this is called on every file operation (hot path)
         if cacheLoaded.contains(syncPairId) {
-            let cacheCount = fileEntryCache[syncPairId]?.count ?? 0
-            logger.debug("Cache already loaded, skipping: \(syncPairId), cache entries: \(cacheCount)")
             return
         }
 
@@ -541,13 +540,52 @@ actor ServiceDatabaseManager {
         saveFileEntry(entry)
     }
 
+    // Dirty entry queue for batched persistence
+    private var dirtyEntryQueue: [String: ServiceFileEntry] = [:]  // [key: entry]
+    private var lastDirtyFlushTime: Date = .distantPast
+    private let dirtyFlushInterval: TimeInterval = 2.0  // Flush every 2 seconds
+
+    // Access time queue for batched persistence (longer delay for bulk reads)
+    private var accessTimeQueue: [String: ServiceFileEntry] = [:]  // [key: entry]
+    private var lastAccessTimeDBFlushTime: Date = .distantPast
+    private let accessTimeDBFlushInterval: TimeInterval = 30.0  // Flush every 30 seconds (access time is less critical)
+    private let accessTimeMaxQueueSize: Int = 10000  // Force flush if queue exceeds this size
+
     func markFileDirty(virtualPath: String, syncPairId: String, dirty: Bool = true) {
         guard let entry = getFileEntry(virtualPath: virtualPath, syncPairId: syncPairId) else { return }
 
         entry.isDirty = dirty
         entry.modifiedAt = Date()
 
-        saveFileEntry(entry)
+        // Update in-memory cache immediately (fast)
+        fileEntryCache[syncPairId]?[virtualPath] = entry
+
+        // Queue for batched persistence (avoid per-file DB write)
+        let key = "\(syncPairId):\(virtualPath)"
+        dirtyEntryQueue[key] = entry
+
+        // Periodic flush to database
+        let now = Date()
+        if now.timeIntervalSince(lastDirtyFlushTime) >= dirtyFlushInterval {
+            flushDirtyEntries()
+        }
+    }
+
+    /// Flush dirty entries to database (batched write)
+    private func flushDirtyEntries() {
+        guard !dirtyEntryQueue.isEmpty else { return }
+
+        let entries = Array(dirtyEntryQueue.values)
+        dirtyEntryQueue.removeAll()
+        lastDirtyFlushTime = Date()
+
+        // Batch write to database
+        do {
+            try fileEntryBox?.put(entries)
+            logger.debug("Flushed \(entries.count) dirty entries to database")
+        } catch {
+            logger.error("Failed to flush dirty entries: \(error)")
+        }
     }
 
     func updateAccessTime(virtualPath: String, syncPairId: String) {
@@ -557,6 +595,61 @@ actor ServiceDatabaseManager {
 
         // Only update cache; will save to database during batch write
         fileEntryCache[syncPairId]?[virtualPath] = entry
+    }
+
+    /// Batch update access times for multiple files (single Actor call)
+    /// Flow: 1. Update memory immediately  2. Queue for delayed DB write (30s or 10000 entries)
+    /// Keys format: "syncPairId:virtualPath"
+    func batchUpdateAccessTime(keys: [String]) {
+        let now = Date()
+        var updatedCount = 0
+
+        for key in keys {
+            let parts = key.split(separator: ":", maxSplits: 1)
+            guard parts.count == 2 else { continue }
+
+            let syncPairId = String(parts[0])
+            let virtualPath = String(parts[1])
+
+            // Step 1: Update in-memory cache immediately
+            guard let entry = fileEntryCache[syncPairId]?[virtualPath] else { continue }
+            entry.accessedAt = now
+
+            // Step 2: Queue for batched DB write
+            accessTimeQueue[key] = entry
+            updatedCount += 1
+        }
+
+        // Check if need to flush DB (time-based or size-based)
+        let shouldFlush = now.timeIntervalSince(lastAccessTimeDBFlushTime) >= accessTimeDBFlushInterval
+                          || accessTimeQueue.count >= accessTimeMaxQueueSize
+
+        if shouldFlush && !accessTimeQueue.isEmpty {
+            flushAccessTimeEntries()
+        }
+    }
+
+    /// Flush access time entries to database (batched write)
+    private func flushAccessTimeEntries() {
+        guard !accessTimeQueue.isEmpty else { return }
+
+        let entries = Array(accessTimeQueue.values)
+        accessTimeQueue.removeAll()
+        lastAccessTimeDBFlushTime = Date()
+
+        // Batch write to database
+        do {
+            try fileEntryBox?.put(entries)
+            logger.info("Flushed \(entries.count) access time entries to database")
+        } catch {
+            logger.error("Failed to flush access time entries: \(error)")
+        }
+    }
+
+    /// Force flush all pending writes (call on app termination or sync)
+    func flushAllPendingWrites() {
+        flushDirtyEntries()
+        flushAccessTimeEntries()
     }
 
     func getDirtyFiles(syncPairId: String) -> [ServiceFileEntry] {
@@ -970,7 +1063,10 @@ actor ServiceDatabaseManager {
     // MARK: - Force Save (flush cache to database)
 
     func forceSave() async {
-        // Write cached changes to database
+        // First flush any pending dirty entries
+        flushDirtyEntries()
+
+        // Then write all cached changes to database
         for (_, entries) in fileEntryCache {
             saveFileEntries(Array(entries.values))
         }

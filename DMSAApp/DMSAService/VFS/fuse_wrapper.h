@@ -143,8 +143,18 @@ void fuse_wrapper_unmark_evicting(const char *virtual_path);
 void fuse_wrapper_clear_evicting(void);
 
 // ============================================================
-// Debug control API
+// Logging control API
 // ============================================================
+
+/**
+ * Set log file path.
+ * If set, logs will be written to this file instead of stderr.
+ * Call this before fuse_wrapper_mount() for complete log capture.
+ *
+ * @param path Log file path (e.g. "/Users/xxx/Library/Logs/DMSA/fuse.log")
+ *             Pass NULL to revert to stderr
+ */
+void fuse_wrapper_set_log_path(const char *path);
 
 /**
  * Enable/disable FUSE debug logging at runtime.
@@ -153,6 +163,82 @@ void fuse_wrapper_clear_evicting(void);
  * @param enabled 1 to enable, 0 to disable
  */
 void fuse_wrapper_set_debug(int enabled);
+
+/**
+ * Flush buffered logs to file immediately.
+ * Call before unmount or when logs need to be visible.
+ */
+void fuse_wrapper_flush_logs(void);
+
+// ============================================================
+// Diagnostics API
+// ============================================================
+
+/**
+ * FUSE diagnostic information structure
+ */
+typedef struct {
+    int is_mounted;           // Is FUSE mounted
+    int is_loop_running;      // Is fuse_loop currently running
+    int channel_fd;           // FUSE channel file descriptor (-1 if invalid)
+    int macfuse_dev_count;    // Number of macfuse devices in /dev
+    uint64_t total_ops;       // Total operations since mount
+    uint64_t last_op_time;    // Timestamp of last operation (Unix time)
+    int last_signal;          // Last signal received (0 if none)
+    // Callback queue statistics
+    uint64_t cb_queued;       // Total callbacks queued
+    uint64_t cb_processed;    // Total callbacks processed
+    uint64_t cb_dropped;      // Total callbacks dropped (queue overflow)
+    int cb_pending;           // Current pending callbacks in queue
+} FuseDiagnostics;
+
+/**
+ * Get current FUSE diagnostics
+ * Can be called from any thread.
+ *
+ * @param diag Pointer to diagnostics structure to fill
+ */
+void fuse_wrapper_get_diagnostics(FuseDiagnostics *diag);
+
+/**
+ * Check if FUSE loop is currently running
+ *
+ * @return 1 if running, 0 if not
+ */
+int fuse_wrapper_is_loop_running(void);
+
+// ============================================================
+// Callbacks for Swift layer - DB tree updates
+// ============================================================
+
+/**
+ * Callback function types for notifying Swift layer of filesystem changes
+ * These callbacks update the database tree in real-time
+ */
+typedef void (*fuse_callback_file_created)(const char *virtual_path, const char *local_path, int is_directory);
+typedef void (*fuse_callback_file_deleted)(const char *virtual_path, int is_directory);
+typedef void (*fuse_callback_file_written)(const char *virtual_path);
+typedef void (*fuse_callback_file_read)(const char *virtual_path);
+typedef void (*fuse_callback_file_renamed)(const char *from_path, const char *to_path, int is_directory);
+
+/**
+ * Callback structure
+ */
+typedef struct {
+    fuse_callback_file_created on_file_created;
+    fuse_callback_file_deleted on_file_deleted;
+    fuse_callback_file_written on_file_written;
+    fuse_callback_file_read    on_file_read;
+    fuse_callback_file_renamed on_file_renamed;
+} FuseCallbacks;
+
+/**
+ * Set callbacks for filesystem events
+ * Must be called before fuse_wrapper_mount()
+ *
+ * @param callbacks Pointer to callback structure (copied internally)
+ */
+void fuse_wrapper_set_callbacks(const FuseCallbacks *callbacks);
 
 #ifdef __cplusplus
 }

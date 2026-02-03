@@ -73,6 +73,7 @@ let logger = Logger.forService("Main")
 
 logger.info("========================================")
 logger.info("DMSAService v\(Constants.appVersion) starting")
+logger.info("Build: \(BuildInfo.buildTime) [\(BuildInfo.configuration)]")
 logger.info("PID: \(ProcessInfo.processInfo.processIdentifier)")
 logger.info("UID: \(getuid())")
 logger.info("========================================")

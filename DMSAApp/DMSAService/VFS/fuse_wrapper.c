@@ -32,7 +32,7 @@
 #include "fuse_wrapper.h"
 
 // ============================================================
-// Logging macros
+// Logging macros with file output support - optimized for performance
 // ============================================================
 #define LOG_PREFIX "[FUSE-C] "
 
@@ -40,21 +40,156 @@
 // Enable via fuse_wrapper_set_debug(1) from Swift when needed
 static volatile int g_fuse_debug = 0;
 
-void fuse_wrapper_set_debug(int enabled) {
-    g_fuse_debug = enabled;
-    fprintf(stderr, LOG_PREFIX "INFO: Debug logging %s\n", enabled ? "ENABLED" : "DISABLED");
+// Log file support with buffered I/O for performance
+static FILE *g_log_file = NULL;
+static pthread_mutex_t g_log_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Log buffer for batched writes (reduces syscall overhead)
+#define LOG_BUFFER_SIZE 8192
+static char g_log_buffer[LOG_BUFFER_SIZE];
+static size_t g_log_buffer_pos = 0;
+static time_t g_last_flush_time = 0;
+#define LOG_FLUSH_INTERVAL 2  // Flush every 2 seconds max
+
+// Get current log output destination
+static inline FILE* get_log_file(void) {
+    return g_log_file ? g_log_file : stderr;
 }
 
-#define LOG_DEBUG(fmt, ...) do { if (g_fuse_debug) fprintf(stderr, LOG_PREFIX "DEBUG: " fmt "\n", ##__VA_ARGS__); } while(0)
+// Flush log buffer to file
+static void flush_log_buffer_locked(void) {
+    if (g_log_buffer_pos > 0 && g_log_file) {
+        fwrite(g_log_buffer, 1, g_log_buffer_pos, g_log_file);
+        fflush(g_log_file);
+        g_log_buffer_pos = 0;
+        g_last_flush_time = time(NULL);
+    }
+}
 
-#define LOG_INFO(fmt, ...) fprintf(stderr, LOG_PREFIX "INFO: " fmt "\n", ##__VA_ARGS__)
-#define LOG_WARN(fmt, ...) fprintf(stderr, LOG_PREFIX "WARN: " fmt "\n", ##__VA_ARGS__)
-#define LOG_ERROR(fmt, ...) fprintf(stderr, LOG_PREFIX "ERROR: " fmt "\n", ##__VA_ARGS__)
+// Write to log buffer (called with mutex held)
+static void log_write_buffered(const char *msg, size_t len) {
+    FILE *f = get_log_file();
+
+    // If no log file or stderr, write directly
+    if (!g_log_file || f == stderr) {
+        fwrite(msg, 1, len, f);
+        return;
+    }
+
+    // Check if we need to flush (buffer full or time elapsed)
+    time_t now = time(NULL);
+    if (g_log_buffer_pos + len > LOG_BUFFER_SIZE - 1 ||
+        (g_log_buffer_pos > 0 && now - g_last_flush_time >= LOG_FLUSH_INTERVAL)) {
+        flush_log_buffer_locked();
+    }
+
+    // Add to buffer
+    if (len < LOG_BUFFER_SIZE - 1) {
+        memcpy(g_log_buffer + g_log_buffer_pos, msg, len);
+        g_log_buffer_pos += len;
+    } else {
+        // Message too large, write directly
+        flush_log_buffer_locked();
+        fwrite(msg, 1, len, g_log_file);
+        fflush(g_log_file);
+    }
+}
+
+// Set log file path (call before mount)
+void fuse_wrapper_set_log_path(const char *path) {
+    pthread_mutex_lock(&g_log_mutex);
+
+    // Flush existing buffer before closing
+    flush_log_buffer_locked();
+
+    if (g_log_file && g_log_file != stderr) {
+        fclose(g_log_file);
+        g_log_file = NULL;
+    }
+    if (path) {
+        g_log_file = fopen(path, "a");
+        if (g_log_file) {
+            // Use line buffering for reasonable performance with some immediacy
+            setvbuf(g_log_file, NULL, _IOLBF, 0);
+            fprintf(g_log_file, LOG_PREFIX "INFO: Log file opened: %s\n", path);
+            fflush(g_log_file);
+            g_last_flush_time = time(NULL);
+        } else {
+            fprintf(stderr, LOG_PREFIX "WARN: Failed to open log file: %s (errno=%d)\n", path, errno);
+        }
+    }
+    pthread_mutex_unlock(&g_log_mutex);
+}
+
+void fuse_wrapper_set_debug(int enabled) {
+    g_fuse_debug = enabled;
+    pthread_mutex_lock(&g_log_mutex);
+    FILE *f = get_log_file();
+    fprintf(f, LOG_PREFIX "INFO: Debug logging %s\n", enabled ? "ENABLED" : "DISABLED");
+    if (g_log_file) fflush(g_log_file);
+    pthread_mutex_unlock(&g_log_mutex);
+}
+
+// Flush logs explicitly (call before unmount or on important events)
+void fuse_wrapper_flush_logs(void) {
+    pthread_mutex_lock(&g_log_mutex);
+    flush_log_buffer_locked();
+    pthread_mutex_unlock(&g_log_mutex);
+}
+
+// Optimized LOG_DEBUG - early exit if debug disabled (no lock overhead)
+#define LOG_DEBUG(fmt, ...) do { \
+    if (g_fuse_debug) { \
+        char _log_buf[512]; \
+        int _log_len = snprintf(_log_buf, sizeof(_log_buf), \
+            LOG_PREFIX "DEBUG: " fmt "\n", ##__VA_ARGS__); \
+        if (_log_len > 0) { \
+            pthread_mutex_lock(&g_log_mutex); \
+            log_write_buffered(_log_buf, (size_t)_log_len); \
+            pthread_mutex_unlock(&g_log_mutex); \
+        } \
+    } \
+} while(0)
+
+// LOG_INFO - buffered write
+#define LOG_INFO(fmt, ...) do { \
+    char _log_buf[512]; \
+    int _log_len = snprintf(_log_buf, sizeof(_log_buf), \
+        LOG_PREFIX "INFO: " fmt "\n", ##__VA_ARGS__); \
+    if (_log_len > 0) { \
+        pthread_mutex_lock(&g_log_mutex); \
+        log_write_buffered(_log_buf, (size_t)_log_len); \
+        pthread_mutex_unlock(&g_log_mutex); \
+    } \
+} while(0)
+
+// LOG_WARN - immediate flush for warnings
+#define LOG_WARN(fmt, ...) do { \
+    pthread_mutex_lock(&g_log_mutex); \
+    flush_log_buffer_locked(); \
+    FILE *_f = get_log_file(); \
+    fprintf(_f, LOG_PREFIX "WARN: " fmt "\n", ##__VA_ARGS__); \
+    if (g_log_file) fflush(g_log_file); \
+    pthread_mutex_unlock(&g_log_mutex); \
+} while(0)
+
+// LOG_ERROR - immediate flush for errors
+#define LOG_ERROR(fmt, ...) do { \
+    pthread_mutex_lock(&g_log_mutex); \
+    flush_log_buffer_locked(); \
+    FILE *_f = get_log_file(); \
+    fprintf(_f, LOG_PREFIX "ERROR: " fmt "\n", ##__VA_ARGS__); \
+    if (g_log_file) fflush(g_log_file); \
+    pthread_mutex_unlock(&g_log_mutex); \
+} while(0)
 
 // ============================================================
 // Signal tracking for exit diagnostics
 // ============================================================
 static volatile sig_atomic_t g_last_signal = 0;
+static volatile int g_fuse_loop_running = 0;
+static volatile uint64_t g_total_ops = 0;  // Total operations counter
+static volatile uint64_t g_last_op_time = 0;  // Last operation timestamp
 
 static void fuse_signal_handler(int sig) {
     g_last_signal = sig;
@@ -75,6 +210,35 @@ static void install_signal_handlers(void) {
     sigaction(SIGUSR2, &sa, NULL);
     LOG_INFO("Signal handlers installed (SIGTERM/SIGHUP/SIGINT/SIGUSR1/SIGUSR2)");
 }
+
+// Check macFUSE device availability
+static int check_macfuse_device(void) {
+    // Check if /dev/macfuse* exists
+    DIR *dev = opendir("/dev");
+    if (!dev) {
+        LOG_ERROR("Cannot open /dev: errno=%d (%s)", errno, strerror(errno));
+        return -1;
+    }
+
+    int found = 0;
+    struct dirent *entry;
+    while ((entry = readdir(dev)) != NULL) {
+        if (strncmp(entry->d_name, "macfuse", 7) == 0) {
+            found++;
+        }
+    }
+    closedir(dev);
+    return found;
+}
+
+// Track operation for diagnostics
+static inline void track_operation(void) {
+    __sync_fetch_and_add(&g_total_ops, 1);
+    g_last_op_time = time(NULL);
+}
+
+// Forward declaration for collect_exit_diagnostics (defined after g_state)
+static void collect_exit_diagnostics(const char *mount_path, int fuse_result, int saved_errno);
 
 // ============================================================
 // Eviction exclude list - paths being evicted skip LOCAL, go to EXTERNAL
@@ -143,6 +307,33 @@ void fuse_wrapper_clear_evicting(void) {
 }
 
 // ============================================================
+// Concurrent open file limiter - prevents FUSE resource exhaustion
+// ============================================================
+#define MAX_CONCURRENT_OPENS 256
+static volatile int g_open_count = 0;
+static pthread_mutex_t g_open_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static int acquire_open_slot(void) {
+    pthread_mutex_lock(&g_open_mutex);
+    if (g_open_count >= MAX_CONCURRENT_OPENS) {
+        pthread_mutex_unlock(&g_open_mutex);
+        LOG_WARN("Max concurrent opens reached (%d), returning EMFILE", MAX_CONCURRENT_OPENS);
+        return -1;
+    }
+    g_open_count++;
+    pthread_mutex_unlock(&g_open_mutex);
+    return 0;
+}
+
+static void release_open_slot(void) {
+    pthread_mutex_lock(&g_open_mutex);
+    if (g_open_count > 0) {
+        g_open_count--;
+    }
+    pthread_mutex_unlock(&g_open_mutex);
+}
+
+// ============================================================
 // Path depth check - POSIX ELOOP protection
 // ============================================================
 #define MAX_PATH_DEPTH 40  // macOS MAXSYMLINKS=32, allow some headroom
@@ -199,6 +390,320 @@ static struct {
 };
 
 // ============================================================
+// Callbacks for Swift layer - DB tree updates
+// ============================================================
+static FuseCallbacks g_callbacks = {
+    .on_file_created = NULL,
+    .on_file_deleted = NULL,
+    .on_file_written = NULL,
+    .on_file_read = NULL,
+    .on_file_renamed = NULL
+};
+
+// ============================================================
+// Async callback queue - dispatch callbacks without blocking FUSE
+// ============================================================
+#define CALLBACK_QUEUE_SIZE 4096
+
+typedef enum {
+    CB_TYPE_CREATED,
+    CB_TYPE_DELETED,
+    CB_TYPE_WRITTEN,
+    CB_TYPE_READ,
+    CB_TYPE_RENAMED
+} CallbackType;
+
+typedef struct {
+    CallbackType type;
+    char path[1024];
+    char path2[1024];  // For rename: to_path
+    int is_directory;
+} CallbackItem;
+
+static struct {
+    CallbackItem items[CALLBACK_QUEUE_SIZE];
+    volatile int head;
+    volatile int tail;
+    pthread_mutex_t lock;
+    pthread_cond_t cond;
+    pthread_t thread;
+    volatile int running;
+} g_callback_queue = {
+    .head = 0,
+    .tail = 0,
+    .lock = PTHREAD_MUTEX_INITIALIZER,
+    .cond = PTHREAD_COND_INITIALIZER,
+    .thread = 0,
+    .running = 0
+};
+
+// Callback statistics for diagnostics
+static volatile uint64_t g_cb_queued = 0;
+static volatile uint64_t g_cb_processed = 0;
+static volatile uint64_t g_cb_dropped = 0;
+
+// ============================================================
+// Pending delete set - hide deleted files from readdir until EXTERNAL is cleaned
+// This prevents "ghost" files from appearing after delete
+// ============================================================
+#define PENDING_DELETE_SIZE 1024
+
+static struct {
+    char *paths[PENDING_DELETE_SIZE];
+    int count;
+    pthread_mutex_t lock;
+} g_pending_delete = {
+    .count = 0,
+    .lock = PTHREAD_MUTEX_INITIALIZER
+};
+
+// Add a path to pending delete set (called before delete)
+static void pending_delete_add(const char *path) {
+    pthread_mutex_lock(&g_pending_delete.lock);
+
+    // Check if already exists
+    for (int i = 0; i < g_pending_delete.count; i++) {
+        if (g_pending_delete.paths[i] && strcmp(g_pending_delete.paths[i], path) == 0) {
+            pthread_mutex_unlock(&g_pending_delete.lock);
+            return;
+        }
+    }
+
+    // Add new entry (evict oldest if full)
+    if (g_pending_delete.count >= PENDING_DELETE_SIZE) {
+        free(g_pending_delete.paths[0]);
+        memmove(&g_pending_delete.paths[0], &g_pending_delete.paths[1],
+                (PENDING_DELETE_SIZE - 1) * sizeof(char*));
+        g_pending_delete.count = PENDING_DELETE_SIZE - 1;
+    }
+
+    g_pending_delete.paths[g_pending_delete.count++] = strdup(path);
+    pthread_mutex_unlock(&g_pending_delete.lock);
+}
+
+// Check if a full path is pending delete (for readdir filtering)
+// Returns 1 if the given full path (e.g. "/foo/bar") is pending delete
+static int pending_delete_contains(const char *full_path) {
+    pthread_mutex_lock(&g_pending_delete.lock);
+    for (int i = 0; i < g_pending_delete.count; i++) {
+        if (g_pending_delete.paths[i] && strcmp(g_pending_delete.paths[i], full_path) == 0) {
+            pthread_mutex_unlock(&g_pending_delete.lock);
+            return 1;
+        }
+    }
+    pthread_mutex_unlock(&g_pending_delete.lock);
+    return 0;
+}
+
+// Remove a path from pending delete set (called after successful external delete or timeout)
+static void pending_delete_remove(const char *path) {
+    pthread_mutex_lock(&g_pending_delete.lock);
+    for (int i = 0; i < g_pending_delete.count; i++) {
+        if (g_pending_delete.paths[i] && strcmp(g_pending_delete.paths[i], path) == 0) {
+            free(g_pending_delete.paths[i]);
+            memmove(&g_pending_delete.paths[i], &g_pending_delete.paths[i + 1],
+                    (g_pending_delete.count - i - 1) * sizeof(char*));
+            g_pending_delete.count--;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_pending_delete.lock);
+}
+
+// Clear all pending deletes (called on unmount)
+static void pending_delete_clear(void) {
+    pthread_mutex_lock(&g_pending_delete.lock);
+    for (int i = 0; i < g_pending_delete.count; i++) {
+        free(g_pending_delete.paths[i]);
+        g_pending_delete.paths[i] = NULL;
+    }
+    g_pending_delete.count = 0;
+    pthread_mutex_unlock(&g_pending_delete.lock);
+}
+
+// Callback worker thread - processes callbacks asynchronously
+static void* callback_worker(void *arg) {
+    (void)arg;
+    LOG_INFO("Callback worker thread started");
+
+    while (g_callback_queue.running) {
+        CallbackItem item;
+        int has_item = 0;
+
+        pthread_mutex_lock(&g_callback_queue.lock);
+
+        // Wait for items or shutdown
+        while (g_callback_queue.head == g_callback_queue.tail && g_callback_queue.running) {
+            // Timeout wait to allow checking running flag
+            struct timespec ts;
+            clock_gettime(CLOCK_REALTIME, &ts);
+            ts.tv_sec += 1;  // 1 second timeout
+            pthread_cond_timedwait(&g_callback_queue.cond, &g_callback_queue.lock, &ts);
+        }
+
+        if (g_callback_queue.head != g_callback_queue.tail) {
+            item = g_callback_queue.items[g_callback_queue.tail];
+            g_callback_queue.tail = (g_callback_queue.tail + 1) % CALLBACK_QUEUE_SIZE;
+            has_item = 1;
+        }
+
+        pthread_mutex_unlock(&g_callback_queue.lock);
+
+        if (has_item) {
+            // Process callback outside the lock
+            switch (item.type) {
+                case CB_TYPE_CREATED:
+                    if (g_callbacks.on_file_created) {
+                        g_callbacks.on_file_created(item.path, item.path2, item.is_directory);
+                    }
+                    break;
+                case CB_TYPE_DELETED:
+                    if (g_callbacks.on_file_deleted) {
+                        g_callbacks.on_file_deleted(item.path, item.is_directory);
+                    }
+                    break;
+                case CB_TYPE_WRITTEN:
+                    if (g_callbacks.on_file_written) {
+                        g_callbacks.on_file_written(item.path);
+                    }
+                    break;
+                case CB_TYPE_READ:
+                    if (g_callbacks.on_file_read) {
+                        g_callbacks.on_file_read(item.path);
+                    }
+                    break;
+                case CB_TYPE_RENAMED:
+                    if (g_callbacks.on_file_renamed) {
+                        g_callbacks.on_file_renamed(item.path, item.path2, item.is_directory);
+                    }
+                    break;
+            }
+            __sync_fetch_and_add(&g_cb_processed, 1);
+        }
+    }
+
+    LOG_INFO("Callback worker thread exiting (processed=%llu, dropped=%llu)",
+             (unsigned long long)g_cb_processed, (unsigned long long)g_cb_dropped);
+    return NULL;
+}
+
+// Queue a callback for async processing (returns immediately, never blocks FUSE)
+static void queue_callback(CallbackType type, const char *path, const char *path2, int is_dir) {
+    pthread_mutex_lock(&g_callback_queue.lock);
+
+    int next_head = (g_callback_queue.head + 1) % CALLBACK_QUEUE_SIZE;
+    if (next_head == g_callback_queue.tail) {
+        // Queue full - drop oldest item to make room (avoid blocking)
+        g_callback_queue.tail = (g_callback_queue.tail + 1) % CALLBACK_QUEUE_SIZE;
+        __sync_fetch_and_add(&g_cb_dropped, 1);
+        if (g_cb_dropped % 100 == 1) {
+            LOG_WARN("Callback queue overflow! dropped=%llu", (unsigned long long)g_cb_dropped);
+        }
+    }
+
+    CallbackItem *item = &g_callback_queue.items[g_callback_queue.head];
+    item->type = type;
+    item->is_directory = is_dir;
+    if (path) {
+        strncpy(item->path, path, sizeof(item->path) - 1);
+        item->path[sizeof(item->path) - 1] = '\0';
+    } else {
+        item->path[0] = '\0';
+    }
+    if (path2) {
+        strncpy(item->path2, path2, sizeof(item->path2) - 1);
+        item->path2[sizeof(item->path2) - 1] = '\0';
+    } else {
+        item->path2[0] = '\0';
+    }
+
+    g_callback_queue.head = next_head;
+    __sync_fetch_and_add(&g_cb_queued, 1);
+
+    pthread_cond_signal(&g_callback_queue.cond);
+    pthread_mutex_unlock(&g_callback_queue.lock);
+}
+
+// Start callback worker thread
+static void start_callback_worker(void) {
+    if (g_callback_queue.running) return;
+
+    g_callback_queue.running = 1;
+    g_callback_queue.head = 0;
+    g_callback_queue.tail = 0;
+    g_cb_queued = 0;
+    g_cb_processed = 0;
+    g_cb_dropped = 0;
+
+    if (pthread_create(&g_callback_queue.thread, NULL, callback_worker, NULL) != 0) {
+        LOG_ERROR("Failed to create callback worker thread!");
+        g_callback_queue.running = 0;
+    }
+}
+
+// Stop callback worker thread
+static void stop_callback_worker(void) {
+    if (!g_callback_queue.running) return;
+
+    g_callback_queue.running = 0;
+
+    pthread_mutex_lock(&g_callback_queue.lock);
+    pthread_cond_signal(&g_callback_queue.cond);
+    pthread_mutex_unlock(&g_callback_queue.lock);
+
+    pthread_join(g_callback_queue.thread, NULL);
+
+    LOG_INFO("Callback worker stopped. Stats: queued=%llu, processed=%llu, dropped=%llu",
+             (unsigned long long)g_cb_queued, (unsigned long long)g_cb_processed,
+             (unsigned long long)g_cb_dropped);
+}
+
+void fuse_wrapper_set_callbacks(const FuseCallbacks *callbacks) {
+    if (callbacks) {
+        g_callbacks = *callbacks;
+        LOG_INFO("Callbacks registered: created=%p, deleted=%p, written=%p, read=%p, renamed=%p",
+                 (void*)g_callbacks.on_file_created,
+                 (void*)g_callbacks.on_file_deleted,
+                 (void*)g_callbacks.on_file_written,
+                 (void*)g_callbacks.on_file_read,
+                 (void*)g_callbacks.on_file_renamed);
+    } else {
+        memset(&g_callbacks, 0, sizeof(g_callbacks));
+        LOG_INFO("Callbacks cleared");
+    }
+}
+
+// Helper macros for invoking callbacks ASYNCHRONOUSLY (never blocks FUSE thread)
+#define NOTIFY_FILE_CREATED(vpath, lpath, is_dir) \
+    do { \
+        queue_callback(CB_TYPE_CREATED, vpath, lpath, is_dir); \
+        LOG_DEBUG("CB queued: created %s (dir=%d)", vpath, is_dir); \
+    } while(0)
+
+#define NOTIFY_FILE_DELETED(vpath, is_dir) \
+    do { \
+        queue_callback(CB_TYPE_DELETED, vpath, NULL, is_dir); \
+        LOG_DEBUG("CB queued: deleted %s (dir=%d)", vpath, is_dir); \
+    } while(0)
+
+#define NOTIFY_FILE_WRITTEN(vpath) \
+    do { \
+        queue_callback(CB_TYPE_WRITTEN, vpath, NULL, 0); \
+    } while(0)
+
+// File read notifications - Swift layer implements throttled batch updates
+#define NOTIFY_FILE_READ(vpath) \
+    do { \
+        queue_callback(CB_TYPE_READ, vpath, NULL, 0); \
+    } while(0)
+
+#define NOTIFY_FILE_RENAMED(from, to, is_dir) \
+    do { \
+        queue_callback(CB_TYPE_RENAMED, from, to, is_dir); \
+        LOG_DEBUG("CB queued: renamed %s -> %s (dir=%d)", from, to, is_dir); \
+    } while(0)
+
+// ============================================================
 // Helper functions
 // ============================================================
 
@@ -220,6 +725,89 @@ static struct {
             return -EBUSY; \
         } \
     } while (0)
+
+// Collect detailed exit diagnostics (implementation after g_state is defined)
+static void collect_exit_diagnostics(const char *mount_path, int fuse_result, int saved_errno) {
+    LOG_INFO("========== FUSE EXIT DIAGNOSTICS ==========");
+
+    // Basic exit info
+    LOG_INFO("Exit code: %d, errno: %d (%s)", fuse_result, saved_errno, strerror(saved_errno));
+
+    // Signal info
+    if (g_last_signal != 0) {
+        LOG_WARN("Exit signal: %d (%s)", (int)g_last_signal, strsignal((int)g_last_signal));
+    } else {
+        LOG_INFO("Exit signal: none");
+    }
+
+    // Operation stats
+    LOG_INFO("Total ops since mount: %llu", (unsigned long long)g_total_ops);
+    if (g_last_op_time > 0) {
+        time_t now = time(NULL);
+        LOG_INFO("Last op: %lld seconds ago", (long long)(now - g_last_op_time));
+    }
+
+    // Callback queue stats
+    LOG_INFO("Callback queue: queued=%llu, processed=%llu, dropped=%llu, pending=%d",
+             (unsigned long long)g_cb_queued,
+             (unsigned long long)g_cb_processed,
+             (unsigned long long)g_cb_dropped,
+             (int)((g_callback_queue.head - g_callback_queue.tail + CALLBACK_QUEUE_SIZE) % CALLBACK_QUEUE_SIZE));
+
+    // macFUSE device state
+    int macfuse_devs = check_macfuse_device();
+    LOG_INFO("macFUSE devices in /dev: %d", macfuse_devs);
+
+    // Mount point state
+    struct stat mp_stat;
+    if (stat(mount_path, &mp_stat) != 0) {
+        LOG_WARN("Mount point stat failed: %s (errno=%d %s)", mount_path, errno, strerror(errno));
+    } else {
+        LOG_INFO("Mount point exists: mode=0x%x, uid=%d, gid=%d",
+                 mp_stat.st_mode, mp_stat.st_uid, mp_stat.st_gid);
+    }
+
+    // Filesystem type at mount point
+    struct statfs fs_stat;
+    if (statfs(mount_path, &fs_stat) == 0) {
+        LOG_INFO("Filesystem type: %s, flags=0x%x", fs_stat.f_fstypename, fs_stat.f_flags);
+    } else {
+        LOG_WARN("statfs failed: errno=%d (%s)", errno, strerror(errno));
+    }
+
+    // Check FUSE channel state
+    if (g_state.chan) {
+        LOG_INFO("FUSE channel: valid");
+    } else {
+        LOG_WARN("FUSE channel: NULL");
+    }
+
+    // Interpret common errno values
+    switch (saved_errno) {
+        case ENODEV:  // 19
+            LOG_WARN("ENODEV: macFUSE kernel module may have been unloaded or device disconnected");
+            break;
+        case ENOTCONN:  // 57
+            LOG_WARN("ENOTCONN: FUSE connection lost (kernel-userspace channel broken)");
+            break;
+        case EINTR:  // 4
+            LOG_INFO("EINTR: Interrupted by signal");
+            break;
+        case EIO:  // 5
+            LOG_WARN("EIO: I/O error on FUSE device");
+            break;
+        case ENOENT:  // 2
+            LOG_WARN("ENOENT: Mount point or device no longer exists");
+            break;
+        default:
+            if (saved_errno != 0) {
+                LOG_INFO("errno %d: %s", saved_errno, strerror(saved_errno));
+            }
+            break;
+    }
+
+    LOG_INFO("========== END DIAGNOSTICS ==========");
+}
 
 // Join paths
 static char* join_path(const char *base, const char *path) {
@@ -370,6 +958,7 @@ static int root_getattr_logged = 0;  // Avoid log flooding
 static int index_not_ready_logged = 0;  // Avoid index-not-ready log flooding
 
 static int dmsa_getattr(const char *path, struct stat *stbuf) {
+    track_operation();
     int depth_err = check_path_depth(path);
     if (depth_err) return depth_err;
 
@@ -422,12 +1011,30 @@ static int dmsa_getattr(const char *path, struct stat *stbuf) {
     stbuf->st_uid = g_state.owner_uid;
     stbuf->st_gid = g_state.owner_gid;
 
+    // Normalize permissions: VFS files should be readable by owner
+    // Underlying files might have restrictive permissions (e.g., 600 from old system)
+    // but VFS should present them with standard permissions
+    if (S_ISDIR(stbuf->st_mode)) {
+        // Directories: rwxr-xr-x (755)
+        stbuf->st_mode = S_IFDIR | 0755;
+    } else {
+        // Files: rw-r--r-- (644) - preserve execute bit if present
+        mode_t exec_bit = stbuf->st_mode & S_IXUSR;
+        stbuf->st_mode = S_IFREG | 0644 | exec_bit;
+    }
+
     return 0;
 }
 
-// readdir: read directory contents (smart merge)
+// readdir: read directory contents (smart merge LOCAL + EXTERNAL)
+// NOTE: We pass NULL for stat in filler() - this is the standard approach:
+//   - Only return entry names, no file attributes
+//   - Applications (ls, etc.) will call getattr() separately for each entry
+//   - This avoids symlink resolution during readdir, preventing deadlocks
+//   - Combined with fuse_loop_mt(), handles symlinks pointing back to VFS
 static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                         off_t offset, struct fuse_file_info *fi) {
+    track_operation();
     (void) offset;
     (void) fi;
 
@@ -453,12 +1060,18 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     filler(buf, ".", NULL, 0);
     filler(buf, "..", NULL, 0);
 
-    // Simple hash table for deduplication (max 4096 entries)
-    #define MAX_ENTRIES 4096
-    char *seen_names[MAX_ENTRIES];
+    // Heap-allocated deduplication table (supports larger directories)
+    #define MAX_READDIR_ENTRIES 8192
+    char **seen_names = calloc(MAX_READDIR_ENTRIES, sizeof(char*));
+    if (!seen_names) {
+        LOG_ERROR("readdir: failed to allocate seen_names table");
+        return -ENOMEM;
+    }
     int seen_count = 0;
 
-    memset(seen_names, 0, sizeof(seen_names));
+    // Helper buffer for building full virtual paths
+    char full_vpath[2048];
+    int path_is_root = (strcmp(path, "/") == 0);
 
     // Read from local directory
     char *local = get_local_path(path);
@@ -474,6 +1087,18 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                     continue;
                 }
 
+                // Build full virtual path for pending delete check
+                if (path_is_root) {
+                    snprintf(full_vpath, sizeof(full_vpath), "/%s", de->d_name);
+                } else {
+                    snprintf(full_vpath, sizeof(full_vpath), "%s/%s", path, de->d_name);
+                }
+
+                // Skip if in pending delete set
+                if (pending_delete_contains(full_vpath)) {
+                    continue;
+                }
+
                 // Check if already added
                 int found = 0;
                 for (int i = 0; i < seen_count; i++) {
@@ -483,7 +1108,7 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                     }
                 }
 
-                if (!found && seen_count < MAX_ENTRIES) {
+                if (!found && seen_count < MAX_READDIR_ENTRIES) {
                     seen_names[seen_count++] = strdup(de->d_name);
                     filler(buf, de->d_name, NULL, 0);
                 }
@@ -507,6 +1132,18 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                     continue;
                 }
 
+                // Build full virtual path for pending delete check
+                if (path_is_root) {
+                    snprintf(full_vpath, sizeof(full_vpath), "/%s", de->d_name);
+                } else {
+                    snprintf(full_vpath, sizeof(full_vpath), "%s/%s", path, de->d_name);
+                }
+
+                // Skip if in pending delete set (important: hides EXTERNAL files that couldn't be deleted)
+                if (pending_delete_contains(full_vpath)) {
+                    continue;
+                }
+
                 // Check if already added
                 int found = 0;
                 for (int i = 0; i < seen_count; i++) {
@@ -516,7 +1153,7 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                     }
                 }
 
-                if (!found && seen_count < MAX_ENTRIES) {
+                if (!found && seen_count < MAX_READDIR_ENTRIES) {
                     seen_names[seen_count++] = strdup(de->d_name);
                     filler(buf, de->d_name, NULL, 0);
                 }
@@ -526,16 +1163,18 @@ static int dmsa_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         free(external);
     }
 
-    // Cleanup
+    // Cleanup heap-allocated table
     for (int i = 0; i < seen_count; i++) {
         free(seen_names[i]);
     }
+    free(seen_names);
 
     return 0;
 }
 
 // open: open file
 static int dmsa_open(const char *path, struct fuse_file_info *fi) {
+    track_operation();
     int depth_err = check_path_depth(path);
     if (depth_err) return depth_err;
 
@@ -543,6 +1182,11 @@ static int dmsa_open(const char *path, struct fuse_file_info *fi) {
 
     // Block file open when index is not ready
     CHECK_INDEX_READY();
+
+    // Limit concurrent open files to prevent FUSE resource exhaustion
+    if (acquire_open_slot() < 0) {
+        return -EMFILE;
+    }
 
     char *actual_path = resolve_actual_path(path);
 
@@ -611,6 +1255,7 @@ static int dmsa_open(const char *path, struct fuse_file_info *fi) {
         LOG_WARN("open: failed for %s (actual=%s, flags=%d): errno=%d (%s)", path, actual_path, fi->flags, err, strerror(err));
         free(actual_path);
         if (local) free(local);
+        release_open_slot();  // Release the slot on failure
         return -err;
     }
 
@@ -625,6 +1270,7 @@ static int dmsa_open(const char *path, struct fuse_file_info *fi) {
 // read: read file contents
 static int dmsa_read(const char *path, char *buf, size_t size, off_t offset,
                      struct fuse_file_info *fi) {
+    track_operation();
     LOG_DEBUG("read: %s, size=%zu, offset=%lld", path, size, offset);
 
     int fd = fi->fh;
@@ -643,6 +1289,7 @@ static int dmsa_read(const char *path, char *buf, size_t size, off_t offset,
 // write: write file contents
 static int dmsa_write(const char *path, const char *buf, size_t size, off_t offset,
                       struct fuse_file_info *fi) {
+    track_operation();
     LOG_DEBUG("write: %s, size=%zu, offset=%lld", path, size, offset);
 
     if (g_state.readonly) {
@@ -687,10 +1334,18 @@ static int dmsa_write(const char *path, const char *buf, size_t size, off_t offs
 // release: close file
 static int dmsa_release(const char *path, struct fuse_file_info *fi) {
     LOG_DEBUG("release: %s", path);
-    (void)path;
 
     if (fi->fh > 0) {
         close(fi->fh);
+    }
+
+    // Release concurrent open slot
+    release_open_slot();
+
+    // Notify Swift layer if file was written (check flags)
+    // fi->flags contains open flags: O_WRONLY, O_RDWR indicate write
+    if ((fi->flags & O_WRONLY) || (fi->flags & O_RDWR)) {
+        NOTIFY_FILE_WRITTEN(path);
     }
 
     return 0;
@@ -727,6 +1382,10 @@ static int dmsa_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     }
 
     fix_ownership(local);
+
+    // Notify Swift layer - file created
+    NOTIFY_FILE_CREATED(path, local, 0);
+
     free(local);
 
     fi->fh = fd;
@@ -734,6 +1393,7 @@ static int dmsa_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 }
 
 // unlink: delete file
+// Order: 1. Add to pending delete 2. Notify Swift 3. Delete LOCAL 4. Delete EXTERNAL 5. Remove from pending
 static int dmsa_unlink(const char *path) {
     LOG_DEBUG("unlink: %s", path);
 
@@ -741,22 +1401,42 @@ static int dmsa_unlink(const char *path) {
         return -EROFS;
     }
 
-    int result = 0;
+    // Step 1: Add to pending delete set (hides from readdir immediately)
+    pending_delete_add(path);
 
-    // Delete local copy
+    // Step 2: Notify Swift layer (async, updates memory cache + DB)
+    NOTIFY_FILE_DELETED(path, 0);
+
+    int result = 0;
+    int external_deleted = 0;
+
+    // Step 3: Delete local copy
     char *local = get_local_path(path);
     if (local) {
         if (unlink(local) == -1 && errno != ENOENT) {
             result = -errno;
+            LOG_WARN("unlink local failed: %s, errno=%d", local, errno);
         }
         free(local);
     }
 
-    // Delete external copy (if online)
+    // Step 4: Delete external copy (best effort)
     char *external = get_external_path(path);
     if (external) {
-        unlink(external);  // Ignore errors
+        if (unlink(external) == 0 || errno == ENOENT) {
+            external_deleted = 1;
+        } else {
+            LOG_DEBUG("unlink external failed: %s, errno=%d (will stay in pending)", external, errno);
+        }
         free(external);
+    } else {
+        external_deleted = 1;  // No external path means nothing to delete
+    }
+
+    // Step 5: Remove from pending delete if external was deleted successfully
+    // If external delete failed, keep in pending so readdir continues to hide it
+    if (external_deleted) {
+        pending_delete_remove(path);
     }
 
     return result;
@@ -790,12 +1470,17 @@ static int dmsa_mkdir(const char *path, mode_t mode) {
     }
 
     fix_ownership(local);
+
+    // Notify Swift layer - directory created
+    NOTIFY_FILE_CREATED(path, local, 1);
+
     free(local);
 
     return 0;
 }
 
 // rmdir: remove directory
+// Order: 1. Add to pending delete 2. Notify Swift 3. Delete LOCAL 4. Delete EXTERNAL 5. Remove from pending
 static int dmsa_rmdir(const char *path) {
     LOG_DEBUG("rmdir: %s", path);
 
@@ -803,22 +1488,41 @@ static int dmsa_rmdir(const char *path) {
         return -EROFS;
     }
 
-    int result = 0;
+    // Step 1: Add to pending delete set (hides from readdir immediately)
+    pending_delete_add(path);
 
-    // Delete local copy
+    // Step 2: Notify Swift layer (async, updates memory cache + DB)
+    NOTIFY_FILE_DELETED(path, 1);
+
+    int result = 0;
+    int external_deleted = 0;
+
+    // Step 3: Delete local copy
     char *local = get_local_path(path);
     if (local) {
         if (rmdir(local) == -1 && errno != ENOENT) {
             result = -errno;
+            LOG_WARN("rmdir local failed: %s, errno=%d", local, errno);
         }
         free(local);
     }
 
-    // Delete external copy (if online)
+    // Step 4: Delete external copy (best effort)
     char *external = get_external_path(path);
     if (external) {
-        rmdir(external);  // Ignore errors
+        if (rmdir(external) == 0 || errno == ENOENT) {
+            external_deleted = 1;
+        } else {
+            LOG_DEBUG("rmdir external failed: %s, errno=%d (will stay in pending)", external, errno);
+        }
         free(external);
+    } else {
+        external_deleted = 1;  // No external path means nothing to delete
+    }
+
+    // Step 5: Remove from pending delete if external was deleted successfully
+    if (external_deleted) {
+        pending_delete_remove(path);
     }
 
     return result;
@@ -904,6 +1608,18 @@ static int dmsa_rename(const char *from, const char *to) {
     if (external_from) free(external_from);
     if (external_to) free(external_to);
 
+    // Notify Swift layer - file renamed (check if directory via stat on 'to')
+    struct stat to_st;
+    char *local_to_check = get_local_path(to);
+    int is_dir = 0;
+    if (local_to_check) {
+        if (stat(local_to_check, &to_st) == 0) {
+            is_dir = S_ISDIR(to_st.st_mode);
+        }
+        free(local_to_check);
+    }
+    NOTIFY_FILE_RENAMED(from, to, is_dir);
+
     return 0;
 }
 
@@ -968,10 +1684,19 @@ static int dmsa_chmod(const char *path, mode_t mode) {
     }
 
     int res = chmod(actual, mode);
+    int err = errno;
     free(actual);
 
     if (res == -1) {
-        return -errno;
+        // VFS presents normalized permissions to users (644/755).
+        // The underlying file's actual permissions don't matter since Service runs as root.
+        // Ignore permission errors to allow Finder copy operations (ditto uses fchmod).
+        if (err == EPERM || err == EACCES) {
+            LOG_INFO("chmod: %s mode=%o -> EPERM/EACCES ignored", path, mode);
+            return 0;
+        }
+        LOG_WARN("chmod failed: %s, mode=%o, errno=%d (%s)", path, mode, err, strerror(err));
+        return -err;
     }
 
     return 0;
@@ -991,10 +1716,19 @@ static int dmsa_chown(const char *path, uid_t uid, gid_t gid) {
     }
 
     int res = lchown(actual, uid, gid);
+    int err = errno;
     free(actual);
 
     if (res == -1) {
-        return -errno;
+        // VFS presents all files as owned by the mount point owner.
+        // The underlying file's actual owner doesn't matter since Service runs as root.
+        // Ignore permission errors to allow Finder copy operations (ditto uses fchown).
+        if (err == EPERM || err == EACCES) {
+            LOG_INFO("chown: %s uid=%d gid=%d -> EPERM/EACCES ignored", path, uid, gid);
+            return 0;
+        }
+        LOG_WARN("chown failed: %s, uid=%d, gid=%d, errno=%d (%s)", path, uid, gid, err, strerror(err));
+        return -err;
     }
 
     return 0;
@@ -1011,10 +1745,18 @@ static int dmsa_utimens(const char *path, const struct timespec ts[2]) {
 
     // Use utimensat (macOS 10.13+)
     int res = utimensat(AT_FDCWD, actual, ts, AT_SYMLINK_NOFOLLOW);
+    int err = errno;
     free(actual);
 
     if (res == -1) {
-        return -errno;
+        // Timestamp modification failure shouldn't block file copy operations.
+        // Ignore permission errors to allow Finder copy operations.
+        if (err == EPERM || err == EACCES) {
+            LOG_INFO("utimens: %s -> EPERM/EACCES ignored", path);
+            return 0;
+        }
+        LOG_WARN("utimens failed: %s, errno=%d (%s)", path, err, strerror(err));
+        return -err;
     }
 
     return 0;
@@ -1090,22 +1832,24 @@ static int dmsa_symlink(const char *target, const char *linkpath) {
 static int dmsa_access(const char *path, int mask) {
     LOG_DEBUG("access: %s, mask=%d", path, mask);
 
+    // Root directory: always allow
+    if (strcmp(path, "/") == 0) {
+        return 0;
+    }
+
+    // Check if file exists
     char *actual = resolve_actual_path(path);
     if (!actual) {
-        // Root directory special handling
-        if (strcmp(path, "/") == 0) {
-            return 0;
-        }
         return -ENOENT;
     }
-
-    int res = access(actual, mask);
     free(actual);
 
-    if (res == -1) {
-        return -errno;
-    }
-
+    // VFS presents all files as owned by user with full permissions (mode 0644/0755)
+    // Since Service runs as root and handles actual file I/O, we always grant access
+    // to existing files. The underlying file permissions don't matter to VFS users.
+    //
+    // This fixes "permission denied" errors in Finder when copying files that have
+    // restrictive permissions (e.g., 600) on the underlying storage.
     return 0;
 }
 
@@ -1122,7 +1866,13 @@ static int dmsa_getxattr(const char *path, const char *name, char *value, size_t
     free(actual);
 
     if (res == -1) {
-        return -errno;
+        int err = errno;
+        // For permission errors on underlying storage, report "no such attribute"
+        // This allows Finder to proceed with copy operations
+        if (err == EPERM || err == EACCES) {
+            return -ENOATTR;
+        }
+        return -err;
     }
 
     return (int)res;
@@ -1131,10 +1881,27 @@ static int dmsa_getxattr(const char *path, const char *name, char *value, size_t
 // setxattr: set extended attributes (macOS version)
 static int dmsa_setxattr(const char *path, const char *name, const char *value,
                          size_t size, int flags, uint32_t position) {
-    LOG_DEBUG("setxattr: %s, name=%s", path, name);
+    LOG_DEBUG("setxattr: %s, name=%s, size=%zu", path, name, size);
 
     if (g_state.readonly) {
         return -EROFS;
+    }
+
+    // For Apple security-related xattrs that can't be set normally, fake success.
+    // These include: com.apple.macl (MAC label), com.apple.provenance,
+    // com.apple.quarantine, etc. The kernel or security framework manages these.
+    // Returning success allows cp/Finder copy to proceed without errors.
+    if (strncmp(name, "com.apple.", 10) == 0) {
+        // Try to set it, but ignore all errors for com.apple.* attrs
+        char *local = get_local_path(path);
+        if (local) {
+            int res = setxattr(local, name, value, size, position, flags | XATTR_NOFOLLOW);
+            if (res == -1) {
+                LOG_DEBUG("setxattr: %s name=%s -> ignored (com.apple.* attr)", path, name);
+            }
+            free(local);
+        }
+        return 0;  // Always return success for com.apple.* attributes
     }
 
     char *local = get_local_path(path);
@@ -1143,10 +1910,18 @@ static int dmsa_setxattr(const char *path, const char *name, const char *value,
     }
 
     int res = setxattr(local, name, value, size, position, flags | XATTR_NOFOLLOW);
+    int err = errno;
     free(local);
 
     if (res == -1) {
-        return -errno;
+        // Extended attribute setting failure shouldn't block file copy operations.
+        // Ignore permission errors to allow Finder copy operations (ditto sets xattrs).
+        if (err == EPERM || err == EACCES || err == EINVAL) {
+            LOG_DEBUG("setxattr: %s name=%s -> error %d ignored", path, name, err);
+            return 0;
+        }
+        LOG_WARN("setxattr failed: %s, name=%s, errno=%d (%s)", path, name, err, strerror(err));
+        return -err;
     }
 
     return 0;
@@ -1165,7 +1940,13 @@ static int dmsa_listxattr(const char *path, char *list, size_t size) {
     free(actual);
 
     if (res == -1) {
-        return -errno;
+        int err = errno;
+        // For permission errors on underlying storage, report empty xattr list
+        // This allows Finder to proceed with copy operations
+        if (err == EPERM || err == EACCES) {
+            return 0;  // Empty list
+        }
+        return -err;
     }
 
     return (int)res;
@@ -1285,9 +2066,17 @@ int fuse_wrapper_mount(const char *mount_path, const char *local_dir, const char
     snprintf(volname_opt, sizeof(volname_opt), "volname=%s", volname);
 
     // Build mount options
+    // auto_xattr: let kernel handle xattr via AppleDouble (._ files), bypassing our callbacks
+    //             This allows fcopyfile() to work properly for cp/Finder copy operations
+    // local: indicates local filesystem (enables Finder features)
+    // entry_timeout/attr_timeout/negative_timeout: cache directory entries and attributes
+    //             Reduces kernel<->userspace round trips under heavy load
+    // daemon_timeout=0: disable idle timeout (prevent FUSE from exiting when idle)
+    // Note: We still implement setxattr/getxattr callbacks for non-Apple xattrs
     char mount_opts[1024];
     snprintf(mount_opts, sizeof(mount_opts),
-             "%s,allow_other,default_permissions,noappledouble,noapplexattr,local",
+             "%s,allow_other,default_permissions,auto_xattr,local,"
+             "daemon_timeout=0,entry_timeout=1,attr_timeout=1,negative_timeout=1",
              volname_opt);
 
     LOG_INFO("Mount options: %s", mount_opts);
@@ -1363,39 +2152,37 @@ int fuse_wrapper_mount(const char *mount_path, const char *local_dir, const char
 
     // Install signal handlers for exit diagnostics
     g_last_signal = 0;
+    g_total_ops = 0;
+    g_last_op_time = time(NULL);
     install_signal_handlers();
 
-    // Run FUSE event loop (blocking)
-    int result = fuse_loop(g_state.fuse);
+    // Start async callback worker thread
+    start_callback_worker();
+
+    // Pre-loop diagnostics
+    LOG_INFO("FUSE pre-loop state:");
+    LOG_INFO("  macFUSE devices: %d", check_macfuse_device());
+    LOG_INFO("  Channel: %s", g_state.chan ? "valid" : "NULL");
+    LOG_INFO("  Async callback queue: enabled (size=%d)", CALLBACK_QUEUE_SIZE);
+
+    // Mark loop as running
+    g_fuse_loop_running = 1;
+
+    // Run FUSE event loop in MULTI-THREADED mode
+    // Critical for handling symlinks pointing back to VFS mount point
+    // Single-threaded mode deadlocks when readdir encounters such symlinks
+    LOG_INFO("Starting fuse_loop_mt (multi-threaded)...");
+    int result = fuse_loop_mt(g_state.fuse);
     int saved_errno = errno;
 
-    // ---- Post-exit diagnostics ----
-    LOG_INFO("FUSE event loop exited, return value: %d, errno: %d (%s)",
-             result, saved_errno, strerror(saved_errno));
+    // Mark loop as stopped
+    g_fuse_loop_running = 0;
 
-    if (g_last_signal != 0) {
-        LOG_WARN("Exit caused by signal: %d (%s)", (int)g_last_signal, strsignal((int)g_last_signal));
-    } else {
-        LOG_INFO("No signal received before exit");
-    }
+    // Stop callback worker thread
+    stop_callback_worker();
 
-    // Check if mount point still exists
-    struct stat mp_stat;
-    if (stat(mount_path, &mp_stat) != 0) {
-        LOG_WARN("Mount point gone after exit: %s (errno=%d %s)",
-                 mount_path, errno, strerror(errno));
-    } else {
-        LOG_INFO("Mount point still exists: %s (type=0x%x)",
-                 mount_path, mp_stat.st_mode & S_IFMT);
-    }
-
-    // Check if still mounted via statfs
-    struct statfs fs_stat;
-    if (statfs(mount_path, &fs_stat) == 0) {
-        LOG_INFO("Filesystem at mount point: type=%s", fs_stat.f_fstypename);
-    } else {
-        LOG_WARN("statfs failed on mount point: errno=%d (%s)", errno, strerror(errno));
-    }
+    // ---- Comprehensive post-exit diagnostics ----
+    collect_exit_diagnostics(mount_path, result, saved_errno);
 
     // Cleanup
     fuse_destroy(g_state.fuse);
@@ -1433,6 +2220,9 @@ int fuse_wrapper_unmount(void) {
     pthread_mutex_unlock(&g_state.lock);
 
     LOG_INFO("Unmounting FUSE: %s", mount_path);
+
+    // Clear pending delete set
+    pending_delete_clear();
 
     // Use umount command to unmount
     char cmd[1024];
@@ -1523,4 +2313,36 @@ const char* fuse_wrapper_error_string(int error) {
         default:
             return "Unknown error";
     }
+}
+
+// ============================================================
+// Diagnostics API implementation
+// ============================================================
+
+void fuse_wrapper_get_diagnostics(FuseDiagnostics *diag) {
+    if (!diag) return;
+
+    pthread_mutex_lock(&g_state.lock);
+
+    diag->is_mounted = g_state.is_mounted;
+    diag->is_loop_running = g_fuse_loop_running;
+    diag->channel_fd = g_state.chan ? 1 : -1;  // 1 means valid channel, -1 means NULL
+    diag->total_ops = g_total_ops;
+    diag->last_op_time = g_last_op_time;
+    diag->last_signal = (int)g_last_signal;
+
+    pthread_mutex_unlock(&g_state.lock);
+
+    // Callback queue statistics
+    diag->cb_queued = g_cb_queued;
+    diag->cb_processed = g_cb_processed;
+    diag->cb_dropped = g_cb_dropped;
+    diag->cb_pending = (g_callback_queue.head - g_callback_queue.tail + CALLBACK_QUEUE_SIZE) % CALLBACK_QUEUE_SIZE;
+
+    // Check macFUSE device count (outside lock to avoid blocking)
+    diag->macfuse_dev_count = check_macfuse_device();
+}
+
+int fuse_wrapper_is_loop_running(void) {
+    return g_fuse_loop_running;
 }

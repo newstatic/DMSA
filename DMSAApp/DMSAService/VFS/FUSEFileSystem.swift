@@ -4,8 +4,9 @@ import Foundation
 protocol VFSFileSystemDelegate: AnyObject, Sendable {
     func fileWritten(virtualPath: String, syncPairId: String)
     func fileRead(virtualPath: String, syncPairId: String)
-    func fileDeleted(virtualPath: String, syncPairId: String)
+    func fileDeleted(virtualPath: String, syncPairId: String, isDirectory: Bool)
     func fileCreated(virtualPath: String, syncPairId: String, localPath: String, isDirectory: Bool)
+    func fileRenamed(fromPath: String, toPath: String, syncPairId: String, isDirectory: Bool)
     /// Callback when FUSE event loop exits unexpectedly (not an active unmount)
     func fuseDidExitUnexpectedly(syncPairId: String, exitCode: Int32)
 }
@@ -131,6 +132,9 @@ class FUSEFileSystem {
             }
         }
 
+        // Set up FUSE C layer log file path
+        setupCLayerLogging()
+
         // Set up global callback context
         setupFUSECallbacks()
 
@@ -218,12 +222,72 @@ class FUSEFileSystem {
         logger.info("  EXTERNAL_DIR: \(externalDir ?? "offline")")
     }
 
+    /// Set up C layer logging to file
+    private func setupCLayerLogging() {
+        // Get log directory from Constants
+        let logDir = Constants.Paths.logs.path
+
+        // Ensure log directory exists
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: logDir) {
+            try? fm.createDirectory(atPath: logDir, withIntermediateDirectories: true)
+        }
+
+        // Create dated log file path (e.g., fuse-2026-02-03.log)
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateStr = dateFormatter.string(from: Date())
+        let logPath = "\(logDir)/fuse-\(dateStr).log"
+
+        // Set C layer log path
+        logPath.withCString { pathCStr in
+            fuse_wrapper_set_log_path(pathCStr)
+        }
+
+        // Debug logging off by default for performance
+        // Enable via fuse_wrapper_set_debug(1) when needed for diagnostics
+        fuse_wrapper_set_debug(0)
+
+        logger.info("C layer logging enabled: \(logPath) (debug mode OFF for performance)")
+    }
+
     /// Set up FUSE callbacks
     private func setupFUSECallbacks() {
         // Save self reference to global variable for C callbacks
         FUSEFileSystemContext.shared.fileSystem = self
 
-        logger.info("FUSE callback context set")
+        // Register C callbacks
+        var callbacks = FuseCallbacks()
+        callbacks.on_file_created = { (virtualPath, localPath, isDirectory) in
+            guard let vpath = virtualPath, let lpath = localPath else { return }
+            let vp = String(cString: vpath)
+            let lp = String(cString: lpath)
+            FUSEFileSystemContext.shared.fileSystem?.notifyFileCreated(virtualPath: vp, localPath: lp, isDirectory: isDirectory != 0)
+        }
+        callbacks.on_file_deleted = { (virtualPath, isDirectory) in
+            guard let vpath = virtualPath else { return }
+            let vp = String(cString: vpath)
+            FUSEFileSystemContext.shared.fileSystem?.notifyFileDeleted(virtualPath: vp, isDirectory: isDirectory != 0)
+        }
+        callbacks.on_file_written = { (virtualPath) in
+            guard let vpath = virtualPath else { return }
+            let vp = String(cString: vpath)
+            FUSEFileSystemContext.shared.fileSystem?.notifyFileWritten(virtualPath: vp)
+        }
+        callbacks.on_file_read = { (virtualPath) in
+            guard let vpath = virtualPath else { return }
+            let vp = String(cString: vpath)
+            FUSEFileSystemContext.shared.fileSystem?.notifyFileRead(virtualPath: vp)
+        }
+        callbacks.on_file_renamed = { (fromPath, toPath, isDirectory) in
+            guard let from = fromPath, let to = toPath else { return }
+            let fp = String(cString: from)
+            let tp = String(cString: to)
+            FUSEFileSystemContext.shared.fileSystem?.notifyFileRenamed(fromPath: fp, toPath: tp, isDirectory: isDirectory != 0)
+        }
+        fuse_wrapper_set_callbacks(&callbacks)
+
+        logger.info("FUSE callbacks registered")
     }
 
     /// Check mount status (detailed version)
@@ -279,6 +343,9 @@ class FUSEFileSystem {
 
         // Mark as active unmount to prevent recovery logic
         isUnmounting = true
+
+        // Flush any buffered logs before unmount
+        fuse_wrapper_flush_logs()
 
         // Call C wrapper to unmount
         fuse_wrapper_unmount()
@@ -388,8 +455,13 @@ class FUSEFileSystem {
     }
 
     /// Notify file deleted
-    func notifyFileDeleted(virtualPath: String) {
-        delegate?.fileDeleted(virtualPath: virtualPath, syncPairId: syncPairId)
+    func notifyFileDeleted(virtualPath: String, isDirectory: Bool) {
+        delegate?.fileDeleted(virtualPath: virtualPath, syncPairId: syncPairId, isDirectory: isDirectory)
+    }
+
+    /// Notify file renamed
+    func notifyFileRenamed(fromPath: String, toPath: String, isDirectory: Bool) {
+        delegate?.fileRenamed(fromPath: fromPath, toPath: toPath, syncPairId: syncPairId, isDirectory: isDirectory)
     }
 
     /// Check if file should be excluded
