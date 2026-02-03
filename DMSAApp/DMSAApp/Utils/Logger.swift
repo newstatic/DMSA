@@ -10,6 +10,13 @@ struct LogEntry: Identifiable, Equatable {
     let file: String
     let line: Int
     let message: String
+    let formattedTimestamp: String  // Pre-computed to avoid DateFormatter creation on each access
+
+    private static let timestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss.SSS"
+        return formatter
+    }()
 
     init(timestamp: Date = Date(), level: Logger.Level, file: String, line: Int, message: String) {
         self.id = UUID()
@@ -18,12 +25,7 @@ struct LogEntry: Identifiable, Equatable {
         self.file = file
         self.line = line
         self.message = message
-    }
-
-    var formattedTimestamp: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss.SSS"
-        return formatter.string(from: timestamp)
+        self.formattedTimestamp = LogEntry.timestampFormatter.string(from: timestamp)
     }
 
     var formattedMessage: String {
@@ -116,17 +118,56 @@ final class Logger: ObservableObject {
         loadRecentLogs(lines: 200)
     }
 
-    /// Load recent log lines from file on startup
+    /// Load recent log lines from file on startup (efficient tail read for large files)
     private func loadRecentLogs(lines: Int = 200) {
         queue.async { [weak self] in
             guard let self = self else { return }
 
             let url = self.logFileURL
-            guard let data = try? Data(contentsOf: url),
-                  let content = String(data: data, encoding: .utf8) else { return }
+            guard let handle = FileHandle(forReadingAtPath: url.path) else { return }
+            defer { try? handle.close() }
 
-            let allLines = content.components(separatedBy: .newlines)
-            let recentLines = Array(allLines.suffix(lines))
+            // Get file size
+            handle.seekToEndOfFile()
+            let fileSize = handle.offsetInFile
+            guard fileSize > 0 else { return }
+
+            // Read from end in chunks (64KB per chunk)
+            let chunkSize: UInt64 = 64 * 1024
+            var offset = fileSize
+            var collectedLines: [String] = []
+            var partialLine = ""
+
+            while collectedLines.count < lines && offset > 0 {
+                let readSize = min(chunkSize, offset)
+                offset -= readSize
+                handle.seek(toFileOffset: offset)
+
+                guard let data = try? handle.read(upToCount: Int(readSize)),
+                      let chunk = String(data: data, encoding: .utf8) else { break }
+
+                // Prepend partial line from previous chunk
+                let fullChunk = chunk + partialLine
+                var chunkLines = fullChunk.components(separatedBy: .newlines)
+
+                // First element is partial (unless we're at file start)
+                if offset > 0 {
+                    partialLine = chunkLines.removeFirst()
+                } else {
+                    partialLine = ""
+                }
+
+                // Prepend lines in reverse order
+                collectedLines.insert(contentsOf: chunkLines.reversed(), at: 0)
+            }
+
+            // Handle remaining partial line
+            if !partialLine.isEmpty {
+                collectedLines.insert(partialLine, at: 0)
+            }
+
+            // Take only the last N lines
+            let recentLines = Array(collectedLines.suffix(lines))
 
             var entries: [LogEntry] = []
             for line in recentLines {
