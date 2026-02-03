@@ -18,8 +18,13 @@ final class ServiceImplementation: NSObject, DMSAServiceProtocol {
         self.config = Self.loadConfig()
         super.init()
 
-        // Set up EvictionManager dependencies
+        // Set up cross-references between VFSManager and SyncManager
         Task {
+            // VFSManager needs SyncManager to trigger sync on file write
+            await vfsManager.setSyncManager(syncManager)
+            // SyncManager needs VFSManager to lock files during sync
+            await syncManager.setVFSManager(vfsManager)
+            // EvictionManager needs both
             await evictionManager.setManagers(vfs: vfsManager, sync: syncManager)
             await evictionManager.startAutoEviction()
         }

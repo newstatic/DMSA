@@ -24,8 +24,18 @@ actor VFSManager {
     private let database = ServiceDatabaseManager.shared
     private let configManager = ServiceConfigManager.shared
 
+    // SyncManager reference (injected after init to avoid circular dependency)
+    private var syncManager: SyncManager?
+
     var mountedCount: Int {
         return mountPoints.count
+    }
+
+    // MARK: - Dependency Injection
+
+    func setSyncManager(_ manager: SyncManager) {
+        self.syncManager = manager
+        logger.info("SyncManager injected")
     }
 
     // MARK: - Mount Management
@@ -640,6 +650,28 @@ actor VFSManager {
         }
     }
 
+    // MARK: - Sync Lock API
+
+    /// Lock file for sync (blocks write/truncate/delete during sync)
+    /// Call this before starting to copy file to external
+    func lockFileForSync(_ virtualPath: String, syncPairId: String) {
+        guard let mp = mountPoints[syncPairId], let fs = mp.fuseFileSystem else {
+            logger.warning("lockFileForSync: mount point not found for \(syncPairId)")
+            return
+        }
+        fs.lockFileForSync(virtualPath)
+    }
+
+    /// Unlock file after sync (allows write/truncate/delete again)
+    /// Call this after sync completes (success or failure)
+    func unlockFileAfterSync(_ virtualPath: String, syncPairId: String) {
+        guard let mp = mountPoints[syncPairId], let fs = mp.fuseFileSystem else {
+            logger.warning("unlockFileAfterSync: mount point not found for \(syncPairId)")
+            return
+        }
+        fs.unlockFileAfterSync(virtualPath)
+    }
+
     // MARK: - File Operation Callbacks
 
     // Throttle for file written notifications (avoid flooding)
@@ -656,6 +688,9 @@ actor VFSManager {
     func onFileWritten(virtualPath: String, syncPairId: String) async {
         // Update index in database (fast - in-memory cache + async ObjectBox)
         await database.markFileDirty(virtualPath: virtualPath, syncPairId: syncPairId, dirty: true)
+
+        // Schedule sync (5-second debounce, will copy to external)
+        await syncManager?.scheduleFileSync(file: virtualPath, syncPairId: syncPairId)
 
         // Throttle SharedState updates and notifications to avoid blocking
         // During bulk operations (cp -rf), we don't need to update for every single file
@@ -794,6 +829,11 @@ actor VFSManager {
         entry.createdAt = Date()
 
         await database.saveFileEntry(entry)
+
+        // Schedule sync for new files (not directories)
+        if !isDirectory {
+            await syncManager?.scheduleFileSync(file: virtualPath, syncPairId: syncPairId)
+        }
         // Note: No logging here to avoid I/O in hot path
     }
 

@@ -208,6 +208,32 @@ void fuse_wrapper_get_diagnostics(FuseDiagnostics *diag);
 int fuse_wrapper_is_loop_running(void);
 
 // ============================================================
+// Sync lock API - block write/delete during sync
+// ============================================================
+
+/**
+ * Lock a file for sync (blocks write/truncate/delete)
+ * Call this BEFORE starting to copy file to external
+ *
+ * @param virtual_path Virtual path (e.g. "/folder/file.txt")
+ */
+void fuse_wrapper_sync_lock(const char *virtual_path);
+
+/**
+ * Unlock a file after sync (allows write/truncate/delete)
+ * Call this AFTER sync is complete (success or failure)
+ *
+ * @param virtual_path Virtual path (e.g. "/folder/file.txt")
+ */
+void fuse_wrapper_sync_unlock(const char *virtual_path);
+
+/**
+ * Unlock all syncing files
+ * Call this on unmount or emergency cleanup
+ */
+void fuse_wrapper_sync_unlock_all(void);
+
+// ============================================================
 // Callbacks for Swift layer - DB tree updates
 // ============================================================
 

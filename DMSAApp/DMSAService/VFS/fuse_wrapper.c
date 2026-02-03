@@ -521,6 +521,107 @@ static void pending_delete_clear(void) {
     pthread_mutex_unlock(&g_pending_delete.lock);
 }
 
+// ============================================================
+// Syncing Files Lock (files being synced to external - read-only)
+// ============================================================
+
+#define SYNCING_FILES_SIZE 1024
+
+static struct {
+    char *paths[SYNCING_FILES_SIZE];
+    int count;
+    pthread_mutex_t lock;
+} g_syncing_files = {
+    .count = 0,
+    .lock = PTHREAD_MUTEX_INITIALIZER
+};
+
+// Add a path to syncing files set (blocks write/delete during sync)
+static void syncing_files_add(const char *path) {
+    pthread_mutex_lock(&g_syncing_files.lock);
+
+    // Check if already exists
+    for (int i = 0; i < g_syncing_files.count; i++) {
+        if (g_syncing_files.paths[i] && strcmp(g_syncing_files.paths[i], path) == 0) {
+            pthread_mutex_unlock(&g_syncing_files.lock);
+            return;
+        }
+    }
+
+    // Add new entry (evict oldest if full)
+    if (g_syncing_files.count >= SYNCING_FILES_SIZE) {
+        LOG_WARN("syncing_files full, evicting oldest entry");
+        free(g_syncing_files.paths[0]);
+        memmove(&g_syncing_files.paths[0], &g_syncing_files.paths[1],
+                (SYNCING_FILES_SIZE - 1) * sizeof(char*));
+        g_syncing_files.count = SYNCING_FILES_SIZE - 1;
+    }
+
+    g_syncing_files.paths[g_syncing_files.count++] = strdup(path);
+    LOG_DEBUG("syncing_files_add: %s (count=%d)", path, g_syncing_files.count);
+    pthread_mutex_unlock(&g_syncing_files.lock);
+}
+
+// Check if a path is currently syncing (blocks write/truncate/delete)
+static int syncing_files_contains(const char *path) {
+    pthread_mutex_lock(&g_syncing_files.lock);
+    for (int i = 0; i < g_syncing_files.count; i++) {
+        if (g_syncing_files.paths[i] && strcmp(g_syncing_files.paths[i], path) == 0) {
+            pthread_mutex_unlock(&g_syncing_files.lock);
+            return 1;
+        }
+    }
+    pthread_mutex_unlock(&g_syncing_files.lock);
+    return 0;
+}
+
+// Remove a path from syncing files set (sync completed)
+static void syncing_files_remove(const char *path) {
+    pthread_mutex_lock(&g_syncing_files.lock);
+    for (int i = 0; i < g_syncing_files.count; i++) {
+        if (g_syncing_files.paths[i] && strcmp(g_syncing_files.paths[i], path) == 0) {
+            free(g_syncing_files.paths[i]);
+            memmove(&g_syncing_files.paths[i], &g_syncing_files.paths[i + 1],
+                    (g_syncing_files.count - i - 1) * sizeof(char*));
+            g_syncing_files.count--;
+            LOG_DEBUG("syncing_files_remove: %s (count=%d)", path, g_syncing_files.count);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&g_syncing_files.lock);
+}
+
+// Clear all syncing files (called on unmount)
+static void syncing_files_clear(void) {
+    pthread_mutex_lock(&g_syncing_files.lock);
+    for (int i = 0; i < g_syncing_files.count; i++) {
+        free(g_syncing_files.paths[i]);
+        g_syncing_files.paths[i] = NULL;
+    }
+    g_syncing_files.count = 0;
+    pthread_mutex_unlock(&g_syncing_files.lock);
+}
+
+// ============================================================
+// Public API for Swift to lock/unlock files during sync
+// ============================================================
+
+void fuse_wrapper_sync_lock(const char *path) {
+    if (path) {
+        syncing_files_add(path);
+    }
+}
+
+void fuse_wrapper_sync_unlock(const char *path) {
+    if (path) {
+        syncing_files_remove(path);
+    }
+}
+
+void fuse_wrapper_sync_unlock_all(void) {
+    syncing_files_clear();
+}
+
 // Callback worker thread - processes callbacks asynchronously
 static void* callback_worker(void *arg) {
     (void)arg;
@@ -1296,6 +1397,12 @@ static int dmsa_write(const char *path, const char *buf, size_t size, off_t offs
         return -EROFS;
     }
 
+    // Block write if file is being synced
+    if (syncing_files_contains(path)) {
+        LOG_DEBUG("write blocked: %s is syncing", path);
+        return -EBUSY;
+    }
+
     int fd = fi->fh;
     if (fd <= 0) {
         // If no fh, try writing directly to local file
@@ -1401,6 +1508,12 @@ static int dmsa_unlink(const char *path) {
         return -EROFS;
     }
 
+    // Block delete if file is being synced
+    if (syncing_files_contains(path)) {
+        LOG_DEBUG("unlink blocked: %s is syncing", path);
+        return -EBUSY;
+    }
+
     // Step 1: Add to pending delete set (hides from readdir immediately)
     pending_delete_add(path);
 
@@ -1486,6 +1599,12 @@ static int dmsa_rmdir(const char *path) {
 
     if (g_state.readonly) {
         return -EROFS;
+    }
+
+    // Block delete if directory is being synced
+    if (syncing_files_contains(path)) {
+        LOG_DEBUG("rmdir blocked: %s is syncing", path);
+        return -EBUSY;
     }
 
     // Step 1: Add to pending delete set (hides from readdir immediately)
@@ -1629,6 +1748,12 @@ static int dmsa_truncate(const char *path, off_t size) {
 
     if (g_state.readonly) {
         return -EROFS;
+    }
+
+    // Block truncate if file is being synced
+    if (syncing_files_contains(path)) {
+        LOG_DEBUG("truncate blocked: %s is syncing", path);
+        return -EBUSY;
     }
 
     char *local = get_local_path(path);
@@ -2223,6 +2348,9 @@ int fuse_wrapper_unmount(void) {
 
     // Clear pending delete set
     pending_delete_clear();
+
+    // Clear syncing files set
+    syncing_files_clear();
 
     // Use umount command to unmount
     char cmd[1024];

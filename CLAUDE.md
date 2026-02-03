@@ -351,6 +351,7 @@ tail -f ~/Library/Logs/DMSA/app.log
 | 0d89290c | 2026-02-02 | Ownership+Installer+EnvVar+Release | VFS ownership fix, ServiceInstaller plist refactor, remove DMSA_USER_HOME env vars, setUserHome XPC gate, release.sh, v2.0 GitHub release |
 | 4c07df08 | 2026-02-02 | FUSE Exit Diagnostics | Signal handlers + post-exit diagnostics in fuse_wrapper.c, Swift-side pre-recovery diagnostics, v2.0 release rebuild |
 | 0833e23d | 2026-02-03 | FUSE Blocking+Symlink+Delete Fix | cp -rf blocking fix (throttled batch atime), symlink deadlock fix (fuse_loop_mt), delete flow optimization (pending_delete) |
+| (current) | 2026-02-03 | Sync Lock + UI Fix | Sync/eviction file locking (EBUSY), onFileCreated trigger sync fix, diskConnected resumeSync fix, Logger history load, sidebar fixed width |
 
 ---
 

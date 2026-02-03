@@ -36,14 +36,16 @@ struct DisksPage: View {
     // MARK: - Body
 
     var body: some View {
-        HSplitView {
+        HStack(spacing: 0) {
             // Master: Disk list
             diskListPanel
-                .frame(minWidth: 280, idealWidth: 320, maxWidth: 400)
+                .frame(width: 320)
+
+            Divider()
 
             // Detail: Disk details
             diskDetailPanel
-                .frame(minWidth: 400)
+                .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(NSColor.windowBackgroundColor))

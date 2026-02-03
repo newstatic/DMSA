@@ -49,14 +49,16 @@ struct SettingsPage: View {
     // MARK: - Body
 
     var body: some View {
-        HSplitView {
+        HStack(spacing: 0) {
             // Settings navigation
             settingsNavigation
-                .frame(minWidth: 200, idealWidth: 220, maxWidth: 260)
+                .frame(width: 220)
+
+            Divider()
 
             // Settings content
             settingsContent
-                .frame(minWidth: 450)
+                .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(NSColor.windowBackgroundColor))

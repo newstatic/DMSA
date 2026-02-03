@@ -1664,4 +1664,59 @@ dmsa_unlink / dmsa_rmdir:
 
 ---
 
+### 同步锁定机制 + UI 修复
+
+**相关会话:** (本次会话)
+**日期:** 2026-02-03
+**状态:** ✅ 完成
+
+**功能描述:**
+实现同步/淘汰时的文件锁定机制，修复写入后未触发同步的 bug，修复磁盘连接后未恢复同步状态的 bug，修复 UI 侧边栏被挤掉和日志历史记录不加载的问题。
+
+**完成任务:**
+
+**Part 1: 同步锁定机制 (C 层)**
+- `fuse_wrapper.c` 新增 `g_syncing_files` 结构体 (类似 `g_pending_delete`)
+- 添加 `syncing_files_add/remove/contains/clear` 内部函数
+- 修改 `dmsa_write/truncate/unlink/rmdir` 检查同步锁，返回 `-EBUSY`
+- `fuse_wrapper.h` 导出 `fuse_wrapper_sync_lock/unlock/unlock_all` API
+
+**Part 2: Swift 层集成**
+- `FUSEFileSystem.swift` 封装 `lockFileForSync/unlockFileAfterSync`
+- `VFSManager.swift` 添加 `syncManager` 属性 + lock/unlock API
+- `SyncManager.swift` 同步前锁定、完成后解锁 + **修复 diskConnected 未调用 resumeSync**
+- `EvictionManager.swift` 淘汰时也添加 sync_lock 保护
+- `ServiceImplementation.swift` 注入双向依赖
+
+**Part 3: Bug 修复**
+- **Bug 1**: `onFileCreated` 没有调用 `scheduleFileSync()` → 新建文件不触发同步
+- **Bug 2**: `diskConnected()` 没有先调用 `resumeSync()` → 同步状态一直是 paused
+
+**Part 4: UI 修复**
+- `Logger.swift` 添加 `loadRecentLogs(200)` 启动时加载历史日志 + `parseLogLine()` 解析
+- `DisksPage.swift` `HSplitView` → `HStack`，侧边栏固定宽度 320
+- `SettingsPage.swift` `HSplitView` → `HStack`，侧边栏固定宽度 220
+
+**修改文件:**
+
+| 文件 | 修改内容 |
+|------|----------|
+| `fuse_wrapper.c` | g_syncing_files + write/truncate/unlink/rmdir 检查 |
+| `fuse_wrapper.h` | 导出 sync_lock/unlock API |
+| `FUSEFileSystem.swift` | lockFileForSync/unlockFileAfterSync |
+| `VFSManager.swift` | syncManager 注入 + lock API + onFileCreated 触发同步 |
+| `SyncManager.swift` | vfsManager 注入 + 同步锁 + diskConnected 调用 resumeSync |
+| `EvictionManager.swift` | 淘汰时 sync_lock |
+| `ServiceImplementation.swift` | 双向依赖注入 |
+| `Logger.swift` | loadRecentLogs + parseLogLine |
+| `DisksPage.swift` | HSplitView → HStack |
+| `SettingsPage.swift` | HSplitView → HStack |
+
+**用户体验:**
+- 同步/淘汰期间尝试写入/删除返回 "Device busy"
+- 日志页启动时显示最近 200 行历史记录
+- 磁盘管理和设置页侧边栏宽度固定，不会被挤掉
+
+---
+
 *文档维护: 每次会话结束时追加新的会话记录*

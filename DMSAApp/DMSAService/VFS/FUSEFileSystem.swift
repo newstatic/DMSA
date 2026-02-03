@@ -406,6 +406,28 @@ class FUSEFileSystem {
         return fuse_wrapper_is_index_ready() != 0
     }
 
+    // MARK: - Sync Lock API
+
+    /// Lock file for sync (blocks write/truncate/delete during sync)
+    /// Call before starting to copy file to external
+    func lockFileForSync(_ virtualPath: String) {
+        fuse_wrapper_sync_lock(virtualPath)
+        logger.debug("Sync lock: \(virtualPath)")
+    }
+
+    /// Unlock file after sync (allows write/truncate/delete again)
+    /// Call after sync completes (success or failure)
+    func unlockFileAfterSync(_ virtualPath: String) {
+        fuse_wrapper_sync_unlock(virtualPath)
+        logger.debug("Sync unlock: \(virtualPath)")
+    }
+
+    /// Unlock all syncing files (emergency cleanup)
+    func unlockAllSyncingFiles() {
+        fuse_wrapper_sync_unlock_all()
+        logger.info("All sync locks cleared")
+    }
+
     // MARK: - Filesystem Operations (for C callbacks)
 
     /// Get local path

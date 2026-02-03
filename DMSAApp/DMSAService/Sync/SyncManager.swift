@@ -24,6 +24,9 @@ actor SyncManager {
     private let database = ServiceDatabaseManager.shared
     private let configManager = ServiceConfigManager.shared
 
+    // VFSManager reference (for sync lock)
+    private var vfsManager: VFSManager?
+
     // Sync engine (uses NativeSyncEngine)
     private var syncEngine: NativeSyncEngine?
 
@@ -43,6 +46,13 @@ actor SyncManager {
     // Progress notification throttling
     private var lastProgressNotificationTime: Date = .distantPast
     private let progressNotificationInterval: TimeInterval = 0.2  // Max once per 200ms
+
+    // MARK: - Dependency Injection
+
+    func setVFSManager(_ manager: VFSManager) {
+        self.vfsManager = manager
+        logger.info("VFSManager injected")
+    }
 
     // MARK: - Lifecycle
 
@@ -483,6 +493,17 @@ actor SyncManager {
                 progress.currentFile = virtualPath
                 progress.processedFiles = index + 1
 
+                // Lock file before sync (blocks write/truncate/delete)
+                let vPathForLock = virtualPath.hasPrefix("/") ? virtualPath : "/\(virtualPath)"
+                await vfsManager?.lockFileForSync(vPathForLock, syncPairId: syncPairId)
+
+                defer {
+                    // Unlock file after sync (success or failure)
+                    Task {
+                        await self.vfsManager?.unlockFileAfterSync(vPathForLock, syncPairId: syncPairId)
+                    }
+                }
+
                 do {
                     // Ensure target directory exists
                     let parentDir = (externalPath as NSString).deletingLastPathComponent
@@ -680,6 +701,9 @@ actor SyncManager {
         for syncPair in config.syncPairs {
             guard let disk = config.disks.first(where: { $0.id == syncPair.diskId }),
                   disk.name == diskName else { continue }
+
+            // Resume sync first (it was paused when disk disconnected)
+            await resumeSync(syncPairId: syncPair.id)
 
             // Auto-sync dirty files when disk connects
             if let dirty = dirtyFiles[syncPair.id], !dirty.isEmpty {

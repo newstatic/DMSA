@@ -259,26 +259,36 @@ actor EvictionManager {
             do {
                 let fileSize = entry.size
 
-                // Mark path in FUSE exclude list so IO redirects to EXTERNAL
+                // Step 1: Lock file to block write/delete during eviction
+                entry.virtualPath.withCString { cstr in
+                    fuse_wrapper_sync_lock(cstr)
+                }
+
+                // Step 2: Mark path in FUSE exclude list so IO redirects to EXTERNAL
                 entry.virtualPath.withCString { cstr in
                     fuse_wrapper_mark_evicting(cstr)
                 }
 
-                // Delete local copy (FUSE now routes to EXTERNAL for this path)
+                // Step 3: Delete local copy (FUSE now routes to EXTERNAL for this path)
                 try fm.removeItem(atPath: localPath)
 
-                // Unmark after deletion complete
+                // Step 4: Update index (location becomes externalOnly)
+                await updateEntryLocation(entry: entry, vfsManager: vfsManager)
+
+                // Step 5: Unmark evicting after deletion complete
                 entry.virtualPath.withCString { cstr in
                     fuse_wrapper_unmark_evicting(cstr)
+                }
+
+                // Step 6: Unlock file (allow write/delete again)
+                entry.virtualPath.withCString { cstr in
+                    fuse_wrapper_sync_unlock(cstr)
                 }
 
                 evictedFiles.append(entry.virtualPath)
                 freedSpace += fileSize
                 currentLocalSize -= fileSize
                 processedCount += 1
-
-                // Update index (location becomes externalOnly)
-                await updateEntryLocation(entry: entry, vfsManager: vfsManager)
 
                 // Record eviction success
                 let record = ServiceSyncFileRecord(syncPairId: syncPairId, diskId: "", virtualPath: entry.virtualPath, fileSize: fileSize)
@@ -288,9 +298,12 @@ actor EvictionManager {
                 logger.debug("Evicted: \(entry.virtualPath) (\(formatBytes(fileSize)))")
 
             } catch {
-                // Unmark on failure too
+                // Unmark and unlock on failure too
                 entry.virtualPath.withCString { cstr in
                     fuse_wrapper_unmark_evicting(cstr)
+                }
+                entry.virtualPath.withCString { cstr in
+                    fuse_wrapper_sync_unlock(cstr)
                 }
 
                 errors.append("Delete failed: \(entry.virtualPath) - \(error.localizedDescription)")
@@ -416,28 +429,42 @@ actor EvictionManager {
             throw EvictionError.noLocalPath(virtualPath)
         }
 
-        // Mark path in FUSE exclude list so IO redirects to EXTERNAL
+        // Step 1: Lock file to block write/delete during eviction
+        virtualPath.withCString { cstr in
+            fuse_wrapper_sync_lock(cstr)
+        }
+
+        // Step 2: Mark path in FUSE exclude list so IO redirects to EXTERNAL
         virtualPath.withCString { cstr in
             fuse_wrapper_mark_evicting(cstr)
         }
 
-        // Delete local copy
+        // Step 3: Delete local copy
         do {
             try FileManager.default.removeItem(atPath: localPath)
         } catch {
+            // Unmark and unlock on failure
             virtualPath.withCString { cstr in
                 fuse_wrapper_unmark_evicting(cstr)
+            }
+            virtualPath.withCString { cstr in
+                fuse_wrapper_sync_unlock(cstr)
             }
             throw error
         }
 
-        // Unmark after deletion
+        // Step 4: Update index
+        await updateEntryLocation(entry: entry, vfsManager: vfsManager)
+
+        // Step 5: Unmark evicting after deletion
         virtualPath.withCString { cstr in
             fuse_wrapper_unmark_evicting(cstr)
         }
 
-        // Update index
-        await updateEntryLocation(entry: entry, vfsManager: vfsManager)
+        // Step 6: Unlock file (allow write/delete again)
+        virtualPath.withCString { cstr in
+            fuse_wrapper_sync_unlock(cstr)
+        }
 
         stats.evictedCount += 1
         stats.evictedSize += entry.size

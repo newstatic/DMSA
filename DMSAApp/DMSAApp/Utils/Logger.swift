@@ -111,6 +111,91 @@ final class Logger: ObservableObject {
 
         // Clean up old logs
         cleanupOldLogs()
+
+        // Load recent logs from file
+        loadRecentLogs(lines: 200)
+    }
+
+    /// Load recent log lines from file on startup
+    private func loadRecentLogs(lines: Int = 200) {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+
+            let url = self.logFileURL
+            guard let data = try? Data(contentsOf: url),
+                  let content = String(data: data, encoding: .utf8) else { return }
+
+            let allLines = content.components(separatedBy: .newlines)
+            let recentLines = Array(allLines.suffix(lines))
+
+            var entries: [LogEntry] = []
+            for line in recentLines {
+                if let entry = self.parseLogLine(line) {
+                    entries.append(entry)
+                }
+            }
+
+            DispatchQueue.main.async {
+                self.latestEntries = entries
+            }
+        }
+    }
+
+    /// Parse a log line into LogEntry
+    /// Format: [yyyy-MM-dd HH:mm:ss.SSS] [LEVEL] [File:Line] Message
+    private func parseLogLine(_ line: String) -> LogEntry? {
+        guard !line.isEmpty, line.hasPrefix("[") else { return nil }
+
+        // Find timestamp end
+        guard let timestampEndIdx = line.firstIndex(of: "]") else { return nil }
+        let timestampStr = String(line[line.index(after: line.startIndex)..<timestampEndIdx])
+
+        // Parse remaining: " [LEVEL] [File:Line] Message"
+        let afterTimestamp = line[line.index(after: timestampEndIdx)...]
+        guard afterTimestamp.hasPrefix(" [") else { return nil }
+
+        // Find level
+        let levelStart = afterTimestamp.index(afterTimestamp.startIndex, offsetBy: 2)
+        guard let levelEnd = afterTimestamp[levelStart...].firstIndex(of: "]") else { return nil }
+        let levelStr = String(afterTimestamp[levelStart..<levelEnd]).trimmingCharacters(in: .whitespaces)
+
+        // Find file:line
+        let afterLevel = afterTimestamp[afterTimestamp.index(after: levelEnd)...]
+        guard afterLevel.hasPrefix(" [") else { return nil }
+
+        let fileStart = afterLevel.index(afterLevel.startIndex, offsetBy: 2)
+        guard let fileEnd = afterLevel[fileStart...].firstIndex(of: "]") else { return nil }
+        let fileLineStr = String(afterLevel[fileStart..<fileEnd])
+
+        // Parse file and line number
+        let fileComponents = fileLineStr.split(separator: ":", maxSplits: 1)
+        let fileName = fileComponents.first.map(String.init) ?? ""
+        let lineNum = fileComponents.count > 1 ? Int(fileComponents[1]) ?? 0 : 0
+
+        // Message is everything after
+        let messageStart = afterLevel.index(after: fileEnd)
+        let message = String(afterLevel[messageStart...]).trimmingCharacters(in: .whitespaces)
+
+        // Parse level
+        let level: Level
+        switch levelStr.uppercased() {
+        case "DEBUG": level = .debug
+        case "INFO": level = .info
+        case "WARN", "WARNING": level = .warn
+        case "ERROR": level = .error
+        default: level = .info
+        }
+
+        // Parse timestamp
+        let timestamp = dateFormatter.date(from: timestampStr) ?? Date()
+
+        return LogEntry(
+            timestamp: timestamp,
+            level: level,
+            file: fileName,
+            line: lineNum,
+            message: message
+        )
     }
 
     /// Rotate log file daily (called within queue)
