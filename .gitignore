@@ -34,3 +34,17 @@ build/
 vendor/
 DMSAApp/DMSAApp.xcodeproj/project.xcworkspace/xcuserdata/ttttt.xcuserdatad/UserInterfaceState.xcuserstate
 DMSAApp/DMSAApp.xcodeproj/xcuserdata/ttttt.xcuserdatad/xcschemes/xcschememanagement.plist
+
+# Auto-generated files
+DMSAApp/DMSAService/BuildInfo.swift
+
+# Temporary files
+ddd.txt
+del.py
+add_fskit_target.rb
+
+# Xcode shared data (optional)
+DMSAApp/DMSAApp.xcodeproj/xcshareddata/
+
+# Prototype files
+SERVICE_FLOW/

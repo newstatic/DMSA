@@ -24,6 +24,7 @@
 		COPY001003 /* com.ttttt.dmsa.service in Copy Service */ = {isa = PBXBuildFile; fileRef = SVC000001 /* com.ttttt.dmsa.service */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		COPY001004 /* com.ttttt.dmsa.service.plist in Copy LaunchDaemon plist */ = {isa = PBXBuildFile; fileRef = SVC101011 /* com.ttttt.dmsa.service.plist */; };
 		D6880FDAE01A52A8BF70660E /* ServiceFullState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CEE18C27F2A055DC739B80F /* ServiceFullState.swift */; };
+		DF54ADAA0C2BFFE170512542 /* BuildInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81F3484A047CD5663E960718 /* BuildInfo.swift */; };
 		E20CCD9B320EC2E095D5B5C3 /* ServiceFullState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CEE18C27F2A055DC739B80F /* ServiceFullState.swift */; };
 		F0001001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101001 /* main.swift */; };
 		F0001002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0101002 /* AppDelegate.swift */; };
@@ -182,13 +183,12 @@
 		1DB428095662878BA9551175 /* DMSAClientProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DMSAClientProtocol.swift; sourceTree = "<group>"; };
 		6BA1D9ADC5DD754B58559D2B /* StartupChecker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StartupChecker.swift; sourceTree = "<group>"; };
 		7A6760E115CE1FA255CDF6DF /* ServiceState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceState.swift; sourceTree = "<group>"; };
+		81F3484A047CD5663E960718 /* BuildInfo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BuildInfo.swift; sourceTree = "<group>"; };
 		99E3EA9C7983DC9E070EFAF0 /* SyncProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncProgress.swift; sourceTree = "<group>"; };
 		B73A488D10A4EBDE7F9A7428 /* SyncHistoryPage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SyncHistoryPage.swift; sourceTree = "<group>"; };
 		DAF8C8F83D2253C581CE41C8 /* ServiceStateManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ServiceStateManager.swift; sourceTree = "<group>"; };
 		F0000001 /* DMSA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DMSA.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F0101001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
-		F0201002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
-		F0201003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		F0101002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		F0101003 /* ConfigExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigExtensions.swift; sourceTree = "<group>"; };
 		F0101004 /* DiskConfigEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskConfigEntity.swift; sourceTree = "<group>"; };
@@ -248,6 +248,8 @@
 		F0101097 /* StatCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatCard.swift; sourceTree = "<group>"; };
 		F0101098 /* StatusRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusRing.swift; sourceTree = "<group>"; };
 		F0101099 /* AddDiskSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDiskSheet.swift; sourceTree = "<group>"; };
+		F0201002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		F0201003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		F0201004 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F0201005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F0201006 /* DMSA.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DMSA.entitlements; sourceTree = "<group>"; };
@@ -319,7 +321,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		/* removed duplicate Monitor group */
 		B8B67EF5F234721828334A8D /* State */ = {
 			isa = PBXGroup;
 			children = (
@@ -346,7 +347,6 @@
 				SVC400000 /* DMSAService */,
 				GEN400000 /* generated */,
 				F0400002 /* Products */,
-				/* removed */
 			);
 			sourceTree = "<group>";
 		};
@@ -667,6 +667,7 @@
 			isa = PBXGroup;
 			children = (
 				SVC101001 /* main.swift */,
+				81F3484A047CD5663E960718 /* BuildInfo.swift */,
 				SVC101002 /* ServiceDelegate.swift */,
 				SVC101003 /* ServiceImplementation.swift */,
 				SVC101029 /* DMSAService-Bridging-Header.h */,
@@ -787,6 +788,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = SVC600001 /* Build configuration list for PBXNativeTarget "com.ttttt.dmsa.service" */;
 			buildPhases = (
+				BUILDINFO001 /* Update Build Info */,
 				SVC500002 /* Sources */,
 				SVC300002 /* Frameworks */,
 			);
@@ -854,6 +856,22 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		BUILDINFO001 /* Update Build Info */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Update Build Info";
+			outputPaths = (
+				"$(SRCROOT)/DMSAService/BuildInfo.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Update BuildInfo.swift with current build time\nBUILD_TIME=$(date \"+%Y-%m-%d %H:%M:%S\")\nGIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo \"unknown\")\n\ncat > \"${SRCROOT}/DMSAService/BuildInfo.swift\" << EOF\nimport Foundation\n\n/// Build information - auto-generated during build\n/// To update: Run \\`swift build\\` or build in Xcode (build script will update this file)\nenum BuildInfo {\n    /// Build timestamp (format: yyyy-MM-dd HH:mm:ss)\n    /// This value is updated by the build script\n    static let buildTime: String = \"$BUILD_TIME\"\n\n    /// Git commit hash (short)\n    static let gitCommit: String = \"$GIT_COMMIT\"\n\n    /// Build configuration\n    #if DEBUG\n    static let configuration: String = \"Debug\"\n    #else\n    static let configuration: String = \"Release\"\n    #endif\n}\nEOF\n\necho \"Updated BuildInfo.swift: $BUILD_TIME ($GIT_COMMIT)\"\n";
+		};
 		EMB400001 /* Embed ObjectBox Framework */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -1005,6 +1023,7 @@
 				C855E99CE112B877571980C5 /* ActivityRecord.swift in Sources */,
 				7696F60B8391BF9BD3ECEC49 /* ServiceError.swift in Sources */,
 				858E2A9EA95B9317D1282866 /* ServicePowerMonitor.swift in Sources */,
+				DF54ADAA0C2BFFE170512542 /* BuildInfo.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
