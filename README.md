@@ -18,6 +18,10 @@
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License">
 </p>
 
+<p align="center">
+  English | <a href="README_CN.md">简体中文</a>
+</p>
+
 ---
 
 ## What is DMSA?
