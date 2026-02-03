@@ -1,7 +1,7 @@
 # DMSA - 下载文件管理与同步应用
 
 <p align="center">
-  <img src="doc/assets/icon.png" alt="DMSA 图标" width="128" height="128">
+ <img src="doc/assets/icon.png" alt="DMSA Icon" width="128" height="128">
 </p>
 
 <p align="center">

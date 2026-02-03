@@ -1,5 +1,4 @@
 # DMSA - Downloads Management & Sync App
-
 <p align="center">
   <img src="doc/assets/icon.png" alt="DMSA Icon" width="128" height="128">
 </p>
